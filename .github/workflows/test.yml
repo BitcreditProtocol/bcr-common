@@ -1,0 +1,48 @@
+name: Test coverage
+
+on:
+  push:
+    branches: [ "**" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - stable
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup update stable
+
+      - name: Activate cache
+        uses: Swatinem/rust-cache@v2.8.0
+        with:
+          prefix-key: "bcr-common-01-"
+
+      - name: Install llvm-tools-preview
+        run: rustup component add llvm-tools-preview
+
+      - name: Install grcov
+        run: cargo install grcov
+
+      - name: run tests
+        run: cargo test --workspace --verbose
+        env:
+          LLVM_PROFILE_FILE: "target/coverage/%p-%m.profraw"
+          RUSTFLAGS: "-Cinstrument-coverage"
+
+      - name: Create coverage report
+        run: grcov --source-dir . --binary-path target/debug --branch --keep-only "src/*"  -o lcov.info -t lcov `find * -name coverage`
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
