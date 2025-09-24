@@ -2,9 +2,12 @@
 // ----- extra library imports
 // ----- local modules
 pub mod bill;
+mod borsh;
 pub mod contact;
 pub mod identity;
 pub mod keys;
+pub mod quotes;
+pub mod signatures;
 pub mod swap;
 #[cfg(feature = "test-utils")]
 pub mod test_utils;
