@@ -6,6 +6,8 @@ pub mod contact;
 pub mod identity;
 pub mod keys;
 pub mod swap;
+#[cfg(feature = "test-utils")]
+pub mod test_utils;
 pub mod wallet;
 
 // ----- end imports

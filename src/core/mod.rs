@@ -3,6 +3,8 @@
 // ----- local modules
 mod billid;
 mod nodeid;
+#[cfg(feature = "test-utils")]
+pub mod test_utils;
 
 // ----- end imports
 
