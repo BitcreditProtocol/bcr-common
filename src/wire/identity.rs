@@ -62,7 +62,7 @@ pub struct NewIdentityPayload {
     pub name: String,
     pub email: Option<String>,
     pub postal_address: OptionalPostalAddress,
-    pub date_of_birth: Option<String>,
+    pub date_of_birth: Option<NaiveDate>,
     pub country_of_birth: Option<String>,
     pub city_of_birth: Option<String>,
     pub identification_number: Option<String>,

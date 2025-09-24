@@ -121,9 +121,9 @@ pub struct BillRecourseStatus {
 pub struct BillData {
     pub language: String,
     pub time_of_drawing: u64,
-    pub issue_date: String,
+    pub issue_date: chrono::NaiveDate,
     pub time_of_maturity: u64,
-    pub maturity_date: String,
+    pub maturity_date: chrono::NaiveDate,
     pub country_of_issuing: String,
     pub city_of_issuing: String,
     pub country_of_payment: String,
