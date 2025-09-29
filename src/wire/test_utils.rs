@@ -1,34 +1,16 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::{Amount, secp256k1};
-use chrono::NaiveTime;
-use rand::Rng;
+use bitcoin::secp256k1 as secp;
 // ----- local modules
 use crate::{
-    core::test_utils::{generate_random_keypair, node_id_from_pub_key, random_bill_id},
-    wire::{
-        bill::{BillIdentParticipant, BillParticipant},
-        contact::ContactType,
-        identity::PostalAddress,
-        quotes::{BillInfo, EnquireRequest},
-    },
+    core::test_utils::{generate_random_keypair, node_id_from_pub_key},
+    wire::{bill::BillIdentParticipant, contact::ContactType, identity::PostalAddress},
 };
 
 // ----- end imports
 
-pub fn random_date() -> String {
-    let start = chrono::NaiveDate::from_ymd_opt(2026, 1, 1)
-        .expect("naivedate")
-        .and_time(NaiveTime::from_hms_opt(0, 0, 0).expect("NaiveTime"))
-        .and_utc();
-    let mut rng = rand::thread_rng();
-    let days = chrono::Duration::days(rng.gen_range(0..365));
-    let random_date = start + days;
-    random_date.to_rfc3339()
-}
-
-pub fn random_identity_public_data() -> (bitcoin::secp256k1::Keypair, BillIdentParticipant) {
-    let keypair = keys_test::generate_random_keypair();
+pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
+    let keypair = generate_random_keypair();
     let sample = [
         BillIdentParticipant {
             t: ContactType::Person,
@@ -166,85 +148,4 @@ pub fn random_identity_public_data() -> (bitcoin::secp256k1::Keypair, BillIdentP
     let random_index = rand::Rng::gen_range(&mut rng, 0..sample.len());
     let random_identity = sample[random_index].clone();
     (keypair, random_identity)
-}
-// returns a random `EnquireRequest` with the bill's holder signing keys
-pub fn generate_random_bill_enquire_request(
-    owner_kp: bitcoin::secp256k1::Keypair,
-    payee_kp: Option<bitcoin::secp256k1::Keypair>,
-) -> (crate::quotes::EnquireRequest, bitcoin::secp256k1::Keypair) {
-    let bill_keys = BcrKeys::from_private_key(&keys_test::generate_random_keypair().secret_key())
-        .expect("valid key");
-    let bill_id = BillId::new(bill_keys.pub_key(), bitcoin::Network::Testnet);
-
-    let (_, drawee) = random_identity_public_data();
-    let (drawer_key_pair, drawer) = random_identity_public_data();
-    let (signing_key, payee) = match payee_kp {
-        Some(kp) => {
-            let mut payee = random_identity_public_data().1;
-            payee.node_id = node_id_from_pub_key(kp.public_key());
-            (kp, payee)
-        }
-        None => random_identity_public_data(),
-    };
-    let (sharer_keys, _) = random_identity_public_data();
-
-    let public_key = owner_kp.public_key();
-    let amount = Amount::from_sat(rand::thread_rng().gen_range(1000..100000));
-
-    let core_drawer: bcr_ebill_core::contact::BillIdentParticipant = drawer.into();
-    let core_drawee: bcr_ebill_core::contact::BillIdentParticipant = drawee.into();
-    let core_payee: bcr_ebill_core::contact::BillIdentParticipant = payee.into();
-
-    let now = chrono::Utc::now().timestamp() as u64;
-    let bill_chain = BillBlockchain::new(
-        &BillIssueBlockData {
-            id: bill_id.clone(),
-            country_of_issuing: "AT".to_string(),
-            city_of_issuing: "Vienna".to_string(),
-            drawee: core_drawee.into(),
-            drawer: core_drawer.into(),
-            payee: bcr_ebill_core::contact::BillParticipant::Ident(core_payee).into(),
-            currency: "sat".to_string(),
-            sum: amount.to_sat(),
-            maturity_date: random_date(),
-            issue_date: random_date(),
-            country_of_payment: "AT".to_string(),
-            city_of_payment: "Vienna".to_string(),
-            language: "en".to_string(),
-            files: vec![],
-            signatory: None,
-            signing_timestamp: now,
-            signing_address: bcr_ebill_core::PostalAddress {
-                country: "AT".to_string(),
-                city: "Vienna".to_string(),
-                zip: None,
-                address: "Address".to_string(),
-            },
-        },
-        BcrKeys::from_private_key(&drawer_key_pair.secret_key()).expect("valid key"),
-        None,
-        bill_keys.clone(),
-        now,
-    )
-    .expect("can create bill chain");
-    let bill_to_share = create_bill_to_share_with_external_party(
-        &bill_id,
-        &bill_chain,
-        &bcr_ebill_core::bill::BillKeys {
-            private_key: bill_keys.get_private_key(),
-            public_key: bill_keys.pub_key(),
-        },
-        &public_key,
-        &BcrKeys::from_private_key(&sharer_keys.secret_key()).expect("valid_key"),
-        &[],
-    )
-    .expect("can create sharable bill");
-
-    let shared_bill: SharedBill = bill_to_share.into();
-
-    let request = EnquireRequest {
-        content: shared_bill,
-        public_key: public_key.into(),
-    };
-    (request, signing_key)
 }
