@@ -8,8 +8,8 @@ use utoipa::ToSchema;
 
 ///--------------------------- Generate keyset
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
-pub struct GenerateKeysetRequest {
-    pub qid: uuid::Uuid,
+pub struct EnableNewMintingOpRequest {
+    pub kid: cashu::Id,
     pub condition: KeysetMintCondition,
     pub expire: chrono::DateTime<chrono::Utc>,
 }
@@ -22,20 +22,9 @@ pub struct KeysetMintCondition {
 }
 ///--------------------------- Pre-sign blinded message
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
-pub struct PreSignRequest {
-    pub qid: uuid::Uuid,
-    pub msg: cashu::BlindedMessage,
-}
-
-///--------------------------- Enable keyset
-#[derive(Serialize, Deserialize, ToSchema, Debug)]
-pub struct EnableKeysetRequest {
-    pub qid: uuid::Uuid,
-}
-
-#[derive(Serialize, Deserialize, ToSchema, Debug)]
-pub struct EnableKeysetResponse {
+pub struct SignRequest {
     pub kid: cashu::Id,
+    pub msg: cashu::BlindedMessage,
 }
 
 ///--------------------------- Deactivate keyset
@@ -48,3 +37,15 @@ pub struct DeactivateKeysetRequest {
 pub struct DeactivateKeysetResponse {
     pub kid: cashu::Id,
 }
+
+///--------------------------- Mint operation
+#[derive(Serialize, Deserialize, ToSchema, Debug)]
+pub struct NewMintOperationRequest {
+    pub quote_id: uuid::Uuid,
+    pub kid: cashu::Id,
+    pub pub_key: cashu::PublicKey,
+    pub target: cashu::Amount,
+}
+
+#[derive(Serialize, Deserialize, ToSchema, Debug)]
+pub struct NewMintOperationResponse {}
