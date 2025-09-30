@@ -1,12 +1,12 @@
 // ----- standard library imports
 use std::str::FromStr;
 // ----- extra library imports
-use borsh::io::{Error, ErrorKind, Read, Write};
+use borsh::io::{Error as BorshError, ErrorKind, Read, Write};
 // ----- local imports
 
 // ----- end imports
 
-type Result<T> = core::result::Result<T, Error>;
+type Result<T> = core::result::Result<T, BorshError>;
 
 pub fn serialize_cdk_pubkey<W: Write>(key: &cashu::PublicKey, writer: &mut W) -> Result<()> {
     let pubkey_str = key.to_string();
@@ -16,7 +16,7 @@ pub fn serialize_cdk_pubkey<W: Write>(key: &cashu::PublicKey, writer: &mut W) ->
 pub fn deserialize_cdk_pubkey<R: Read>(reader: &mut R) -> Result<cashu::PublicKey> {
     let pubkey_str: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
     let pubkey = cashu::PublicKey::from_str(&pubkey_str)
-        .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
+        .map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
     Ok(pubkey)
 }
 
@@ -52,7 +52,7 @@ pub fn serialize_chrono_naivedate<W: Write>(
 pub fn deserialize_chrono_naivedate<R: Read>(reader: &mut R) -> Result<chrono::NaiveDate> {
     let date_str: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
     let date = chrono::NaiveDate::from_str(&date_str)
-        .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
+        .map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
     Ok(date)
 }
 
@@ -64,7 +64,7 @@ pub fn serialize_btc_pubkey<W: Write>(key: &bitcoin::PublicKey, writer: &mut W) 
 pub fn deserialize_btc_pubkey<R: Read>(reader: &mut R) -> Result<bitcoin::PublicKey> {
     let pubkey_str: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
     let pubkey = bitcoin::PublicKey::from_str(&pubkey_str)
-        .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
+        .map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
     Ok(pubkey)
 }
 
