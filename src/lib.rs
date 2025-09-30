@@ -8,6 +8,7 @@ pub mod wire;
 // ----- end imports
 
 pub use client::keys::Client as KeysClient;
+pub use client::quote::Client as QuoteClient;
 pub use client::swap::Client as SwapClient;
 
 #[cfg(feature = "test-utils")]
