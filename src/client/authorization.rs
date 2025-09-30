@@ -35,7 +35,7 @@ struct TokenResponse {
 impl AuthorizationPlugin {
     pub(crate) async fn authenticate(
         &self,
-        client: reqwest::Client,
+        client: &reqwest::Client,
         token_url: Url,
         client_id: &str,
         client_secret: &str,
@@ -80,7 +80,7 @@ impl AuthorizationPlugin {
 
     pub(crate) async fn refresh_access_token(
         &self,
-        client: reqwest::Client,
+        client: &reqwest::Client,
         client_id: String,
     ) -> Result<std::time::Duration> {
         let Some(ref token_url) = *self.token_url.read().unwrap() else {
