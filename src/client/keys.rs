@@ -3,10 +3,7 @@
 use thiserror::Error;
 // ----- local imports
 #[cfg(feature = "authorized")]
-use crate::wire::keys::{
-    DeactivateKeysetRequest, DeactivateKeysetResponse, EnableKeysetRequest, EnableKeysetResponse,
-    GenerateKeysetRequest, KeysetMintCondition, PreSignRequest,
-};
+use crate::wire::keys as wire_keys;
 
 // ----- end imports
 
@@ -68,7 +65,7 @@ impl Client {
         let exp = self
             .auth
             .authenticate(
-                self.cl.clone(),
+                &self.cl,
                 token_url,
                 client_id,
                 client_secret,
@@ -80,12 +77,8 @@ impl Client {
     }
 
     #[cfg(feature = "authorized")]
-    pub async fn refresh_access_token(
-        &self,
-        client: reqwest::Client,
-        client_id: String,
-    ) -> Result<std::time::Duration> {
-        let exp = self.auth.refresh_access_token(client, client_id).await?;
+    pub async fn refresh_access_token(&self, client_id: String) -> Result<std::time::Duration> {
+        let exp = self.auth.refresh_access_token(&self.cl, client_id).await?;
         Ok(exp)
     }
 
@@ -142,7 +135,10 @@ impl Client {
     pub const SIGN_EP_V1: &'static str = "/v1/admin/keys/sign";
     #[cfg(feature = "authorized")]
     pub async fn sign(&self, msg: &cashu::BlindedMessage) -> Result<cashu::BlindSignature> {
-        let url = self.base.join(Self::SIGN_EP).expect("sign relative path");
+        let url = self
+            .base
+            .join(Self::SIGN_EP_V1)
+            .expect("sign relative path");
         let request = self.cl.post(url).json(msg);
         let response = self.auth.authorize(request).send().await?;
         if response.status() == reqwest::StatusCode::BAD_REQUEST {
@@ -163,7 +159,7 @@ impl Client {
     pub async fn verify(&self, proof: &cashu::Proof) -> Result<()> {
         let url = self
             .base
-            .join(Self::VERIFY_EP)
+            .join(Self::VERIFY_EP_V1)
             .expect("verify relative path");
         let request = self.cl.post(url).json(proof);
         let response = self.auth.authorize(request).send().await?;
@@ -177,72 +173,44 @@ impl Client {
         Ok(())
     }
 
-    pub const PRESIGN_EP_V1: &'static str = "/v1/admin/keys/pre_sign";
+    pub const KEYSFOREXPIRATION_EP_V1: &'static str = "/v1/admin/keys/{date}";
     #[cfg(feature = "authorized")]
-    pub async fn pre_sign(
-        &self,
-        qid: uuid::Uuid,
-        msg: &cashu::BlindedMessage,
-    ) -> Result<cashu::BlindSignature> {
+    pub async fn keys_for_expiration(&self, date: chrono::NaiveDate) -> Result<cashu::Id> {
         let url = self
             .base
-            .join(Self::PRESIGN_EP_V1)
-            .expect("pre_sign relative path");
-        let msg = PreSignRequest {
-            qid,
-            msg: msg.clone(),
-        };
-        let request = self.cl.post(url).json(&msg);
-        let response = self.auth.authorize(request).send().await?;
-        if response.status() == reqwest::StatusCode::BAD_REQUEST {
-            return Err(Error::InvalidRequest);
-        }
-        let sig = response.json::<cashu::BlindSignature>().await?;
-        Ok(sig)
-    }
-
-    pub const GENERATEKEYSET_EP_V1: &'static str = "/v1/admin/keys/generate";
-    #[cfg(feature = "authorized")]
-    pub async fn generate_keyset(
-        &self,
-        qid: uuid::Uuid,
-        amount: cashu::Amount,
-        public_key: cashu::PublicKey,
-        expire: chrono::DateTime<chrono::Utc>,
-    ) -> Result<cashu::Id> {
-        let url = self
-            .base
-            .join(Self::GENERATEKEYSET_EP_V1)
-            .expect("generate relative path");
-        let msg = GenerateKeysetRequest {
-            qid,
-            condition: KeysetMintCondition { amount, public_key },
-            expire,
-        };
-        let request = self.cl.post(url).json(&msg);
-        let response = self.auth.authorize(request).send().await?;
-        if response.status() == reqwest::StatusCode::BAD_REQUEST {
-            return Err(Error::InvalidRequest);
-        }
-        let kid = response.json::<cashu::Id>().await?;
+            .join(&Self::KEYSFOREXPIRATION_EP_V1.replace("{date}", &date.to_string()))
+            .expect("keys for date relative path");
+        let request = self.cl.get(url);
+        let res = self.auth.authorize(request).send().await?;
+        let kid = res.json::<cashu::Id>().await?;
         Ok(kid)
     }
 
-    pub const ENABLEKEYSET_EP_V1: &'static str = "/v1/admin/keys/enable";
+    pub const NEWMINTOP_EP_V1: &'static str = "/v1/admin/keys/mintop";
     #[cfg(feature = "authorized")]
-    pub async fn enable_keyset(&self, qid: uuid::Uuid) -> Result<cashu::Id> {
+    pub async fn new_mint_operation(
+        &self,
+        qid: uuid::Uuid,
+        kid: cashu::Id,
+        pk: cashu::PublicKey,
+        target: cashu::Amount,
+    ) -> Result<()> {
         let url = self
             .base
-            .join(Self::ENABLEKEYSET_EP_V1)
-            .expect("enable relative path");
-        let msg = EnableKeysetRequest { qid };
-        let request = self.cl.post(url).json(&msg);
-        let response = self.auth.authorize(request).send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceFromIdNotFound(qid));
+            .join(Self::NEWMINTOP_EP_V1)
+            .expect("mint operation relative path");
+        let msg = wire_keys::NewMintOperationRequest {
+            quote_id: qid,
+            kid,
+            pub_key: pk,
+            target,
+        };
+        let result = self.cl.post(url).json(&msg).send().await?;
+        if result.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(kid));
         }
-        let response: EnableKeysetResponse = response.json().await?;
-        Ok(response.kid)
+        let _response = result.json::<wire_keys::NewMintOperationResponse>().await?;
+        Ok(())
     }
 
     pub const MINT_EP_V1: &'static str = "/v1/mint/ebill";
@@ -301,98 +269,13 @@ impl Client {
             .base
             .join(Self::DEACTIVATEKEYSET_EP_V1)
             .expect("deactivate relative path");
-        let msg = DeactivateKeysetRequest { kid };
+        let msg = wire_keys::DeactivateKeysetRequest { kid };
         let request = self.cl.post(url).json(&msg);
         let response = self.auth.authorize(request).send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::ResourceNotFound(kid));
         }
-        let response: DeactivateKeysetResponse = response.json().await?;
+        let response: wire_keys::DeactivateKeysetResponse = response.json().await?;
         Ok(response.kid)
-    }
-}
-
-#[cfg(feature = "test-utils")]
-pub mod test_utils {
-    use super::*;
-
-    #[derive(Debug, Default, Clone)]
-    pub struct KeyClient {
-        pub keys: bcr_wdc_key_service::test_utils::InMemoryRepository,
-    }
-
-    impl Client {
-        pub async fn keyset(&self, kid: cashu::Id) -> Result<cashu::KeySet> {
-            let res = self.keys.keyset(&kid).expect("InMemoryRepository");
-            res.ok_or(Error::ResourceNotFound(kid))
-                .map(std::convert::Into::into)
-        }
-        pub async fn list_keyset(&self) -> Result<Vec<cashu::KeySet>> {
-            let res = self.keys.list_keyset().expect("InMemoryRepository");
-            let ret = res.into_iter().map(cashu::KeySet::from).collect();
-            Ok(ret)
-        }
-        pub async fn keyset_info(&self, kid: cashu::Id) -> Result<cashu::KeySetInfo> {
-            self.keys
-                .info(&kid)
-                .expect("InMemoryRepository")
-                .ok_or(Error::ResourceNotFound(kid))
-                .map(std::convert::Into::into)
-        }
-        pub async fn list_keyset_info(&self) -> Result<Vec<cashu::KeySetInfo>> {
-            let res = self.keys.list_info().expect("InMemoryRepository");
-            let ret = res.into_iter().map(cashu::KeySetInfo::from).collect();
-            Ok(ret)
-        }
-        pub async fn sign(&self, msg: &cashu::BlindedMessage) -> Result<cashu::BlindSignature> {
-            let res = self
-                .keys
-                .keyset(&msg.keyset_id)
-                .expect("InMemoryRepository");
-            let keys = res.ok_or(Error::ResourceNotFound(msg.keyset_id))?;
-            bcr_wdc_utils::keys::sign_with_keys(&keys, msg).map_err(|_| Error::InvalidRequest)
-        }
-        pub async fn verify(&self, proof: &cashu::Proof) -> Result<bool> {
-            let res = self
-                .keys
-                .keyset(&proof.keyset_id)
-                .expect("InMemoryRepository");
-            let keys = res.ok_or(Error::ResourceNotFound(proof.keyset_id))?;
-            bcr_wdc_utils::keys::verify_with_keys(&keys, proof)
-                .map_err(|_| Error::InvalidRequest)?;
-            Ok(true)
-        }
-        pub async fn pre_sign(
-            &self,
-            _qid: uuid::Uuid,
-            _msg: &cashu::BlindedMessage,
-        ) -> Result<cashu::BlindSignature> {
-            todo!()
-        }
-
-        pub async fn generate_keyset(
-            &self,
-            _qid: uuid::Uuid,
-            _target: cashu::Amount,
-            _pub_key: cashu::PublicKey,
-            _expire: chrono::DateTime<chrono::Utc>,
-        ) -> Result<cashu::Id> {
-            todo!();
-        }
-
-        pub async fn mint(
-            &self,
-            _outputs: &[cashu::BlindedMessage],
-            _sk: cashu::SecretKey,
-        ) -> Result<()> {
-            todo!()
-        }
-
-        pub async fn restore(
-            &self,
-            _outputs: Vec<cashu::BlindedMessage>,
-        ) -> Result<Vec<(cashu::BlindedMessage, cashu::BlindSignature)>> {
-            todo!()
-        }
     }
 }
