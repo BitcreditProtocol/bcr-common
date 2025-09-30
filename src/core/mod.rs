@@ -4,6 +4,7 @@ use thiserror::Error;
 // ----- local modules
 mod billid;
 mod nodeid;
+pub mod signature;
 #[cfg(feature = "test-utils")]
 pub mod test_utils;
 
