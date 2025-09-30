@@ -4,5 +4,6 @@
 #[cfg(feature = "authorized")]
 mod authorization;
 pub mod keys;
+pub mod swap;
 
 // ----- end imports
