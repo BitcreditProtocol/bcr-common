@@ -1,5 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
+use thiserror::Error;
 // ----- local modules
 mod billid;
 mod nodeid;
@@ -7,6 +8,16 @@ mod nodeid;
 pub mod test_utils;
 
 // ----- end imports
+
+#[derive(Debug, Error)]
+pub enum Error {
+    /// errors stemming from providing an invalid node id
+    #[error("Invalid NodeId")]
+    InvalidNodeId,
+    /// errors stemming from providing an invalid bill id
+    #[error("Invalid BillId")]
+    InvalidBillId,
+}
 
 pub use billid::BillId;
 pub use nodeid::NodeId;

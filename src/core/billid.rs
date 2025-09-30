@@ -1,14 +1,14 @@
 // ----- standard library imports
 use std::str::FromStr;
 // ----- extra library imports
-use bitcoin::PublicKey;
 use bitcoin::{
     base58,
     hashes::{Hash, sha256},
 };
 // ----- local modules
 use crate::core::{
-    ID_PREFIX, NETWORK_MAINNET, NETWORK_REGTEST, NETWORK_TESTNET, NETWORK_TESTNET4, network_char,
+    Error, ID_PREFIX, NETWORK_MAINNET, NETWORK_REGTEST, NETWORK_TESTNET, NETWORK_TESTNET4,
+    network_char,
 };
 
 // ----- end imports
@@ -29,8 +29,8 @@ pub struct BillId {
 }
 
 impl BillId {
-    pub fn new(public_key: PublicKey, network: bitcoin::Network) -> Self {
-        let raw_hash = sha256::Hash::hash(&public_key.to_bytes());
+    pub fn new(public_key: bitcoin::secp256k1::PublicKey, network: bitcoin::Network) -> Self {
+        let raw_hash = sha256::Hash::hash(public_key.serialize().as_slice());
         let hash = base58::encode(raw_hash.as_byte_array());
         Self { hash, network }
     }
@@ -53,15 +53,15 @@ impl std::fmt::Display for BillId {
 }
 
 impl FromStr for BillId {
-    type Err = std::fmt::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if !s.starts_with(ID_PREFIX) {
-            return Err(Self::Err {});
+            return Err(Error::InvalidBillId);
         }
         let network = match s.chars().nth(ID_PREFIX.len()) {
             None => {
-                return Err(Self::Err {});
+                return Err(Error::InvalidBillId);
             }
             Some(network_str) => match network_str {
                 NETWORK_MAINNET => bitcoin::Network::Bitcoin,
@@ -69,14 +69,14 @@ impl FromStr for BillId {
                 NETWORK_TESTNET4 => bitcoin::Network::Testnet4,
                 NETWORK_REGTEST => bitcoin::Network::Regtest,
                 _ => {
-                    return Err(Self::Err {});
+                    return Err(Error::InvalidBillId);
                 }
             },
         };
         let hash_str = &s[ID_PREFIX.len() + 1..];
-        let decoded = base58::decode(hash_str).map_err(|_| Self::Err {})?;
+        let decoded = base58::decode(hash_str).map_err(|_| Error::InvalidBillId)?;
         if decoded.len() != sha256::Hash::LEN {
-            return Err(Self::Err {});
+            return Err(Error::InvalidBillId);
         }
         Ok(Self {
             hash: hash_str.to_owned(),
