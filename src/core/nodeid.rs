@@ -3,7 +3,8 @@ use std::str::FromStr;
 // ----- extra library imports
 // ----- local modules
 use crate::core::{
-    ID_PREFIX, NETWORK_MAINNET, NETWORK_REGTEST, NETWORK_TESTNET, NETWORK_TESTNET4, network_char,
+    Error, ID_PREFIX, NETWORK_MAINNET, NETWORK_REGTEST, NETWORK_TESTNET, NETWORK_TESTNET4,
+    network_char,
 };
 
 // ----- end imports
@@ -58,16 +59,16 @@ impl std::fmt::Display for NodeId {
 }
 
 impl FromStr for NodeId {
-    type Err = std::fmt::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if !s.starts_with(ID_PREFIX) {
-            return Err(Self::Err {});
+            return Err(Error::InvalidNodeId);
         }
 
         let network = match s.chars().nth(ID_PREFIX.len()) {
             None => {
-                return Err(Self::Err {});
+                return Err(Error::InvalidNodeId);
             }
             Some(network_str) => match network_str {
                 NETWORK_MAINNET => bitcoin::Network::Bitcoin,
@@ -75,14 +76,14 @@ impl FromStr for NodeId {
                 NETWORK_TESTNET4 => bitcoin::Network::Testnet4,
                 NETWORK_REGTEST => bitcoin::Network::Regtest,
                 _ => {
-                    return Err(Self::Err {});
+                    return Err(Error::InvalidNodeId);
                 }
             },
         };
 
         let pub_key_str = &s[ID_PREFIX.len() + 1..];
-        let pub_key =
-            bitcoin::secp256k1::PublicKey::from_str(pub_key_str).map_err(|_| Self::Err {})?;
+        let pub_key = bitcoin::secp256k1::PublicKey::from_str(pub_key_str)
+            .map_err(|_| Error::InvalidNodeId)?;
 
         Ok(Self { pub_key, network })
     }

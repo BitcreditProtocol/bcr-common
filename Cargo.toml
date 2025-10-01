@@ -2,7 +2,7 @@
 name = "bcr-common"
 version = "0.1.0"
 edition = "2024"
-licence = "MIT"
+license = "MIT"
 
 [features]
 default = []
