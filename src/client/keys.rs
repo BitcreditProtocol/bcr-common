@@ -92,8 +92,11 @@ impl Client {
         if res.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::ResourceNotFound(kid));
         }
-        let ks = res.json::<cashu::KeySet>().await?;
-        Ok(ks)
+        let ks = res.json::<cashu::KeysResponse>().await?.keysets;
+        if ks.is_empty() {
+            return Err(Error::ResourceNotFound(kid));
+        }
+        Ok(ks[0].clone())
     }
 
     pub const LISTKEYS_EP_V1: &'static str = "/v1/keys";
