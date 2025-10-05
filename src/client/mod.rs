@@ -8,3 +8,5 @@ pub mod quote;
 pub mod swap;
 
 // ----- end imports
+
+pub use reqwest::Url;
