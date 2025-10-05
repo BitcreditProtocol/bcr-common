@@ -2,7 +2,8 @@
 // ----- extra library imports
 use borsh::{BorshDeserialize, BorshSerialize};
 use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
+use nostr::ToBech32;
+use serde::{Deserialize, Serialize, Serializer};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::core::NodeId;
@@ -45,7 +46,8 @@ pub struct Identity {
     pub name: String,
     pub email: Option<String>,
     pub bitcoin_public_key: bitcoin::PublicKey,
-    pub npub: String,
+    #[serde(serialize_with = "bech32_nostr_pk_serialize")]
+    pub npub: nostr::PublicKey,
     pub postal_address: OptionalPostalAddress,
     pub date_of_birth: Option<NaiveDate>,
     pub country_of_birth: Option<String>,
@@ -53,7 +55,15 @@ pub struct Identity {
     pub identification_number: Option<String>,
     pub profile_picture_file: Option<File>,
     pub identity_document_file: Option<File>,
-    pub nostr_relays: Vec<url::Url>,
+    pub nostr_relays: Vec<nostr::RelayUrl>,
+}
+
+fn bech32_nostr_pk_serialize<S>(pk: &nostr::PublicKey, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let bech32_str = pk.to_bech32().map_err(serde::ser::Error::custom)?; // should never fail
+    serializer.serialize_str(&bech32_str)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
