@@ -14,7 +14,7 @@ bdk_wallet = {version = "2.1"}
 bip39 = {version = "2.2"}
 bitcoin = {version = "0.32"}
 borsh = {version = "1.5", features = ["derive"]}
-cashu = {version = "0.11", features = ["swagger"]}
+cashu = {version = "0.13", features = ["swagger"]}
 chrono = {version = "0.4", features = ["serde"]}
 nostr = {version = "0.43"}
 rand = {version = "0.8", optional = true}
