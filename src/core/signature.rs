@@ -5,38 +5,94 @@ use bitcoin::{
     secp256k1 as secp,
 };
 use borsh::BorshSerialize;
+use cashu::{nut10 as cdk10, nut11 as cdk11, nut12 as cdk12, nut14 as cdk14};
 use thiserror::Error;
 // ----- local modules
 
 // ----- end imports
 
-pub type SignatureResult<T> = std::result::Result<T, Error>;
+pub type BorshMsgSignatureResult<T> = std::result::Result<T, BorshMsgSignatureError>;
 #[derive(Debug, Error)]
-pub enum Error {
+pub enum BorshMsgSignatureError {
     #[error("Borsh error {0}")]
     Borsh(#[from] borsh::io::Error),
     #[error("Secp256k1 error {0}")]
     Secp256k1(#[from] secp::Error),
 }
 
-pub fn sign_with_key(
+pub fn sign_borsh_msg_with_key(
     msg: &impl BorshSerialize,
     keys: &secp::Keypair,
-) -> SignatureResult<secp::schnorr::Signature> {
+) -> BorshMsgSignatureResult<secp::schnorr::Signature> {
     let serialized = borsh::to_vec(&msg)?;
     let sha = Sha256::hash(&serialized);
     let secp_msg = secp::Message::from_digest(*sha.as_ref());
     Ok(secp::global::SECP256K1.sign_schnorr(&secp_msg, keys))
 }
 
-pub fn verify_with_key(
+pub fn verify_borsh_msg_with_key(
     msg: &impl BorshSerialize,
     signature: &secp::schnorr::Signature,
     key: &secp::XOnlyPublicKey,
-) -> SignatureResult<()> {
+) -> BorshMsgSignatureResult<()> {
     let serialized = borsh::to_vec(&msg)?;
     let sha = Sha256::hash(&serialized);
     let secp_msg = secp::Message::from_digest(*sha.as_ref());
     secp::global::SECP256K1.verify_schnorr(signature, &secp_msg, key)?;
+    Ok(())
+}
+
+pub type ECashSignatureResult<T> = std::result::Result<T, ECashSignatureError>;
+#[derive(Debug, Error)]
+pub enum ECashSignatureError {
+    #[error("no key for amount {0}")]
+    NoKeyForAmount(cashu::Amount),
+    #[error("cdk::dhke error {0}")]
+    CdkDHKE(#[from] cashu::dhke::Error),
+    #[error("Nut11 error {0}")]
+    Cdk11(#[from] cdk11::Error),
+    #[error("cdk::nut12 error {0}")]
+    Cdk12(#[from] cdk12::Error),
+    #[error("Nut14 error {0}")]
+    Cdk14(#[from] cdk14::Error),
+}
+
+pub fn sign_ecash(
+    keyset: &cashu::MintKeySet,
+    blind: &cashu::BlindedMessage,
+) -> ECashSignatureResult<cashu::BlindSignature> {
+    let key = keyset
+        .keys
+        .get(&blind.amount)
+        .ok_or(ECashSignatureError::NoKeyForAmount(blind.amount))?;
+    let raw_signature = cashu::dhke::sign_message(&key.secret_key, &blind.blinded_secret)?;
+    let mut signature = cashu::BlindSignature {
+        amount: blind.amount,
+        c: raw_signature,
+        keyset_id: keyset.id,
+        dleq: None,
+    };
+    signature.add_dleq_proof(&blind.blinded_secret, &key.secret_key)?;
+    Ok(signature)
+}
+
+pub fn verify_ecash(keyset: &cashu::MintKeySet, proof: &cashu::Proof) -> ECashSignatureResult<()> {
+    // ref: https://docs.rs/cdk/latest/cdk/mint/struct.Mint.html#method.verify_proofs
+    if let Ok(secret) = <&cashu::secret::Secret as TryInto<cdk10::Secret>>::try_into(&proof.secret)
+    {
+        match secret.kind() {
+            cashu::nuts::Kind::P2PK => {
+                proof.verify_p2pk()?;
+            }
+            cashu::nuts::Kind::HTLC => {
+                proof.verify_htlc()?;
+            }
+        }
+    }
+    let keypair = keyset
+        .keys
+        .get(&proof.amount)
+        .ok_or(ECashSignatureError::NoKeyForAmount(proof.amount))?;
+    cashu::dhke::verify_message(&keypair.secret_key, proof.c, proof.secret.as_bytes())?;
     Ok(())
 }
