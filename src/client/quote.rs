@@ -3,7 +3,7 @@
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
-use crate::{core::signature::sign_with_key, wire::quotes as wire_quotes};
+use crate::{core::signature::sign_borsh_msg_with_key, wire::quotes as wire_quotes};
 
 // ----- end imports
 
@@ -15,7 +15,7 @@ pub enum Error {
     #[error("invalid request")]
     InvalidRequest,
     #[error("signature {0}")]
-    Signature(#[from] crate::core::signature::Error),
+    Signature(#[from] crate::core::signature::BorshMsgSignatureError),
     #[error("authorization {0}")]
     Auth(String),
     #[error("internal {0}")]
@@ -89,7 +89,7 @@ impl Client {
             content: bill,
             minting_pubkey,
         };
-        let signature = sign_with_key(&request, signing_key)?;
+        let signature = sign_borsh_msg_with_key(&request, signing_key)?;
         let signed = wire_quotes::SignedEnquireRequest { request, signature };
         let url = self
             .base

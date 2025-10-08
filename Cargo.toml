@@ -6,7 +6,7 @@ license = "MIT"
 
 [features]
 default = []
-test-utils = ["rand"]
+test-utils = ["rand", "cdk"]
 authorized = []
 
 [dependencies]
@@ -15,6 +15,7 @@ bip39 = {version = "2.2"}
 bitcoin = {version = "0.32"}
 borsh = {version = "1.5", features = ["derive"]}
 cashu = {version = "0.13", features = ["swagger"]}
+cdk = {version = "0.13", default-features = false, features = ["mint"], optional = true}
 chrono = {version = "0.4", features = ["serde"]}
 nostr = {version = "0.43"}
 rand = {version = "0.8", optional = true}
