@@ -24,7 +24,7 @@ pub fn sign_borsh_msg_with_key(
     msg: &impl BorshSerialize,
     keys: &secp::Keypair,
 ) -> BorshMsgSignatureResult<secp::schnorr::Signature> {
-    let serialized = borsh::to_vec(&msg)?;
+    let serialized = borsh::to_vec(msg)?;
     let sha = Sha256::hash(&serialized);
     let secp_msg = secp::Message::from_digest(*sha.as_ref());
     Ok(secp::global::SECP256K1.sign_schnorr(&secp_msg, keys))
@@ -35,7 +35,7 @@ pub fn verify_borsh_msg_with_key(
     signature: &secp::schnorr::Signature,
     key: &secp::XOnlyPublicKey,
 ) -> BorshMsgSignatureResult<()> {
-    let serialized = borsh::to_vec(&msg)?;
+    let serialized = borsh::to_vec(msg)?;
     let sha = Sha256::hash(&serialized);
     let secp_msg = secp::Message::from_digest(*sha.as_ref());
     secp::global::SECP256K1.verify_schnorr(signature, &secp_msg, key)?;
