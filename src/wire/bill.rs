@@ -37,38 +37,37 @@ pub enum BillCurrentWaitingState {
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillWaitingForSellState {
-    pub time_of_request: u64,
     pub buyer: BillParticipant,
     pub seller: BillParticipant,
-    pub currency: String,
-    pub sum: String,
-    pub link_to_pay: String,
-    pub address_to_pay: String,
-    pub mempool_link_for_address_to_pay: String,
+    pub payment_data: BillWaitingStatePaymentData,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillWaitingForPaymentState {
-    pub time_of_request: u64,
     pub payer: BillIdentParticipant,
     pub payee: BillParticipant,
-    pub currency: String,
-    pub sum: String,
-    pub link_to_pay: String,
-    pub address_to_pay: String,
-    pub mempool_link_for_address_to_pay: String,
+    pub payment_data: BillWaitingStatePaymentData,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillWaitingForRecourseState {
-    pub time_of_request: u64,
-    pub recourser: BillIdentParticipant,
+    pub recourser: BillParticipant,
     pub recoursee: BillIdentParticipant,
+    pub payment_data: BillWaitingStatePaymentData,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct BillWaitingStatePaymentData {
+    pub time_of_request: u64,
     pub currency: String,
     pub sum: String,
     pub link_to_pay: String,
     pub address_to_pay: String,
     pub mempool_link_for_address_to_pay: String,
+    pub tx_id: Option<String>,
+    pub in_mempool: bool,
+    pub confirmations: u64,
+    pub payment_deadline: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -77,8 +76,10 @@ pub struct BillStatus {
     pub payment: BillPaymentStatus,
     pub sell: BillSellStatus,
     pub recourse: BillRecourseStatus,
+    pub mint: BillMintStatus,
     pub redeemed_funds_available: bool,
     pub has_requested_funds: bool,
+    pub last_block_time: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -88,6 +89,7 @@ pub struct BillAcceptanceStatus {
     pub accepted: bool,
     pub request_to_accept_timed_out: bool,
     pub rejected_to_accept: bool,
+    pub acceptance_deadline_timestamp: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -97,6 +99,7 @@ pub struct BillPaymentStatus {
     pub paid: bool,
     pub request_to_pay_timed_out: bool,
     pub rejected_to_pay: bool,
+    pub payment_deadline_timestamp: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -106,6 +109,7 @@ pub struct BillSellStatus {
     pub offered_to_sell: bool,
     pub offer_to_sell_timed_out: bool,
     pub rejected_offer_to_sell: bool,
+    pub buying_deadline_timestamp: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -115,11 +119,16 @@ pub struct BillRecourseStatus {
     pub requested_to_recourse: bool,
     pub request_to_recourse_timed_out: bool,
     pub rejected_request_to_recourse: bool,
+    pub recourse_deadline_timestamp: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct BillMintStatus {
+    pub has_mint_requests: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillData {
-    pub language: String,
     pub time_of_drawing: u64,
     pub issue_date: chrono::NaiveDate,
     pub time_of_maturity: u64,
@@ -140,6 +149,7 @@ pub struct BillParticipants {
     pub drawer: BillIdentParticipant,
     pub payee: BillParticipant,
     pub endorsee: Option<BillParticipant>,
+    pub endorsements: Vec<Endorsement>,
     pub endorsements_count: u64,
     #[schema(value_type=Vec<String>)]
     pub all_participant_node_ids: Vec<NodeId>,
@@ -212,44 +222,47 @@ pub struct BillCombinedBitcoinKey {
     pub private_descriptor: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Endorsement {
-    pub pay_to_the_order_of: LightBillIdentParticipantWithAddress,
+    pub pay_to_the_order_of: LightBillParticipant,
     pub signed: LightSignedBy,
     pub signing_timestamp: u64,
     pub signing_address: Option<PostalAddress>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct LightSignedBy {
     pub data: LightBillParticipant,
     pub signatory: Option<LightBillIdentParticipant>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub enum LightBillParticipant {
     Anon(LightBillAnonParticipant),
     Ident(LightBillIdentParticipantWithAddress),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct LightBillAnonParticipant {
+    #[schema(value_type=String)]
     pub node_id: NodeId,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct LightBillIdentParticipant {
     #[serde(rename = "type")]
     pub t: ContactType,
     pub name: String,
+    #[schema(value_type=String)]
     pub node_id: NodeId,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct LightBillIdentParticipantWithAddress {
     #[serde(rename = "type")]
     pub t: ContactType,
     pub name: String,
+    #[schema(value_type=String)]
     pub node_id: NodeId,
     #[serde(flatten)]
     pub postal_address: PostalAddress,
