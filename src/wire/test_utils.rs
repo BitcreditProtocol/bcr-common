@@ -23,7 +23,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("5196")),
                 address: String::from("Auf der Stift 17c"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Person,
@@ -36,7 +36,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("81015")),
                 address: String::from("Paseo José Emilio Ruíz 69"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Person,
@@ -49,7 +49,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("50141")),
                 address: String::from("Piazza Principale Umberto 148"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Person,
@@ -62,7 +62,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("9556")),
                 address: String::from("Haiden 96"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Company,
@@ -75,7 +75,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("31000")),
                 address: String::from("25, rue Pierre de Coubertin"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Company,
@@ -88,7 +88,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("86659-2593")),
                 address: String::from("3443 Joanny Bypass"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Company,
@@ -101,7 +101,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("38074")),
                 address: String::from("Isidora 96 0 7"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Company,
@@ -114,7 +114,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("3512")),
                 address: String::from("Barthring 342"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Company,
@@ -127,7 +127,7 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("88191")),
                 address: String::from("Avinguida José Antonio, 20"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
         BillIdentParticipant {
             t: ContactType::Company,
@@ -140,10 +140,9 @@ pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
                 zip: Some(String::from("51020")),
                 address: String::from("Corso Vittorio Emanuele, 90"),
             },
-            nostr_relays: vec![String::from("")],
+            nostr_relays: vec![],
         },
     ];
-
     let mut rng = rand::thread_rng();
     let random_index = rand::Rng::gen_range(&mut rng, 0..sample.len());
     let random_identity = sample[random_index].clone();

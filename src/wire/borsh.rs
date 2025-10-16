@@ -68,12 +68,27 @@ pub fn deserialize_btc_pubkey<R: Read>(reader: &mut R) -> Result<bitcoin::Public
     Ok(pubkey)
 }
 
+pub fn serialize_chrono_tstamp<W: Write>(
+    tstamp: &chrono::DateTime<chrono::Utc>,
+    writer: &mut W,
+) -> Result<()> {
+    let date_str = tstamp.to_string();
+    borsh::BorshSerialize::serialize(&date_str, writer)?;
+    Ok(())
+}
+pub fn deserialize_chrono_tstamp<R: Read>(reader: &mut R) -> Result<chrono::DateTime<chrono::Utc>> {
+    let date_str: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let date = chrono::DateTime::from_str(&date_str)
+        .map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
+    Ok(date)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_serialize_deserialize_chrono_naivedate() {
+    fn serialize_deserialize_chrono_naivedate() {
         let date = chrono::NaiveDate::from_ymd_opt(2023, 10, 5).unwrap();
         let mut buf = Vec::new();
         serialize_chrono_naivedate(&date, &mut buf).unwrap();
@@ -82,7 +97,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_deserialize_btc_pubkey() {
+    fn serialize_deserialize_btc_pubkey() {
         let pubkey_str = "02c0ded8f7b5e6c3f4e8b6a1e4f3c2d1e0f9e8d7c6b5a4e3f2d1c0b9a8e7f6d5c4";
         let pubkey = bitcoin::PublicKey::from_str(pubkey_str).unwrap();
         let mut buf = Vec::new();
@@ -90,4 +105,14 @@ mod tests {
         let deserialized_pubkey = deserialize_btc_pubkey(&mut buf.as_slice()).unwrap();
         assert_eq!(pubkey, deserialized_pubkey);
     }
+
+    #[test]
+    fn serialize_deserialize_chrono_tstamp() {
+        let tstamp = chrono::Utc::now();
+        let mut buf = Vec::new();
+        serialize_chrono_tstamp(&tstamp, &mut buf).unwrap();
+        let deserialized_tstamp = deserialize_chrono_tstamp(&mut buf.as_slice()).unwrap();
+        assert_eq!(tstamp, deserialized_tstamp);
+    }
+
 }
