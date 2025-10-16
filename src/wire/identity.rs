@@ -55,7 +55,7 @@ pub struct Identity {
     pub identification_number: Option<String>,
     pub profile_picture_file: Option<File>,
     pub identity_document_file: Option<File>,
-    pub nostr_relays: Vec<nostr::RelayUrl>,
+    pub nostr_relays: Vec<url::Url>,
 }
 
 fn bech32_nostr_pk_serialize<S>(pk: &nostr::PublicKey, serializer: S) -> Result<S::Ok, S::Error>

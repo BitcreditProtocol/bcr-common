@@ -7,6 +7,7 @@ use utoipa::ToSchema;
 use crate::{
     core::{BillId, NodeId},
     wire::{
+        borsh::{deserialize_vec_url, serialize_vec_url},
         contact::ContactType,
         identity::{File, PostalAddress},
     },
@@ -175,7 +176,12 @@ pub struct BillAnonParticipant {
     #[schema(value_type=String)]
     pub node_id: NodeId,
     pub email: Option<String>,
-    pub nostr_relays: Vec<String>,
+    #[schema(value_type=Vec<String>)]
+    #[borsh(
+        serialize_with = "serialize_vec_url",
+        deserialize_with = "deserialize_vec_url"
+    )]
+    pub nostr_relays: Vec<url::Url>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize, ToSchema)]
@@ -188,7 +194,12 @@ pub struct BillIdentParticipant {
     #[serde(flatten)]
     pub postal_address: PostalAddress,
     pub email: Option<String>,
-    pub nostr_relays: Vec<String>,
+    #[schema(value_type=Vec<String>)]
+    #[borsh(
+        serialize_with = "serialize_vec_url",
+        deserialize_with = "deserialize_vec_url"
+    )]
+    pub nostr_relays: Vec<url::Url>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -199,7 +210,6 @@ pub struct Notification {
     pub notification_type: NotificationType,
     pub reference_id: Option<String>,
     pub description: String,
-    #[schema(value_type = chrono::DateTime<chrono::Utc>)]
     pub datetime: chrono::DateTime<chrono::Utc>,
     pub active: bool,
     pub payload: Option<serde_json::Value>,
@@ -215,6 +225,7 @@ pub enum NotificationType {
 pub struct RequestToPayBitcreditBillPayload {
     pub bill_id: BillId,
     pub currency: String,
+    pub deadline: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
