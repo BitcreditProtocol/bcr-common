@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 use crate::{
     core::{BillId, NodeId},
     wire::{
-        borsh::{deserialize_vec_url, serialize_vec_url},
+        borsh::{deserialize_vec_of_strs, serialize_vec_of_strs},
         contact::ContactType,
         identity::{File, PostalAddress},
     },
@@ -178,8 +178,8 @@ pub struct BillAnonParticipant {
     pub email: Option<String>,
     #[schema(value_type=Vec<String>)]
     #[borsh(
-        serialize_with = "serialize_vec_url",
-        deserialize_with = "deserialize_vec_url"
+        serialize_with = "serialize_vec_of_strs",
+        deserialize_with = "deserialize_vec_of_strs"
     )]
     pub nostr_relays: Vec<url::Url>,
 }
@@ -196,8 +196,8 @@ pub struct BillIdentParticipant {
     pub email: Option<String>,
     #[schema(value_type=Vec<String>)]
     #[borsh(
-        serialize_with = "serialize_vec_url",
-        deserialize_with = "deserialize_vec_url"
+        serialize_with = "serialize_vec_of_strs",
+        deserialize_with = "deserialize_vec_of_strs"
     )]
     pub nostr_relays: Vec<url::Url>,
 }

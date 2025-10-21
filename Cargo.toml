@@ -28,3 +28,6 @@ thiserror = {version = "2.0"}
 url = {version = "2.5"}
 utoipa = {version = "5.4", features = ["chrono", "uuid"]}
 uuid = {version = "1", features = ["serde"]}
+
+[dev-dependencies]
+bcr-common = {path = ".", features = ["test-utils"]}

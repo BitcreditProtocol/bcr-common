@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::{
     core::BillId,
-    wire::borsh::{deserialize_chrono_tstamp, serialize_chrono_tstamp},
+    wire::borsh::{deserialize_as_str, serialize_as_str},
 };
 
 /// --------------------------- request to mint from ebill description
@@ -14,8 +14,8 @@ use crate::{
 pub struct RequestToMintFromEBillDesc {
     pub ebill_id: BillId,
     #[borsh(
-        serialize_with = "serialize_chrono_tstamp",
-        deserialize_with = "deserialize_chrono_tstamp"
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
     )]
     pub deadline: chrono::DateTime<chrono::Utc>,
 }
