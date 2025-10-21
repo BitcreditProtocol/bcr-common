@@ -11,9 +11,7 @@ use crate::{
     wire::{
         bill::{BillIdentParticipant, BillParticipant},
         borsh::{
-            deserialize_btc_pubkey, deserialize_cdk_pubkey, deserialize_chrono_naivedate,
-            deserialize_vec_url, serialize_btc_pubkey, serialize_cdk_pubkey,
-            serialize_chrono_naivedate, serialize_vec_url,
+            deserialize_as_str, deserialize_vec_of_strs, serialize_as_str, serialize_vec_of_strs,
         },
     },
 };
@@ -27,16 +25,16 @@ pub struct SharedBill {
     pub bill_id: BillId,
     pub data: String, // The base58 encoded, encrypted, borshed BillBlockPlaintextWrappers of the bill
     #[borsh(
-        serialize_with = "serialize_vec_url",
-        deserialize_with = "deserialize_vec_url"
+        serialize_with = "serialize_vec_of_strs",
+        deserialize_with = "deserialize_vec_of_strs"
     )]
     #[schema(value_type = Vec<String>)]
     pub file_urls: Vec<url::Url>,
     pub hash: String,
     pub signature: String,
     #[borsh(
-        serialize_with = "serialize_btc_pubkey",
-        deserialize_with = "deserialize_btc_pubkey"
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
     )]
     #[schema(value_type = String)]
     pub receiver: bitcoin::PublicKey,
@@ -52,25 +50,25 @@ pub struct BillInfo {
     pub endorsees: Vec<BillParticipant>,
     pub sum: u64, // in satoshis, converted to bitcoin::Amount in the service
     #[borsh(
-        serialize_with = "serialize_chrono_naivedate",
-        deserialize_with = "deserialize_chrono_naivedate"
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
     )]
     pub maturity_date: chrono::NaiveDate,
     #[borsh(
-        serialize_with = "serialize_vec_url",
-        deserialize_with = "deserialize_vec_url"
+        serialize_with = "serialize_vec_of_strs",
+        deserialize_with = "deserialize_vec_of_strs"
     )]
     #[schema(value_type = Vec<String>)]
     pub file_urls: Vec<url::Url>, // urls of files, encrypted and uploaded for the mint to the mint's relay
 }
 
 ///--------------------------- Enquire mint quote
-#[derive(Debug, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, ToSchema, BorshSerialize, BorshDeserialize)]
 pub struct EnquireRequest {
     pub content: SharedBill,
     #[borsh(
-        serialize_with = "serialize_cdk_pubkey",
-        deserialize_with = "deserialize_cdk_pubkey"
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
     )]
     /// corresponding secret key must be used later in key_client::mint request
     pub minting_pubkey: cdk01::PublicKey,
@@ -78,7 +76,7 @@ pub struct EnquireRequest {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SignedEnquireRequest {
-    pub request: EnquireRequest,
+    pub content: String, // base64, borsh serialized EnquireRequest
     #[schema(value_type = String)]
     pub signature: bitcoin::secp256k1::schnorr::Signature,
 }

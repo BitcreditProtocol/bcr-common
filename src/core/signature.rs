@@ -1,10 +1,11 @@
 // ----- standard library imports
 // ----- extra library imports
 use bitcoin::{
+    base64::prelude::*,
     hashes::{Hash, sha256::Hash as Sha256},
     secp256k1 as secp,
 };
-use borsh::BorshSerialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use cashu::{nut10 as cdk10, nut11 as cdk11, nut12 as cdk12, nut14 as cdk14};
 use thiserror::Error;
 // ----- local modules
@@ -14,32 +15,39 @@ use thiserror::Error;
 pub type BorshMsgSignatureResult<T> = std::result::Result<T, BorshMsgSignatureError>;
 #[derive(Debug, Error)]
 pub enum BorshMsgSignatureError {
-    #[error("Borsh error {0}")]
+    #[error("Borsh {0}")]
     Borsh(#[from] borsh::io::Error),
-    #[error("Secp256k1 error {0}")]
+    #[error("Secp256k1 {0}")]
     Secp256k1(#[from] secp::Error),
+    #[error("base64 {0}")]
+    Base64Decode(#[from] bitcoin::base64::DecodeError),
 }
 
-pub fn sign_borsh_msg_with_key(
+// Sign a Borsh-serializable message with a secp256k1 keypair using Schnorr signatures.
+// Returns the Base64 serialized message and the signature.
+pub fn ser_n_sign_borsh_msg(
     msg: &impl BorshSerialize,
     keys: &secp::Keypair,
-) -> BorshMsgSignatureResult<secp::schnorr::Signature> {
+) -> BorshMsgSignatureResult<(String, secp::schnorr::Signature)> {
     let serialized = borsh::to_vec(msg)?;
     let sha = Sha256::hash(&serialized);
     let secp_msg = secp::Message::from_digest(*sha.as_ref());
-    Ok(secp::global::SECP256K1.sign_schnorr(&secp_msg, keys))
+    let signature = secp::global::SECP256K1.sign_schnorr(&secp_msg, keys);
+    let b64 = BASE64_STANDARD.encode(serialized);
+    Ok((b64, signature))
 }
 
-pub fn verify_borsh_msg_with_key(
-    msg: &impl BorshSerialize,
+pub fn deser_n_verify_borsh_msg<Message: BorshDeserialize>(
+    payload: &str,
     signature: &secp::schnorr::Signature,
     key: &secp::XOnlyPublicKey,
-) -> BorshMsgSignatureResult<()> {
-    let serialized = borsh::to_vec(msg)?;
+) -> BorshMsgSignatureResult<Message> {
+    let serialized = BASE64_STANDARD.decode(payload)?;
     let sha = Sha256::hash(&serialized);
     let secp_msg = secp::Message::from_digest(*sha.as_ref());
     secp::global::SECP256K1.verify_schnorr(signature, &secp_msg, key)?;
-    Ok(())
+    let message: Message = borsh::from_slice(&serialized)?;
+    Ok(message)
 }
 
 pub type ECashSignatureResult<T> = std::result::Result<T, ECashSignatureError>;

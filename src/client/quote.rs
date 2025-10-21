@@ -3,7 +3,7 @@
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
-use crate::{core::signature::sign_borsh_msg_with_key, wire::quotes as wire_quotes};
+use crate::{core::signature::ser_n_sign_borsh_msg, wire::quotes as wire_quotes};
 
 // ----- end imports
 
@@ -89,8 +89,8 @@ impl Client {
             content: bill,
             minting_pubkey,
         };
-        let signature = sign_borsh_msg_with_key(&request, signing_key)?;
-        let signed = wire_quotes::SignedEnquireRequest { request, signature };
+        let (content, signature) = ser_n_sign_borsh_msg(&request, signing_key)?;
+        let signed = wire_quotes::SignedEnquireRequest { content, signature };
         let url = self
             .base
             .join(Self::ENQUIRE_EP_V1)
