@@ -3,6 +3,7 @@
 // ----- local modules
 #[cfg(feature = "authorized")]
 mod authorization;
+pub mod ebill;
 pub mod keys;
 pub mod quote;
 pub mod swap;
