@@ -27,7 +27,7 @@ pub fn node_id_from_pub_key(pub_key: secp::PublicKey) -> NodeId {
     NodeId::new(pub_key, bitcoin::Network::Testnet)
 }
 
-pub fn generate_random_ecash_keyset() -> (cdk::mint::MintKeySetInfo, cashu::MintKeySet) {
+pub fn generate_random_ecash_keyset() -> (cdk_common::mint::MintKeySetInfo, cashu::MintKeySet) {
     let path = btc32::DerivationPath::master();
     let mut random_seed = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut random_seed);
@@ -41,7 +41,7 @@ pub fn generate_random_ecash_keyset() -> (cdk::mint::MintKeySetInfo, cashu::Mint
         None,
         cdk02::KeySetVersion::Version00,
     );
-    let info = cdk::mint::MintKeySetInfo {
+    let info = cdk_common::mint::MintKeySetInfo {
         id: set.id,
         active: true,
         unit: cashu::CurrencyUnit::Sat,
