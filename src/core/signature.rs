@@ -25,7 +25,7 @@ pub enum BorshMsgSignatureError {
 
 // Sign a Borsh-serializable message with a secp256k1 keypair using Schnorr signatures.
 // Returns the Base64 serialized message and the signature.
-pub fn ser_n_sign_borsh_msg(
+pub fn serialize_n_schnorr_sign_borsh_msg(
     msg: &impl BorshSerialize,
     keys: &secp::Keypair,
 ) -> BorshMsgSignatureResult<(String, secp::schnorr::Signature)> {
@@ -37,17 +37,26 @@ pub fn ser_n_sign_borsh_msg(
     Ok((b64, signature))
 }
 
-pub fn deser_n_verify_borsh_msg<Message: BorshDeserialize>(
+// deserialization and signature verification is split into two parts
+// sometimes the public key is embedded in the message itself
+pub fn deserialize_borsh_msg<Message: BorshDeserialize>(
+    payload: &str,
+) -> BorshMsgSignatureResult<Message> {
+    let serialized = BASE64_STANDARD.decode(payload)?;
+    let message: Message = borsh::from_slice(&serialized)?;
+    Ok(message)
+}
+
+pub fn schnorr_verify_b64(
     payload: &str,
     signature: &secp::schnorr::Signature,
     key: &secp::XOnlyPublicKey,
-) -> BorshMsgSignatureResult<Message> {
+) -> BorshMsgSignatureResult<()> {
     let serialized = BASE64_STANDARD.decode(payload)?;
     let sha = Sha256::hash(&serialized);
     let secp_msg = secp::Message::from_digest(*sha.as_ref());
     secp::global::SECP256K1.verify_schnorr(signature, &secp_msg, key)?;
-    let message: Message = borsh::from_slice(&serialized)?;
-    Ok(message)
+    Ok(())
 }
 
 pub type ECashSignatureResult<T> = std::result::Result<T, ECashSignatureError>;
@@ -103,4 +112,30 @@ pub fn verify_ecash(keyset: &cashu::MintKeySet, proof: &cashu::Proof) -> ECashSi
         .ok_or(ECashSignatureError::NoKeyForAmount(proof.amount))?;
     cashu::dhke::verify_message(&keypair.secret_key, proof.c, proof.secret.as_bytes())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_borsh_schnorr_sign_verify() {
+        #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug)]
+        struct TestMessage {
+            id: u32,
+            content: String,
+        }
+        let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
+        let xonly_pk = secp::XOnlyPublicKey::from_keypair(&keypair).0;
+        let msg = TestMessage {
+            id: 42,
+            content: "Hello, world!".to_string(),
+        };
+        let (b64_msg, signature) =
+            serialize_n_schnorr_sign_borsh_msg(&msg, &keypair).expect("Signing failed");
+        let deserialized_msg: TestMessage =
+            deserialize_borsh_msg(&b64_msg).expect("Deserialization failed");
+        assert_eq!(msg, deserialized_msg);
+        schnorr_verify_b64(&b64_msg, &signature, &xonly_pk).expect("Verification failed");
+    }
 }

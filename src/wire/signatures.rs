@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// --------------------------- request to mint from ebill description
-#[derive(Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, BorshSerialize, BorshDeserialize)]
 pub struct RequestToMintFromEBillDesc {
     pub ebill_id: BillId,
     #[borsh(
@@ -22,7 +22,7 @@ pub struct RequestToMintFromEBillDesc {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SignedRequestToMintFromEBillDesc {
-    pub data: RequestToMintFromEBillDesc,
+    pub content: String, // base64 borsh serialized RequestToMintFromEBillDesc
     pub signature: bitcoin::secp256k1::schnorr::Signature,
 }
 

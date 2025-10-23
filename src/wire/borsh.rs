@@ -50,8 +50,8 @@ pub fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<(
 where
     T: serde::ser::Serialize,
 {
-    let stringified = serde_json::to_string(vec)
-        .map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
+    let stringified =
+        serde_json::to_string(vec).map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
     borsh::BorshSerialize::serialize(&stringified, writer)?;
     Ok(())
 }
@@ -158,7 +158,8 @@ mod tests {
         };
         let mut buf = Vec::new();
         borsh::BorshSerialize::serialize(&t, &mut buf).unwrap();
-        let deserialized_t = borsh::BorshDeserialize::deserialize_reader(&mut buf.as_slice()).unwrap();
+        let deserialized_t =
+            borsh::BorshDeserialize::deserialize_reader(&mut buf.as_slice()).unwrap();
         assert_eq!(t, deserialized_t);
     }
 }
