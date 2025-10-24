@@ -38,7 +38,7 @@ pub struct CommitmentContent {
         serialize_with = "serialize_vec_of_strs",
         deserialize_with = "deserialize_vec_of_strs"
     )]
-    pub proofs_fp: Vec<cashu::PublicKey>,
+    pub inputs: Vec<cashu::PublicKey>,
     #[borsh(
         serialize_with = "serialize_vec_of_jsons",
         deserialize_with = "deserialize_vec_of_jsons"
