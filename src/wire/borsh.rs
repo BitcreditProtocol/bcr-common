@@ -66,6 +66,102 @@ where
     Ok(vec)
 }
 
+#[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct Dleq {
+    e: String,
+    s: String,
+    r: String,
+}
+impl std::convert::From<cashu::ProofDleq> for Dleq {
+    fn from(witness: cashu::ProofDleq) -> Self {
+        Dleq {
+            e: witness.e.to_string(),
+            s: witness.s.to_string(),
+            r: witness.r.to_string(),
+        }
+    }
+}
+impl std::convert::TryFrom<Dleq> for cashu::ProofDleq {
+    type Error = BorshError;
+    fn try_from(dleq: Dleq) -> Result<Self> {
+        let e = cashu::SecretKey::from_str(&dleq.e)
+            .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+        let s = cashu::SecretKey::from_str(&dleq.s)
+            .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+        let r = cashu::SecretKey::from_str(&dleq.r)
+            .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+        Ok(cashu::ProofDleq { e, s, r })
+    }
+}
+pub fn serialize_optionproofdleq(
+    dleq: &Option<cashu::ProofDleq>,
+    writer: &mut impl Write,
+) -> Result<()> {
+    let dleq = dleq.clone().map(Dleq::from);
+    borsh::BorshSerialize::serialize(&dleq, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_optionproofdleq(reader: &mut impl Read) -> Result<Option<cashu::ProofDleq>> {
+    let dleq: Option<Dleq> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let dleq = dleq.map(cashu::ProofDleq::try_from).transpose()?;
+    Ok(dleq)
+}
+
+#[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
+enum WitnessEnum {
+    HTLCWitness {
+        preimage: String,
+        signatures: Option<Vec<String>>,
+    },
+    P2PKWitness {
+        signatures: Vec<String>,
+    },
+}
+impl std::convert::From<cashu::Witness> for WitnessEnum {
+    fn from(witness: cashu::Witness) -> Self {
+        match witness {
+            cashu::Witness::HTLCWitness(htlc) => WitnessEnum::HTLCWitness {
+                preimage: htlc.preimage,
+                signatures: htlc.signatures,
+            },
+            cashu::Witness::P2PKWitness(p2pk) => WitnessEnum::P2PKWitness {
+                signatures: p2pk.signatures,
+            },
+        }
+    }
+}
+impl std::convert::From<WitnessEnum> for cashu::Witness {
+    fn from(witness_enum: WitnessEnum) -> Self {
+        match witness_enum {
+            WitnessEnum::HTLCWitness {
+                preimage,
+                signatures,
+            } => cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+                preimage,
+                signatures,
+            }),
+            WitnessEnum::P2PKWitness { signatures } => {
+                cashu::Witness::P2PKWitness(cashu::P2PKWitness { signatures })
+            }
+        }
+    }
+}
+pub fn serialize_optionwitness(
+    witness: &Option<cashu::Witness>,
+    writer: &mut impl Write,
+) -> Result<()> {
+    let enumed = witness.as_ref().map(|w| WitnessEnum::from(w.clone()));
+    borsh::BorshSerialize::serialize(&enumed, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_optionwitness(reader: &mut impl Read) -> Result<Option<cashu::Witness>> {
+    let enumed: Option<WitnessEnum> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let witness = enumed.map(cashu::Witness::from);
+    Ok(witness)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,8 +1,16 @@
 // ----- standard library imports
 // ----- extra library imports
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
+use crate::{
+    core,
+    wire::borsh::{
+        deserialize_as_str, deserialize_optionproofdleq, deserialize_optionwitness,
+        serialize_as_str, serialize_optionproofdleq, serialize_optionwitness,
+    },
+};
 
 // ----- end imports
 
@@ -49,3 +57,45 @@ pub struct NewMintOperationRequest {
 
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
 pub struct NewMintOperationResponse {}
+
+///--------------------------- Proof fingerprint validation
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize, ToSchema)]
+pub struct ProofFingerprint {
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
+    )]
+    pub keyset_id: cashu::Id,
+    pub amount: u64,
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
+    )]
+    pub y: cashu::PublicKey, // Y = hash_to_curve(secret)
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
+    )]
+    pub c: cashu::PublicKey, // unblinded signature
+    #[borsh(
+        serialize_with = "serialize_optionproofdleq",
+        deserialize_with = "deserialize_optionproofdleq"
+    )]
+    pub dleq: Option<cashu::ProofDleq>,
+    #[borsh(
+        serialize_with = "serialize_optionwitness",
+        deserialize_with = "deserialize_optionwitness"
+    )]
+    pub witness: Option<cashu::Witness>,
+}
+
+impl std::convert::From<ProofFingerprint> for core::signature::ProofFingerprint {
+    fn from(fp: ProofFingerprint) -> Self {
+        core::signature::ProofFingerprint {
+            keyset_id: fp.keyset_id,
+            amount: cashu::Amount::from(fp.amount),
+            y: *fp.y,
+            c: *fp.c,
+        }
+    }
+}

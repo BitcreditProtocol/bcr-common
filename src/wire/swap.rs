@@ -4,9 +4,11 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
-use crate::wire::borsh::{
-    deserialize_as_str, deserialize_vec_of_jsons, deserialize_vec_of_strs, serialize_as_str,
-    serialize_vec_of_jsons, serialize_vec_of_strs,
+use crate::wire::{
+    borsh::{
+        deserialize_as_str, deserialize_vec_of_jsons, serialize_as_str, serialize_vec_of_jsons,
+    },
+    keys::ProofFingerprint,
 };
 
 // ----- end imports
@@ -32,13 +34,10 @@ pub struct RecoverRequest {
 pub struct RecoverResponse {}
 
 ///--------------------------- Commitment Request
+
 #[derive(Debug, BorshSerialize, BorshDeserialize)]
 pub struct CommitmentContent {
-    #[borsh(
-        serialize_with = "serialize_vec_of_strs",
-        deserialize_with = "deserialize_vec_of_strs"
-    )]
-    pub inputs: Vec<cashu::PublicKey>,
+    pub inputs: Vec<ProofFingerprint>,
     #[borsh(
         serialize_with = "serialize_vec_of_jsons",
         deserialize_with = "deserialize_vec_of_jsons"
