@@ -62,16 +62,22 @@ pub fn schnorr_verify_b64(
 pub type ECashSignatureResult<T> = std::result::Result<T, ECashSignatureError>;
 #[derive(Debug, Error)]
 pub enum ECashSignatureError {
+    #[error("Invalid signature")]
+    Invalid,
+    #[error("mismatched keyset {0} {1}")]
+    MismatchedKid(cashu::Id, cashu::Id),
     #[error("no key for amount {0}")]
     NoKeyForAmount(cashu::Amount),
-    #[error("cdk::dhke error {0}")]
+    #[error("cdk::dhke  {0}")]
     CdkDHKE(#[from] cashu::dhke::Error),
-    #[error("Nut11 error {0}")]
+    #[error("Nut11 {0}")]
     Cdk11(#[from] cdk11::Error),
-    #[error("cdk::nut12 error {0}")]
+    #[error("cdk::nut12 {0}")]
     Cdk12(#[from] cdk12::Error),
-    #[error("Nut14 error {0}")]
+    #[error("Nut14 {0}")]
     Cdk14(#[from] cdk14::Error),
+    #[error("secp256k1 {0}")]
+    Secp256k1(#[from] secp::Error),
 }
 
 pub fn sign_ecash(
@@ -93,7 +99,16 @@ pub fn sign_ecash(
     Ok(signature)
 }
 
-pub fn verify_ecash(keyset: &cashu::MintKeySet, proof: &cashu::Proof) -> ECashSignatureResult<()> {
+pub fn verify_ecash_proof(
+    keyset: &cashu::MintKeySet,
+    proof: &cashu::Proof,
+) -> ECashSignatureResult<()> {
+    if proof.keyset_id != keyset.id {
+        return Err(ECashSignatureError::MismatchedKid(
+            keyset.id,
+            proof.keyset_id,
+        ));
+    }
     // ref: https://docs.rs/cdk/latest/cdk/mint/struct.Mint.html#method.verify_proofs
     if let Ok(secret) = <&cashu::secret::Secret as TryInto<cdk10::Secret>>::try_into(&proof.secret)
     {
@@ -112,6 +127,32 @@ pub fn verify_ecash(keyset: &cashu::MintKeySet, proof: &cashu::Proof) -> ECashSi
         .ok_or(ECashSignatureError::NoKeyForAmount(proof.amount))?;
     cashu::dhke::verify_message(&keypair.secret_key, proof.c, proof.secret.as_bytes())?;
     Ok(())
+}
+
+pub struct ProofFingerprint {
+    pub keyset_id: cashu::Id,
+    pub amount: cashu::Amount,
+    pub c: secp::PublicKey,
+    pub y: secp::PublicKey,
+}
+
+pub fn verify_ecash_fingerprint(
+    keyset: &cashu::MintKeySet,
+    fp: &ProofFingerprint,
+) -> ECashSignatureResult<()> {
+    if fp.keyset_id != keyset.id {
+        return Err(ECashSignatureError::MismatchedKid(keyset.id, fp.keyset_id));
+    }
+    let Some(key) = keyset.keys.get(&fp.amount) else {
+        return Err(ECashSignatureError::NoKeyForAmount(fp.amount));
+    };
+    let scalar = key.secret_key.clone().to_scalar();
+    let y = fp.c.mul_tweak(secp::global::SECP256K1, &scalar)?;
+    if y == fp.y {
+        Ok(())
+    } else {
+        Err(ECashSignatureError::Invalid)
+    }
 }
 
 #[cfg(test)]

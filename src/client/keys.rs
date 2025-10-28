@@ -154,12 +154,12 @@ impl Client {
         Ok(sig)
     }
 
-    pub const VERIFY_EP_V1: &'static str = "/v1/admin/keys/verify";
+    pub const VERIFY_PROOF_EP_V1: &'static str = "/v1/admin/keys/verify/proof";
     #[cfg(feature = "authorized")]
-    pub async fn verify(&self, proof: &cashu::Proof) -> Result<()> {
+    pub async fn verify_proof(&self, proof: &cashu::Proof) -> Result<()> {
         let url = self
             .base
-            .join(Self::VERIFY_EP_V1)
+            .join(Self::VERIFY_PROOF_EP_V1)
             .expect("verify relative path");
         let request = self.cl.post(url).json(proof);
         let response = self.auth.authorize(request).send().await?;
@@ -172,6 +172,26 @@ impl Client {
         response.error_for_status()?;
         Ok(())
     }
+
+    pub const VERIFY_FINGERPRINT_EP_V1: &'static str = "/v1/admin/keys/verify/fingerprint";
+    #[cfg(feature = "authorized")]
+    pub async fn verify_fingerprint(&self, fp: &wire_keys::ProofFingerprint) -> Result<()> {
+        let url = self
+            .base
+            .join(Self::VERIFY_FINGERPRINT_EP_V1)
+            .expect("verify relative path");
+        let request = self.cl.post(url).json(fp);
+        let response = self.auth.authorize(request).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(fp.keyset_id));
+        }
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        response.error_for_status()?;
+        Ok(())
+    }
+
 
     pub const KEYSFOREXPIRATION_EP_V1: &'static str = "/v1/admin/keys/{date}";
     #[cfg(feature = "authorized")]

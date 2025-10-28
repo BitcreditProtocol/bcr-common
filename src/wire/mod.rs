@@ -2,7 +2,7 @@
 // ----- extra library imports
 // ----- local modules
 pub mod bill;
-mod borsh;
+pub mod borsh;
 pub mod contact;
 pub mod identity;
 pub mod keys;
