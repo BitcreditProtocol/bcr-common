@@ -68,7 +68,7 @@ pub enum ECashSignatureError {
     MismatchedKid(cashu::Id, cashu::Id),
     #[error("no key for amount {0}")]
     NoKeyForAmount(cashu::Amount),
-    #[error("cdk::dhke  {0}")]
+    #[error("cdk::dhke {0}")]
     CdkDHKE(#[from] cashu::dhke::Error),
     #[error("Nut11 {0}")]
     Cdk11(#[from] cdk11::Error),

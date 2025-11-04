@@ -192,7 +192,6 @@ impl Client {
         Ok(())
     }
 
-
     pub const KEYSFOREXPIRATION_EP_V1: &'static str = "/v1/admin/keys/{date}";
     #[cfg(feature = "authorized")]
     pub async fn keys_for_expiration(&self, date: chrono::NaiveDate) -> Result<cashu::Id> {
