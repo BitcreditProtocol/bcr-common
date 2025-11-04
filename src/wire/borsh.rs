@@ -2,6 +2,7 @@
 use std::str::FromStr;
 // ----- extra library imports
 use borsh::io::{Error as BorshError, ErrorKind, Read, Write};
+use bitcoin::secp256k1;
 // ----- local imports
 
 // ----- end imports
@@ -46,7 +47,7 @@ where
         .collect::<std::result::Result<Vec<T>, T::Err>>()
         .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))
 }
-pub fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
+pub(crate) fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
 where
     T: serde::ser::Serialize,
 {
@@ -56,7 +57,7 @@ where
     Ok(())
 }
 
-pub fn deserialize_vec_of_jsons<T>(reader: &mut impl Read) -> Result<Vec<T>>
+pub(crate) fn deserialize_vec_of_jsons<T>(reader: &mut impl Read) -> Result<Vec<T>>
 where
     T: serde::de::DeserializeOwned,
 {
@@ -160,6 +161,66 @@ pub fn deserialize_optionwitness(reader: &mut impl Read) -> Result<Option<cashu:
     let enumed: Option<WitnessEnum> = borsh::BorshDeserialize::deserialize_reader(reader)?;
     let witness = enumed.map(cashu::Witness::from);
     Ok(witness)
+}
+
+#[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct Proof {
+    amount: u64,
+    kid: Vec<u8>,
+    secret: String,
+    c: [u8; secp256k1::constants::PUBLIC_KEY_SIZE],
+    dleq: Option<Dleq>,
+    witness: Option<WitnessEnum>,
+
+}
+impl std::convert::From<cashu::Proof> for Proof {
+    fn from(proof: cashu::Proof) -> Self {
+        Proof {
+            amount: u64::from(proof.amount),
+            kid: proof.keyset_id.to_bytes(),
+            secret: proof.secret.to_string(),
+            c: proof.c.to_bytes(),
+            dleq: proof.dleq.map(Dleq::from),
+            witness: proof.witness.map(WitnessEnum::from),
+        }
+    }
+}
+impl std::convert::From<Proof> for cashu::Proof {
+    fn from(proof: Proof) -> Self {
+        let keyset_id = cashu::Id::from_bytes(&proof.kid).expect("keyset_id parse");
+        let secret = cashu::secret::Secret::from_str(&proof.secret).expect("secret parse");
+        let dleq = proof.dleq.map(cashu::ProofDleq::try_from).transpose().expect("dleq parse");
+        let c = cashu::PublicKey::from_slice(&proof.c).expect("c parse");
+        cashu::Proof {
+            amount: cashu::Amount::from(proof.amount),
+            keyset_id,
+            c,
+            secret,
+            dleq,
+            witness: proof.witness.map(cashu::Witness::from),
+        }
+    }
+}
+pub fn serialize_cdkproof(input: &cashu::Proof, writer: &mut impl Write) -> Result<()> {
+    let proof = Proof::from(input.clone());
+    borsh::BorshSerialize::serialize(&proof, writer)?;
+    Ok(())
+}
+pub fn serialize_vecof_cdkproof(input: &[cashu::Proof], writer: &mut impl Write) -> Result<()> {
+    let proofs: Vec<_> = input.iter().cloned().map(Proof::from).collect();
+    borsh::BorshSerialize::serialize(&proofs, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_cdkproof(reader: &mut impl Read) -> Result<cashu::Proof> {
+    let proof: Proof = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let output = cashu::Proof::from(proof);
+    Ok(output)
+}
+pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::Proof>> {
+    let proofs: Vec<Proof> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let output: Vec<cashu::Proof> = proofs.into_iter().map(cashu::Proof::from).collect();
+    Ok(output)
 }
 
 #[cfg(test)]
