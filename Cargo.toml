@@ -6,17 +6,20 @@ license = "MIT"
 
 [features]
 default = []
-test-utils = ["rand", "cdk-common"]
+test-utils = ["rand", "cdk-common", "mockall", "async-trait"]
 authorized = []
 
 [dependencies]
+async-trait = {version = "0.1", optional = true}
 bdk_wallet = {version = "2.1"}
 bip39 = {version = "2.2"}
 bitcoin = {version = "0.32"}
 borsh = {version = "1.5", features = ["derive"]}
 cashu = {version = "0.13", features = ["swagger"]}
+cdk = {version = "0.13", default-features = false, features = ["wallet"]}
 cdk-common = {version = "0.13", optional = true}
 chrono = {version = "0.4", features = ["serde"]}
+mockall = {version = "0.13", optional = true}
 nostr = {version = "0.43"}
 rand = {version = "0.8", optional = true}
 reqwest = {version = "0.12", features = ["json"]}
