@@ -1,8 +1,8 @@
 // ----- standard library imports
 use std::str::FromStr;
 // ----- extra library imports
-use borsh::io::{Error as BorshError, ErrorKind, Read, Write};
 use bitcoin::secp256k1;
+use borsh::io::{Error as BorshError, ErrorKind, Read, Write};
 // ----- local imports
 
 // ----- end imports
@@ -171,7 +171,6 @@ struct Proof {
     c: [u8; secp256k1::constants::PUBLIC_KEY_SIZE],
     dleq: Option<Dleq>,
     witness: Option<WitnessEnum>,
-
 }
 impl std::convert::From<cashu::Proof> for Proof {
     fn from(proof: cashu::Proof) -> Self {
@@ -189,7 +188,11 @@ impl std::convert::From<Proof> for cashu::Proof {
     fn from(proof: Proof) -> Self {
         let keyset_id = cashu::Id::from_bytes(&proof.kid).expect("keyset_id parse");
         let secret = cashu::secret::Secret::from_str(&proof.secret).expect("secret parse");
-        let dleq = proof.dleq.map(cashu::ProofDleq::try_from).transpose().expect("dleq parse");
+        let dleq = proof
+            .dleq
+            .map(cashu::ProofDleq::try_from)
+            .transpose()
+            .expect("dleq parse");
         let c = cashu::PublicKey::from_slice(&proof.c).expect("c parse");
         cashu::Proof {
             amount: cashu::Amount::from(proof.amount),
