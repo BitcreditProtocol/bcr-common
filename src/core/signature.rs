@@ -99,6 +99,34 @@ pub fn sign_ecash(
     Ok(signature)
 }
 
+pub fn unblind_ecash_signature(
+    keys: &cashu::KeySet,
+    premint: cashu::PreMint,
+    signature: cashu::BlindSignature,
+) -> ECashSignatureResult<cashu::Proof> {
+    if signature.keyset_id != keys.id {
+        return Err(ECashSignatureError::MismatchedKid(
+            signature.keyset_id,
+            keys.id,
+        ));
+    }
+    if premint.blinded_message.keyset_id != keys.id {
+        return Err(ECashSignatureError::MismatchedKid(
+            premint.blinded_message.keyset_id,
+            keys.id,
+        ));
+    }
+    let Some(key) = keys.keys.amount_key(signature.amount) else {
+        return Err(ECashSignatureError::NoKeyForAmount(signature.amount));
+    };
+    let c = cashu::dhke::unblind_message(&signature.c, &premint.r, &key)?;
+    let mut proof = cashu::Proof::new(signature.amount, keys.id, premint.secret.clone(), c);
+    if let Some(dleq) = signature.dleq {
+        proof.dleq = Some(cashu::ProofDleq::new(dleq.e, dleq.s, premint.r.clone()));
+    }
+    Ok(proof)
+}
+
 pub fn verify_ecash_proof(
     keyset: &cashu::MintKeySet,
     proof: &cashu::Proof,
