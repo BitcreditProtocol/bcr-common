@@ -59,7 +59,9 @@ pub struct NewMintOperationRequest {
 pub struct NewMintOperationResponse {}
 
 ///--------------------------- Proof fingerprint validation
-#[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize, ToSchema)]
+#[derive(
+    Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize, ToSchema, PartialEq,
+)]
 pub struct ProofFingerprint {
     #[borsh(
         serialize_with = "serialize_as_str",
@@ -97,5 +99,31 @@ impl std::convert::From<ProofFingerprint> for core::signature::ProofFingerprint 
             y: *fp.y,
             c: *fp.c,
         }
+    }
+}
+
+impl std::convert::TryFrom<cashu::Proof> for ProofFingerprint {
+    type Error = cashu::nut00::Error;
+    fn try_from(proof: cashu::Proof) -> std::result::Result<Self, Self::Error> {
+        let y = proof.y()?;
+        Ok(ProofFingerprint {
+            keyset_id: proof.keyset_id,
+            amount: proof.amount.into(),
+            y,
+            c: proof.c,
+            dleq: proof.dleq,
+            witness: proof.witness,
+        })
+    }
+}
+
+pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> cashu::Proof {
+    cashu::Proof {
+        keyset_id: fp.keyset_id,
+        amount: cashu::Amount::from(fp.amount),
+        c: fp.c,
+        dleq: fp.dleq.clone(),
+        witness: fp.witness.clone(),
+        secret,
     }
 }
