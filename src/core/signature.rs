@@ -1,4 +1,5 @@
 // ----- standard library imports
+use std::collections::HashMap;
 // ----- extra library imports
 use bitcoin::{
     base64::prelude::*,
@@ -181,6 +182,16 @@ pub fn verify_ecash_fingerprint(
     } else {
         Err(ECashSignatureError::Invalid)
     }
+}
+
+pub fn proofs_to_map(
+    proofs: impl IntoIterator<Item = cashu::Proof>,
+) -> HashMap<cashu::Id, Vec<cashu::Proof>> {
+    let mut map: HashMap<cashu::Id, Vec<cashu::Proof>> = HashMap::new();
+    for proof in proofs.into_iter() {
+        map.entry(proof.keyset_id).or_default().push(proof);
+    }
+    map
 }
 
 #[cfg(test)]
