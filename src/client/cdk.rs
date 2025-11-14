@@ -7,7 +7,7 @@
 pub trait MintConnectorExt: cdk::wallet::MintConnector + Send + Sync {}
 impl MintConnectorExt for cdk::HttpClient {}
 
-#[cfg(feature = "test-utils")]
+#[cfg(all(feature = "test-utils", not(target_arch = "wasm32")))]
 pub mod test_utils {
     use async_trait::async_trait;
 
