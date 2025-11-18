@@ -3,6 +3,7 @@
 // ----- local modules
 pub mod bill;
 pub mod borsh;
+pub mod clowder;
 pub mod contact;
 pub mod identity;
 pub mod keys;
