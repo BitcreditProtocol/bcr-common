@@ -33,4 +33,4 @@ utoipa = {version = "5.4", features = ["chrono", "uuid"]}
 uuid = {version = "1", features = ["serde"]}
 
 [dev-dependencies]
-bcr-common = {path = ".", features = ["test-utils"]}
+bcr-common = {path = ".", features = ["test-utils", "authorized"]}
