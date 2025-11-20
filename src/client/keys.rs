@@ -11,9 +11,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("resource not found {0}")]
-    ResourceNotFound(cashu::Id),
-    #[error("resource from id not found {0}")]
-    ResourceFromIdNotFound(uuid::Uuid),
+    KeysetIdNotFound(cashu::Id),
+    #[error("mint operation not found {0}")]
+    MintOpNotFound(uuid::Uuid),
     #[error("invalid request")]
     InvalidRequest,
     #[error("authorization {0}")]
@@ -90,10 +90,10 @@ impl Client {
             .expect("keys relative path");
         let res = self.cl.get(url).send().await?;
         if res.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(kid));
+            return Err(Error::KeysetIdNotFound(kid));
         }
         let ks = res.json::<cashu::KeysResponse>().await?.keysets;
-        ks.into_iter().next().ok_or(Error::ResourceNotFound(kid))
+        ks.into_iter().next().ok_or(Error::KeysetIdNotFound(kid))
     }
 
     pub const LISTKEYS_EP_V1: &'static str = "/v1/keys";
@@ -115,7 +115,7 @@ impl Client {
             .expect("keyset relative path");
         let res = self.cl.get(url).send().await?;
         if res.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(kid));
+            return Err(Error::KeysetIdNotFound(kid));
         }
         let ks = res.json::<cashu::KeySetInfo>().await?;
         Ok(ks)
@@ -148,7 +148,7 @@ impl Client {
             return Err(Error::InvalidRequest);
         }
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(msg.keyset_id));
+            return Err(Error::KeysetIdNotFound(msg.keyset_id));
         }
         let sig = response.json::<cashu::BlindSignature>().await?;
         Ok(sig)
@@ -164,7 +164,7 @@ impl Client {
         let request = self.cl.post(url).json(proof);
         let response = self.auth.authorize(request).send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(proof.keyset_id));
+            return Err(Error::KeysetIdNotFound(proof.keyset_id));
         }
         if response.status() == reqwest::StatusCode::BAD_REQUEST {
             return Err(Error::InvalidRequest);
@@ -183,7 +183,7 @@ impl Client {
         let request = self.cl.post(url).json(fp);
         let response = self.auth.authorize(request).send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(fp.keyset_id));
+            return Err(Error::KeysetIdNotFound(fp.keyset_id));
         }
         if response.status() == reqwest::StatusCode::BAD_REQUEST {
             return Err(Error::InvalidRequest);
@@ -224,12 +224,31 @@ impl Client {
             pub_key: pk,
             target,
         };
-        let result = self.cl.post(url).json(&msg).send().await?;
-        if result.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(kid));
+        let request = self.cl.post(url).json(&msg);
+        let response = self.auth.authorize(request).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::KeysetIdNotFound(kid));
         }
-        let _response = result.json::<wire_keys::NewMintOperationResponse>().await?;
+        let _response = response
+            .json::<wire_keys::NewMintOperationResponse>()
+            .await?;
         Ok(())
+    }
+
+    pub const MINTOPSTATUS_EP_V1: &'static str = "/v1/admin/keys/mintop/{qid}";
+    #[cfg(feature = "authorized")]
+    pub async fn mint_operation_status(&self, qid: uuid::Uuid) -> Result<cashu::Amount> {
+        let url = self
+            .base
+            .join(&Self::MINTOPSTATUS_EP_V1.replace("{qid}", &qid.to_string()))
+            .expect("mint operation status relative path");
+        let request = self.cl.get(url);
+        let response = self.auth.authorize(request).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::MintOpNotFound(qid));
+        }
+        let response = response.json::<cashu::Amount>().await?;
+        Ok(response)
     }
 
     pub const MINT_EP_V1: &'static str = "/v1/mint/ebill";
@@ -251,7 +270,7 @@ impl Client {
         msg.sign(sk)?;
         let result = self.cl.post(url).json(&msg).send().await?;
         if result.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceFromIdNotFound(qid));
+            return Err(Error::MintOpNotFound(qid));
         }
         let response = result.json::<cashu::MintResponse>().await?;
         Ok(response.signatures)
@@ -292,7 +311,7 @@ impl Client {
         let request = self.cl.post(url).json(&msg);
         let response = self.auth.authorize(request).send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(kid));
+            return Err(Error::KeysetIdNotFound(kid));
         }
         let response: wire_keys::DeactivateKeysetResponse = response.json().await?;
         Ok(response.kid)
