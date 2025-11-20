@@ -88,6 +88,12 @@ pub struct EnquireReply {
 
 /// --------------------------- Look up quote
 #[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
+pub enum MintingStatus {
+    Disabled,
+    Enabled(cashu::Amount), // amount minted so far out of the bill amount
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
 #[strum_discriminants(derive(Serialize, Deserialize, ToSchema, strum::Display))]
 #[serde(tag = "status")]
 pub enum StatusReply {
@@ -115,6 +121,7 @@ pub enum StatusReply {
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
         minting_pubkey: cashu::PublicKey,
+        minting_status: MintingStatus,
     },
     Rejected {
         tstamp: DateTime<Utc>,
