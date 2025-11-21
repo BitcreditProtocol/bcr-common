@@ -173,7 +173,7 @@ impl Client {
             .join(&Self::UPDATE_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("deny quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Deny;
-        let request = self.cl.post(url).json(&body);
+        let request = self.cl.put(url).json(&body);
         let reply = self.auth.authorize(request).send().await?.json().await?;
         Ok(reply)
     }
@@ -190,7 +190,7 @@ impl Client {
             .join(&Self::UPDATE_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("offer quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Offer { discounted, ttl };
-        let request = self.cl.post(url).json(&body);
+        let request = self.cl.put(url).json(&body);
         let reply = self.auth.authorize(request).send().await?.json().await?;
         Ok(reply)
     }
