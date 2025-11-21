@@ -88,9 +88,10 @@ pub struct EnquireReply {
 
 /// --------------------------- Look up quote
 #[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
+#[serde(tag = "status")]
 pub enum MintingStatus {
     Disabled,
-    Enabled(cashu::Amount), // amount minted so far out of the bill amount
+    Enabled { minted: cashu::Amount }, // amount minted so far out of the bill amount
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
@@ -215,6 +216,7 @@ pub enum InfoReply {
         keyset_id: cdk02::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
+        minting_status: MintingStatus,
     },
     Rejected {
         id: uuid::Uuid,
