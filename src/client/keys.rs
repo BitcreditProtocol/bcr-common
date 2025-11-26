@@ -251,6 +251,19 @@ impl Client {
         Ok(response)
     }
 
+    pub const LISTMINTOPS_EP_V1: &'static str = "/v1/admin/keys/mintops/{kid}";
+    #[cfg(feature = "authorized")]
+    pub async fn list_mint_operations(&self, kid: cashu::Id) -> Result<Vec<cashu::Amount>> {
+        let url = self
+            .base
+            .join(&Self::LISTMINTOPS_EP_V1.replace("{kid}", &kid.to_string()))
+            .expect("list mint operations relative path");
+        let request = self.cl.get(url);
+        let response = self.auth.authorize(request).send().await?;
+        let response = response.json::<Vec<cashu::Amount>>().await?;
+        Ok(response)
+    }
+
     pub const MINT_EP_V1: &'static str = "/v1/mint/ebill";
     pub async fn mint(
         &self,
