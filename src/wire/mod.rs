@@ -7,6 +7,7 @@ pub mod clowder;
 pub mod contact;
 pub mod identity;
 pub mod keys;
+pub mod protest;
 pub mod quotes;
 pub mod signatures;
 pub mod swap;

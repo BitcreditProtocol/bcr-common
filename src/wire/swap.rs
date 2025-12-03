@@ -62,21 +62,3 @@ pub struct CommitmentResponse {
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
-
-///--------------------------- Protest
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct Protest {
-    pub commitment_content: String, // base64, borsh-serialized CommitmentContent
-    #[schema(value_type = String)]
-    pub signature: bitcoin::secp256k1::schnorr::Signature,
-    pub proofs: Vec<cashu::Proof>,
-}
-
-///--------------------------- ForceRequest
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct ForceSwapRequest {
-    pub inputs: Vec<cashu::Proof>,
-    pub outputs: Vec<cashu::BlindedMessage>,
-    #[schema(value_type = String)]
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
-}
