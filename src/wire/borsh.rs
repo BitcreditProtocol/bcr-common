@@ -47,25 +47,6 @@ where
         .collect::<std::result::Result<Vec<T>, T::Err>>()
         .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))
 }
-pub(crate) fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
-where
-    T: serde::ser::Serialize,
-{
-    let stringified =
-        serde_json::to_string(vec).map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
-    borsh::BorshSerialize::serialize(&stringified, writer)?;
-    Ok(())
-}
-
-pub(crate) fn deserialize_vec_of_jsons<T>(reader: &mut impl Read) -> Result<Vec<T>>
-where
-    T: serde::de::DeserializeOwned,
-{
-    let stringified: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
-    let vec = serde_json::from_str(&stringified)
-        .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
-    Ok(vec)
-}
 
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
 struct Dleq {
@@ -174,7 +155,7 @@ struct Proof {
 }
 impl std::convert::From<cashu::Proof> for Proof {
     fn from(proof: cashu::Proof) -> Self {
-        Proof {
+        Self {
             amount: u64::from(proof.amount),
             kid: proof.keyset_id.to_bytes(),
             secret: proof.secret.to_string(),
@@ -194,7 +175,7 @@ impl std::convert::From<Proof> for cashu::Proof {
             .transpose()
             .expect("dleq parse");
         let c = cashu::PublicKey::from_slice(&proof.c).expect("c parse");
-        cashu::Proof {
+        Self {
             amount: cashu::Amount::from(proof.amount),
             keyset_id,
             c,
@@ -204,6 +185,7 @@ impl std::convert::From<Proof> for cashu::Proof {
         }
     }
 }
+
 pub fn serialize_cdkproof(input: &cashu::Proof, writer: &mut impl Write) -> Result<()> {
     let proof = Proof::from(input.clone());
     borsh::BorshSerialize::serialize(&proof, writer)?;
@@ -223,6 +205,73 @@ pub fn deserialize_cdkproof(reader: &mut impl Read) -> Result<cashu::Proof> {
 pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::Proof>> {
     let proofs: Vec<Proof> = borsh::BorshDeserialize::deserialize_reader(reader)?;
     let output: Vec<cashu::Proof> = proofs.into_iter().map(cashu::Proof::from).collect();
+    Ok(output)
+}
+
+#[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct BlindedMessage {
+    amount: u64,
+    kid: Vec<u8>,
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
+    )]
+    blinded_secret: cashu::PublicKey,
+    witness: Option<WitnessEnum>,
+}
+impl std::convert::From<cashu::BlindedMessage> for BlindedMessage {
+    fn from(blind: cashu::BlindedMessage) -> Self {
+        Self {
+            amount: u64::from(blind.amount),
+            kid: blind.keyset_id.to_bytes(),
+            blinded_secret: blind.blinded_secret,
+            witness: blind.witness.map(WitnessEnum::from),
+        }
+    }
+}
+impl std::convert::From<BlindedMessage> for cashu::BlindedMessage {
+    fn from(blind: BlindedMessage) -> Self {
+        let keyset_id = cashu::Id::from_bytes(&blind.kid).expect("keyset_id parse");
+        let witness = blind.witness.map(cashu::Witness::from);
+        Self {
+            amount: cashu::Amount::from(blind.amount),
+            keyset_id,
+            blinded_secret: blind.blinded_secret,
+            witness,
+        }
+    }
+}
+
+pub fn serialize_cdkblindedmessage(
+    input: &cashu::BlindedMessage,
+    writer: &mut impl Write,
+) -> Result<()> {
+    let blind = BlindedMessage::from(input.clone());
+    borsh::BorshSerialize::serialize(&blind, writer)?;
+    Ok(())
+}
+pub fn serialize_vecof_cdkblindedmessage(
+    input: &[cashu::BlindedMessage],
+    writer: &mut impl Write,
+) -> Result<()> {
+    let blinds: Vec<_> = input.iter().cloned().map(BlindedMessage::from).collect();
+    borsh::BorshSerialize::serialize(&blinds, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_cdkblindedmessage(reader: &mut impl Read) -> Result<cashu::BlindedMessage> {
+    let blind: BlindedMessage = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let output = cashu::BlindedMessage::from(blind);
+    Ok(output)
+}
+pub fn deserialize_vecof_cdkblindedmessage(
+    reader: &mut impl Read,
+) -> Result<Vec<cashu::BlindedMessage>> {
+    let blinds: Vec<BlindedMessage> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let output: Vec<cashu::BlindedMessage> = blinds
+        .into_iter()
+        .map(cashu::BlindedMessage::from)
+        .collect();
     Ok(output)
 }
 
@@ -261,14 +310,26 @@ mod tests {
     }
 
     #[test]
-    fn serialize_deserialize_vec_of_jsons_cdk_proofs() {
+    fn serialize_deserialize_vec_cdk_proofs() {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
         let amount = cashu::Amount::from_str("1000").unwrap();
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amount.split());
         let mut buf = Vec::new();
-        serialize_vec_of_jsons(&proofs, &mut buf).unwrap();
-        let deserialized = deserialize_vec_of_jsons(&mut buf.as_slice()).unwrap();
+        serialize_vecof_cdkproof(&proofs, &mut buf).unwrap();
+        let deserialized = deserialize_vecof_cdkproof(&mut buf.as_slice()).unwrap();
         assert_eq!(proofs, deserialized);
+    }
+
+    #[test]
+    fn serialize_deserialize_vec_cdk_blindedmessage() {
+        let (_, keyset) = core_tests::generate_random_ecash_keyset();
+        let amount = cashu::Amount::from_str("1000").unwrap();
+        let blinds = core_tests::generate_random_ecash_blinds(keyset.id, &amount.split());
+        let blinds = blinds.into_iter().map(|(b, _, _)| b).collect::<Vec<_>>();
+        let mut buf = Vec::new();
+        serialize_vecof_cdkblindedmessage(&blinds, &mut buf).unwrap();
+        let deserialized = deserialize_vecof_cdkblindedmessage(&mut buf.as_slice()).unwrap();
+        assert_eq!(blinds, deserialized);
     }
 
     #[test]
@@ -282,44 +343,5 @@ mod tests {
         serialize_vec_of_strs(&pks, &mut buf).unwrap();
         let deserialized = deserialize_vec_of_strs(&mut buf.as_slice()).unwrap();
         assert_eq!(pks, deserialized);
-    }
-
-    #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
-    struct Field {
-        pub f1: String,
-        pub f2: u8,
-    }
-    #[derive(borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Debug)]
-    struct Test {
-        pub f1: String,
-        #[borsh(
-            serialize_with = "serialize_vec_of_jsons",
-            deserialize_with = "deserialize_vec_of_jsons"
-        )]
-        pub f2: Vec<Field>,
-        pub f3: Vec<u32>,
-    }
-
-    #[test]
-    fn serialize_deserialize_struct() {
-        let t = Test {
-            f1: String::from("field 1"),
-            f2: vec![
-                Field {
-                    f1: String::from("a"),
-                    f2: 1,
-                },
-                Field {
-                    f1: String::from("b"),
-                    f2: 2,
-                },
-            ],
-            f3: vec![10, 20, 30],
-        };
-        let mut buf = Vec::new();
-        borsh::BorshSerialize::serialize(&t, &mut buf).unwrap();
-        let deserialized_t =
-            borsh::BorshDeserialize::deserialize_reader(&mut buf.as_slice()).unwrap();
-        assert_eq!(t, deserialized_t);
     }
 }

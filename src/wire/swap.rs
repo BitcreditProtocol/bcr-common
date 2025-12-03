@@ -6,7 +6,8 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
     borsh::{
-        deserialize_as_str, deserialize_vec_of_jsons, serialize_as_str, serialize_vec_of_jsons,
+        deserialize_as_str, deserialize_vecof_cdkblindedmessage, serialize_as_str,
+        serialize_vecof_cdkblindedmessage,
     },
     keys::ProofFingerprint,
 };
@@ -39,8 +40,8 @@ pub struct RecoverResponse {}
 pub struct CommitmentContent {
     pub inputs: Vec<ProofFingerprint>,
     #[borsh(
-        serialize_with = "serialize_vec_of_jsons",
-        deserialize_with = "deserialize_vec_of_jsons"
+        serialize_with = "serialize_vecof_cdkblindedmessage",
+        deserialize_with = "deserialize_vecof_cdkblindedmessage"
     )]
     pub outputs: Vec<cashu::BlindedMessage>,
     #[borsh(
