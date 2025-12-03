@@ -94,3 +94,27 @@ pub fn generate_ecash_signatures(
     }
     signatures
 }
+
+pub fn generate_random_ecash_blinds(
+    id: cashu::Id,
+    amounts: &[cashu::Amount],
+) -> Vec<(
+    cashu::BlindedMessage,
+    cashu::secret::Secret,
+    cashu::SecretKey,
+)> {
+    let mut blinds: Vec<(
+        cashu::BlindedMessage,
+        cashu::secret::Secret,
+        cashu::SecretKey,
+    )> = Vec::new();
+    for amount in amounts {
+        let premint = cashu::PreMintSecrets::random(id, *amount, &cashu::amount::SplitTarget::None)
+            .expect("cashu::PreMintSecrets");
+        for item in premint {
+            let blind = (item.blinded_message, item.secret, item.r);
+            blinds.push(blind);
+        }
+    }
+    blinds
+}
