@@ -32,7 +32,9 @@ pub struct ConnectedMintResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectedMintsResponse {
-    pub mints: Vec<ConnectedMintResponse>,
+    pub mint_urls: Vec<cashu::MintUrl>,
+    pub clowder_urls: Vec<reqwest::Url>,
+    pub node_ids: Vec<secp256k1::PublicKey>,
 }
 
 ///--------------------------- Exchange
