@@ -67,6 +67,8 @@ pub enum ECashSignatureError {
     Invalid,
     #[error("mismatched keyset {0} {1}")]
     MismatchedKid(cashu::Id, cashu::Id),
+    #[error("mismatched amount {0} {1}")]
+    MismatchedAmount(cashu::Amount, cashu::Amount),
     #[error("no key for amount {0}")]
     NoKeyForAmount(cashu::Amount),
     #[error("cdk::dhke {0}")]
@@ -117,13 +119,19 @@ pub fn unblind_ecash_signature(
             keys.id,
         ));
     }
+    if premint.amount != cashu::Amount::ZERO && premint.amount != signature.amount {
+        return Err(ECashSignatureError::MismatchedAmount(
+            premint.amount,
+            signature.amount,
+        ));
+    }
     let Some(key) = keys.keys.amount_key(signature.amount) else {
         return Err(ECashSignatureError::NoKeyForAmount(signature.amount));
     };
     let c = cashu::dhke::unblind_message(&signature.c, &premint.r, &key)?;
-    let mut proof = cashu::Proof::new(signature.amount, keys.id, premint.secret.clone(), c);
+    let mut proof = cashu::Proof::new(signature.amount, keys.id, premint.secret, c);
     if let Some(dleq) = signature.dleq {
-        proof.dleq = Some(cashu::ProofDleq::new(dleq.e, dleq.s, premint.r.clone()));
+        proof.dleq = Some(cashu::ProofDleq::new(dleq.e, dleq.s, premint.r));
     }
     Ok(proof)
 }
