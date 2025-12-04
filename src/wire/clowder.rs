@@ -104,3 +104,11 @@ pub enum AlphaState {
 pub struct AlphaStateResponse {
     pub state: AlphaState,
 }
+
+///--------------------------- Wallet-side Event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WalletEvent {
+    Swap { minted: Vec<cashu::BlindSignature> },
+    Mint { minted: Vec<cashu::BlindSignature> },
+    Melt { burned: Vec<cashu::PublicKey>, qid: String },
+}
