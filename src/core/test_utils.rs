@@ -15,7 +15,7 @@ pub fn generate_random_keypair() -> secp::Keypair {
 
 pub fn random_bill_id() -> BillId {
     let keypair = generate_random_keypair();
-    BillId::new(keypair.public_key().into(), bitcoin::Network::Testnet)
+    BillId::new(keypair.public_key(), bitcoin::Network::Testnet)
 }
 
 pub fn random_node_id() -> NodeId {
