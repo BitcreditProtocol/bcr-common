@@ -83,7 +83,8 @@ impl AuthorizationPlugin {
         client: &reqwest::Client,
         client_id: String,
     ) -> Result<std::time::Duration> {
-        let Some(ref token_url) = *self.token_url.read().unwrap() else {
+        let lock = self.token_url.read().unwrap().clone();
+        let Some(ref token_url) = lock else {
             return Err(Error::MissingTokenUrl);
         };
         let Some(refresh_token) = self.refresh_token.write().unwrap().take() else {
@@ -94,6 +95,8 @@ impl AuthorizationPlugin {
             ("refresh_token", &refresh_token),
             ("client_id", &client_id),
         ]);
+        drop(lock);
+
         let response = request.send().await?;
         let token = response.json::<TokenResponse>().await?;
         let TokenResponse {
