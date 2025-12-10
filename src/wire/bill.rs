@@ -217,7 +217,9 @@ pub struct Notification {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum NotificationType {
     General,
+    Company,
     Bill,
+    Contact,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
