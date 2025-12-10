@@ -67,6 +67,7 @@ pub enum RabidReason {
     HashSeqDiscrepancy(u64, Sha256Hash, Sha256Hash),
     // TODO needs to be signed by a time service so the timestamp can't be made up
     Offline(u64),
+    InvalidBurn(bitcoin::secp256k1::PublicKey),
 }
 // Hash order doesn't matter
 impl PartialEq for RabidReason {
