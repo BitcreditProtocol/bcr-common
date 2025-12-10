@@ -175,7 +175,6 @@ impl BillParticipant {
 pub struct BillAnonParticipant {
     #[schema(value_type=String)]
     pub node_id: NodeId,
-    pub email: Option<String>,
     #[schema(value_type=Vec<String>)]
     #[borsh(
         serialize_with = "serialize_vec_of_strs",
