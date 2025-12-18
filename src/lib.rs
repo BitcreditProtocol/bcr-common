@@ -3,6 +3,7 @@
 // ----- local modules
 pub mod client;
 pub mod core;
+pub mod wallet;
 pub mod wire;
 
 // ----- end imports

@@ -19,6 +19,7 @@ cashu = {version = "0.13", features = ["swagger"]}
 cdk = {version = "0.13", default-features = false, features = ["wallet"]}
 cdk-common = {version = "0.13", optional = true}
 chrono = {version = "0.4", features = ["serde"]}
+ciborium = {version="0.2"}
 mockall = {version = "0.13", optional = true}
 nostr = {version = "0.43"}
 rand = {version = "0.8", optional = true}
