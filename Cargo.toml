@@ -13,7 +13,7 @@ authorized = []
 async-trait = {version = "0.1", optional = true}
 bdk_wallet = {version = "2.1"}
 bip39 = {version = "2.2"}
-bitcoin = {version = "0.32"}
+bitcoin = {version = "0.32", features = ["serde"]}
 borsh = {version = "1.5", features = ["derive"]}
 cashu = {version = "0.13", features = ["swagger"]}
 cdk = {version = "0.13", default-features = false, features = ["wallet"]}

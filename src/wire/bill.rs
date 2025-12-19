@@ -279,3 +279,10 @@ pub struct LightBillIdentParticipantWithAddress {
     #[serde(flatten)]
     pub postal_address: PostalAddress,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillShortDescription {
+    pub id: BillId,
+    pub sum: bitcoin::Amount,
+    pub recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+}
