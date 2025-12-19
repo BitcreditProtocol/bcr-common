@@ -237,7 +237,10 @@ impl Client {
 
     pub const MINTOPSTATUS_EP_V1: &'static str = "/v1/admin/keys/mintop/{qid}";
     #[cfg(feature = "authorized")]
-    pub async fn mint_operation_status(&self, qid: uuid::Uuid) -> Result<cashu::Amount> {
+    pub async fn mint_operation_status(
+        &self,
+        qid: uuid::Uuid,
+    ) -> Result<wire_keys::MintOperationStatus> {
         let url = self
             .base
             .join(&Self::MINTOPSTATUS_EP_V1.replace("{qid}", &qid.to_string()))
@@ -247,20 +250,20 @@ impl Client {
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::MintOpNotFound(qid));
         }
-        let response = response.json::<cashu::Amount>().await?;
+        let response = response.json::<wire_keys::MintOperationStatus>().await?;
         Ok(response)
     }
 
     pub const LISTMINTOPS_EP_V1: &'static str = "/v1/admin/keys/mintops/{kid}";
     #[cfg(feature = "authorized")]
-    pub async fn list_mint_operations(&self, kid: cashu::Id) -> Result<Vec<cashu::Amount>> {
+    pub async fn list_mint_operations(&self, kid: cashu::Id) -> Result<Vec<uuid::Uuid>> {
         let url = self
             .base
             .join(&Self::LISTMINTOPS_EP_V1.replace("{kid}", &kid.to_string()))
             .expect("list mint operations relative path");
         let request = self.cl.get(url);
         let response = self.auth.authorize(request).send().await?;
-        let response = response.json::<Vec<cashu::Amount>>().await?;
+        let response = response.json::<Vec<uuid::Uuid>>().await?;
         Ok(response)
     }
 

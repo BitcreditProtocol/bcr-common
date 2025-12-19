@@ -58,6 +58,15 @@ pub struct NewMintOperationRequest {
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
 pub struct NewMintOperationResponse {}
 
+///--------------------------- Mint operation status
+#[derive(Serialize, Deserialize, ToSchema, Debug)]
+pub struct MintOperationStatus {
+    pub kid: cashu::Id,
+    pub quote_id: uuid::Uuid,
+    pub target: cashu::Amount,
+    pub current: cashu::Amount,
+}
+
 ///--------------------------- Proof fingerprint validation
 #[derive(
     Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize, ToSchema, PartialEq,
