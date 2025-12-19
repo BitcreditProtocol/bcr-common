@@ -3,7 +3,7 @@
 use bitcoin::{hashes::sha256::Hash as Sha256Hash, secp256k1};
 use serde::{Deserialize, Serialize};
 // ----- local imports
-use crate::wire::keys as wire_keys;
+use crate::wire::{bill as wire_bill, keys as wire_keys};
 
 // ----- end imports
 
@@ -117,4 +117,11 @@ pub enum WalletEvent {
         burned: Vec<cashu::PublicKey>,
         qid: String,
     },
+}
+
+///--------------------------- Redemption activation Event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedemptionActivationEvent {
+    pub keyset_id: cashu::KeySetInfo,
+    pub ebills: Vec<wire_bill::BillShortDescription>,
 }
