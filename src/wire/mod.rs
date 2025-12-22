@@ -8,6 +8,7 @@ pub mod contact;
 pub mod exchange;
 pub mod identity;
 pub mod keys;
+pub mod melt;
 pub mod quotes;
 pub mod signatures;
 pub mod swap;
