@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 // ----- end imports
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OnChainRequest {
+pub struct OnchainInvoice {
     /// Total amount
     pub amount: Amount,
     /// Bitcoin address to pay
@@ -17,7 +17,7 @@ pub struct OnChainRequest {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MeltQuoteOnchainRequest {
     /// Bitcoin Address
-    pub request: OnChainRequest,
+    pub request: OnchainInvoice,
     /// Unit wallet would like to pay with
     pub unit: CurrencyUnit,
     /// Payment Options
