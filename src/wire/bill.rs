@@ -222,8 +222,9 @@ pub enum NotificationType {
     Contact,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RequestToPayBitcreditBillPayload {
+    #[schema(value_type=String)]
     pub bill_id: BillId,
     pub currency: String,
     pub deadline: chrono::DateTime<chrono::Utc>,

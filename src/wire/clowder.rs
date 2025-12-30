@@ -2,6 +2,7 @@
 // ----- extra library imports
 use bitcoin::{hashes::sha256::Hash as Sha256Hash, secp256k1};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{bill as wire_bill, keys as wire_keys};
 
@@ -23,14 +24,16 @@ pub struct OfflineResponse {
 }
 
 ///--------------------------- Connected Mint
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ConnectedMintResponse {
+    #[schema(value_type=String)]
     pub mint: cashu::MintUrl,
     pub clowder: reqwest::Url,
+    #[schema(value_type=String)]
     pub node_id: secp256k1::PublicKey,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ConnectedMintsResponse {
     pub mints: Vec<ConnectedMintResponse>,
 }
@@ -61,12 +64,13 @@ pub struct SubstituteExchangeResponse {
 }
 
 ///--------------------------- Rabid Reason
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, ToSchema)]
 pub enum RabidReason {
     Forked(u64, Sha256Hash, Sha256Hash),
     HashSeqDiscrepancy(u64, Sha256Hash, Sha256Hash),
     // TODO needs to be signed by a time service so the timestamp can't be made up
     Offline(u64),
+    #[schema(value_type=String)]
     InvalidBurn(bitcoin::secp256k1::PublicKey),
 }
 // Hash order doesn't matter
@@ -87,7 +91,7 @@ impl PartialEq for RabidReason {
 }
 
 ///--------------------------- Alpha State
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub enum AlphaState {
     /// Last seen timestamp
     Online(u64),
@@ -99,7 +103,7 @@ pub enum AlphaState {
     ConfiscatedRabid(bitcoin::Txid, RabidReason),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AlphaStateResponse {
     pub state: AlphaState,
 }
@@ -124,4 +128,20 @@ pub enum WalletEvent {
 pub struct RedemptionActivationEvent {
     pub keyset_id: cashu::KeySetInfo,
     pub ebills: Vec<wire_bill::BillShortDescription>,
+}
+
+///--------------------------- Perceived State
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum MintState {
+    Online,
+    Offline,
+    Interim,
+    Rabid,
+}
+/// Reflects what the majority of Beta mints think about the current Alpha mint
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PerceivedState {
+    #[schema(value_type=Option<String>)]
+    pub substitute_beta: Option<bitcoin::secp256k1::PublicKey>,
+    pub alpha_state: MintState,
 }
