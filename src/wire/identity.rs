@@ -42,14 +42,14 @@ pub struct SeedPhrase {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct Identity {
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub node_id: NodeId,
     pub name: String,
     pub email: Option<String>,
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub bitcoin_public_key: bitcoin::PublicKey,
     #[serde(serialize_with = "bech32_nostr_pk_serialize")]
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub npub: nostr::PublicKey,
     pub postal_address: OptionalPostalAddress,
     pub date_of_birth: Option<NaiveDate>,
