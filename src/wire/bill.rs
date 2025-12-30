@@ -21,7 +21,7 @@ pub struct BillsResponse<T: Serialize> {
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BitcreditBill {
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub id: BillId,
     pub participants: BillParticipants,
     pub data: BillData,
@@ -152,7 +152,7 @@ pub struct BillParticipants {
     pub endorsee: Option<BillParticipant>,
     pub endorsements: Vec<Endorsement>,
     pub endorsements_count: u64,
-    #[schema(value_type=Vec<String>)]
+    #[schema(value_type = Vec<String>)]
     pub all_participant_node_ids: Vec<NodeId>,
 }
 
@@ -173,9 +173,9 @@ impl BillParticipant {
 
 #[derive(Debug, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize, ToSchema)]
 pub struct BillAnonParticipant {
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub node_id: NodeId,
-    #[schema(value_type=Vec<String>)]
+    #[schema(value_type = Vec<String>)]
     #[borsh(
         serialize_with = "serialize_vec_of_strs",
         deserialize_with = "deserialize_vec_of_strs"
@@ -187,13 +187,13 @@ pub struct BillAnonParticipant {
 pub struct BillIdentParticipant {
     #[serde(rename = "type")]
     pub t: ContactType,
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub node_id: NodeId,
     pub name: String,
     #[serde(flatten)]
     pub postal_address: PostalAddress,
     pub email: Option<String>,
-    #[schema(value_type=Vec<String>)]
+    #[schema(value_type = Vec<String>)]
     #[borsh(
         serialize_with = "serialize_vec_of_strs",
         deserialize_with = "deserialize_vec_of_strs"
@@ -204,7 +204,7 @@ pub struct BillIdentParticipant {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Notification {
     pub id: String,
-    #[schema(value_type=Option<String>)]
+    #[schema(value_type = Option<String>)]
     pub node_id: Option<NodeId>,
     pub notification_type: NotificationType,
     pub reference_id: Option<String>,
@@ -224,7 +224,7 @@ pub enum NotificationType {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RequestToPayBitcreditBillPayload {
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub bill_id: BillId,
     pub currency: String,
     pub deadline: chrono::DateTime<chrono::Utc>,
@@ -257,7 +257,7 @@ pub enum LightBillParticipant {
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct LightBillAnonParticipant {
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub node_id: NodeId,
 }
 
@@ -266,7 +266,7 @@ pub struct LightBillIdentParticipant {
     #[serde(rename = "type")]
     pub t: ContactType,
     pub name: String,
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub node_id: NodeId,
 }
 
@@ -275,7 +275,7 @@ pub struct LightBillIdentParticipantWithAddress {
     #[serde(rename = "type")]
     pub t: ContactType,
     pub name: String,
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub node_id: NodeId,
     #[serde(flatten)]
     pub postal_address: PostalAddress,

@@ -42,7 +42,7 @@ pub struct SharedBill {
 
 #[derive(Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize, ToSchema)]
 pub struct BillInfo {
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub id: BillId,
     pub drawee: BillIdentParticipant,
     pub drawer: BillIdentParticipant,

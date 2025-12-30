@@ -25,7 +25,7 @@ pub struct EnableNewMintingOpRequest {
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
 pub struct KeysetMintCondition {
     pub amount: cashu::Amount,
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub public_key: cashu::PublicKey,
 }
 ///--------------------------- Pre-sign blinded message

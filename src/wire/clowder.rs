@@ -26,10 +26,10 @@ pub struct OfflineResponse {
 ///--------------------------- Connected Mint
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ConnectedMintResponse {
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub mint: cashu::MintUrl,
     pub clowder: reqwest::Url,
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     pub node_id: secp256k1::PublicKey,
 }
 
@@ -70,7 +70,7 @@ pub enum RabidReason {
     HashSeqDiscrepancy(u64, Sha256Hash, Sha256Hash),
     // TODO needs to be signed by a time service so the timestamp can't be made up
     Offline(u64),
-    #[schema(value_type=String)]
+    #[schema(value_type = String)]
     InvalidBurn(bitcoin::secp256k1::PublicKey),
 }
 // Hash order doesn't matter
@@ -141,7 +141,7 @@ pub enum MintState {
 /// Reflects what the majority of Beta mints think about the current Alpha mint
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PerceivedState {
-    #[schema(value_type=Option<String>)]
+    #[schema(value_type = Option<String>)]
     pub substitute_beta: Option<bitcoin::secp256k1::PublicKey>,
     pub alpha_state: MintState,
 }
