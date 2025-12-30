@@ -131,7 +131,7 @@ pub struct RedemptionActivationEvent {
 }
 
 ///--------------------------- Perceived State
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq)]
 pub enum MintState {
     Online,
     Offline,
