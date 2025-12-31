@@ -119,6 +119,14 @@ pub struct PerceivedState {
     pub alpha_state: MintState,
 }
 
+///--------------------------- Accounting
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SupplyResponse {
+    pub credit: cashu::Amount,
+    pub debit: cashu::Amount,
+}
+
 ///--------------------------- Onchain Mint Information
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
