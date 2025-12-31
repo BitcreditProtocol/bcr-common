@@ -121,46 +121,52 @@ pub struct PerceivedState {
 
 ///--------------------------- Accounting
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SupplyResponse {
     pub credit: cashu::Amount,
     pub debit: cashu::Amount,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BitcoinAmountResponse {
+    #[schema(value_type = u64)]
     pub amount: bitcoin::Amount,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EbillAmountResponse {
+    #[schema(value_type = u64)]
     pub amount: bitcoin::Amount,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EiouAmountResponse {
     pub amount: u64,
 }
 
 ///--------------------------- Onchain Mint Information
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RequestMintAddressRequest {
+    #[schema(value_type = String)]
     pub quote_id: uuid::Uuid,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RequestMintAddressResponse {
+    #[schema(value_type = String)]
     pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct VerifyMintPaymentRequest {
+    #[schema(value_type = String)]
     pub quote_id: uuid::Uuid,
     pub min_confirmations: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct VerifyMintPaymentResponse {
+    #[schema(value_type = u64)]
     pub amount: bitcoin::Amount,
 }
