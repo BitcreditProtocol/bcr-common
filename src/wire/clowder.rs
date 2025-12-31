@@ -63,49 +63,22 @@ pub struct SubstituteExchangeResponse {
     pub signature: secp256k1::schnorr::Signature,
 }
 
-///--------------------------- Rabid Reason
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, ToSchema)]
-pub enum RabidReason {
-    Forked(u64, Sha256Hash, Sha256Hash),
-    HashSeqDiscrepancy(u64, Sha256Hash, Sha256Hash),
-    // TODO needs to be signed by a time service so the timestamp can't be made up
-    Offline(u64),
-    #[schema(value_type = String)]
-    InvalidBurn(bitcoin::secp256k1::PublicKey),
-}
-// Hash order doesn't matter
-impl PartialEq for RabidReason {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (RabidReason::Forked(a1, a2, a3), RabidReason::Forked(b1, b2, b3)) => {
-                a1 == b1 && ((a2, a3) == (b2, b3) || (a2, a3) == (b3, b2))
-            }
-            (
-                RabidReason::HashSeqDiscrepancy(a1, a2, a3),
-                RabidReason::HashSeqDiscrepancy(b1, b2, b3),
-            ) => a1 == b1 && ((a2, a3) == (b2, b3) || (a2, a3) == (b3, b2)),
-            (RabidReason::Offline(a), RabidReason::Offline(b)) => a == b,
-            _ => false,
-        }
-    }
-}
-
 ///--------------------------- Alpha State
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
-pub enum AlphaState {
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum SimpleAlphaState {
     /// Last seen timestamp
     Online(u64),
     /// Last seen timestamp
     Offline(u64),
     /// Pre Rabid
-    Rabid(RabidReason),
+    Rabid(String),
     /// Post Rabid
-    ConfiscatedRabid(bitcoin::Txid, RabidReason),
+    ConfiscatedRabid(bitcoin::Txid, String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AlphaStateResponse {
-    pub state: AlphaState,
+    pub state: SimpleAlphaState,
 }
 
 ///--------------------------- Wallet-side Event
@@ -144,4 +117,58 @@ pub struct PerceivedState {
     #[schema(value_type = Option<String>)]
     pub substitute_beta: Option<bitcoin::secp256k1::PublicKey>,
     pub alpha_state: MintState,
+}
+
+///--------------------------- Accounting
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SupplyResponse {
+    pub credit: cashu::Amount,
+    pub debit: cashu::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BitcoinAmountResponse {
+    #[schema(value_type = u64)]
+    pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct EbillAmountResponse {
+    #[schema(value_type = u64)]
+    pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct EiouAmountResponse {
+    pub amount: u64,
+}
+
+///--------------------------- Onchain Mint Information
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OnchainAddressRequest {
+    #[schema(value_type = String)]
+    pub quote_id: uuid::Uuid,
+    pub keyset_id: cashu::Id,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OnchainAddressResponse {
+    #[schema(value_type = String)]
+    pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct VerifyMintPaymentResponse {
+    #[schema(value_type = u64)]
+    pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct VerifyMintPaymentRequest {
+    #[schema(value_type = String)]
+    pub quote_id: uuid::Uuid,
+    pub keyset_id: cashu::Id,
+    pub min_confirmations: u32,
 }
