@@ -127,6 +127,21 @@ pub struct SupplyResponse {
     pub debit: cashu::Amount,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BitcoinAmountResponse {
+    pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EbillAmountResponse {
+    pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EiouAmountResponse {
+    pub amount: u64,
+}
+
 ///--------------------------- Onchain Mint Information
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
