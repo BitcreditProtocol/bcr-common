@@ -118,3 +118,26 @@ pub struct PerceivedState {
     pub substitute_beta: Option<bitcoin::secp256k1::PublicKey>,
     pub alpha_state: MintState,
 }
+
+///--------------------------- Onchain Mint Information
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestMintAddressRequest {
+    pub quote_id: uuid::Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestMintAddressResponse {
+    pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyMintPaymentRequest {
+    pub quote_id: uuid::Uuid,
+    pub min_confirmations: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyMintPaymentResponse {
+    pub amount: bitcoin::Amount,
+}
