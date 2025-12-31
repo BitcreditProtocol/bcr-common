@@ -147,26 +147,28 @@ pub struct EiouAmountResponse {
 ///--------------------------- Onchain Mint Information
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct RequestMintAddressRequest {
+pub struct OnchainAddressRequest {
     #[schema(value_type = String)]
     pub quote_id: uuid::Uuid,
+    pub keyset_id: cashu::Id,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct RequestMintAddressResponse {
+pub struct OnchainAddressResponse {
     #[schema(value_type = String)]
     pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct VerifyMintPaymentRequest {
-    #[schema(value_type = String)]
-    pub quote_id: uuid::Uuid,
-    pub min_confirmations: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct VerifyMintPaymentResponse {
     #[schema(value_type = u64)]
     pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct VerifyMintPaymentRequest {
+    #[schema(value_type = String)]
+    pub quote_id: uuid::Uuid,
+    pub keyset_id: cashu::Id,
+    pub min_confirmations: u32,
 }
