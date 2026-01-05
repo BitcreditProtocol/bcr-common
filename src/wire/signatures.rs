@@ -31,7 +31,8 @@ pub struct SignedRequestToMintFromEBillDesc {
 pub struct RequestToMintFromEBillRequest {
     #[schema(value_type = String)]
     pub ebill_id: BillId,
-    pub amount: cashu::Amount,
+    #[schema(value_type = u64)]
+    pub amount: bitcoin::Amount,
     pub deadline: chrono::DateTime<chrono::Utc>,
 }
 
