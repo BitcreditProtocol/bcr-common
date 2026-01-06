@@ -94,6 +94,7 @@ pub enum MintingStatus {
     Enabled { minted: cashu::Amount }, // amount minted so far out of the bill amount
 }
 
+/// StatusReply for quote status look up by users
 #[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
 #[strum_discriminants(derive(Serialize, Deserialize, ToSchema, strum::Display))]
 #[serde(tag = "status")]
@@ -216,7 +217,6 @@ pub enum InfoReply {
         keyset_id: cdk02::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
-        minting_status: MintingStatus,
     },
     Rejected {
         id: uuid::Uuid,
@@ -225,6 +225,16 @@ pub enum InfoReply {
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
     },
+    Minting {
+        id: uuid::Uuid,
+        bill: BillInfo,
+        keyset_id: cdk02::Id,
+        #[schema(value_type = u64)]
+        discounted: bitcoin::Amount,
+        minting_status: MintingStatus,
+        #[schema(value_type = String)]
+        fee: crate::wallet::Token,
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
