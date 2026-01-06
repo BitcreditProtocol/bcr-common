@@ -86,13 +86,6 @@ pub struct EnquireReply {
 }
 
 /// --------------------------- Look up quote
-#[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
-#[serde(tag = "status")]
-pub enum MintingStatus {
-    Disabled,
-    Enabled { minted: cashu::Amount }, // amount minted so far out of the bill amount
-}
-
 /// StatusReply for quote status look up by users
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "status")]
@@ -109,7 +102,7 @@ pub enum StatusReply {
         expiration_date: DateTime<Utc>,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
-        minting_pubkey: cashu::PublicKey,
+        wallet_pubkey: cashu::PublicKey,
     },
     OfferExpired {
         tstamp: DateTime<Utc>,
@@ -120,13 +113,19 @@ pub enum StatusReply {
         keyset_id: cashu::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
-        minting_pubkey: cashu::PublicKey,
-        minting_status: MintingStatus,
+        wallet_pubkey: cashu::PublicKey,
     },
     Rejected {
         tstamp: DateTime<Utc>,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
+    },
+    MintingEnabled {
+        keyset_id: cashu::Id,
+        #[schema(value_type = u64)]
+        discounted: bitcoin::Amount,
+        wallet_pubkey: cashu::PublicKey,
+        minted_amount: cashu::Amount,
     },
 }
 
@@ -224,13 +223,12 @@ pub enum InfoReply {
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
     },
-    Minting {
+    MintingEnabled {
         id: uuid::Uuid,
         bill: BillInfo,
         keyset_id: cashu::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
-        minting_status: MintingStatus,
         fee: String, // serialized crate::wallet::Token
     },
 }
