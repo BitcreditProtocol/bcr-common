@@ -95,8 +95,7 @@ pub enum MintingStatus {
 }
 
 /// StatusReply for quote status look up by users
-#[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
-#[strum_discriminants(derive(Serialize, Deserialize, ToSchema, strum::Display))]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "status")]
 pub enum StatusReply {
     Pending,
@@ -137,7 +136,7 @@ pub enum StatusReply {
 pub struct ListParam {
     pub bill_maturity_date_from: Option<chrono::NaiveDate>,
     pub bill_maturity_date_to: Option<chrono::NaiveDate>,
-    pub status: Option<StatusReplyDiscriminants>,
+    pub status: Option<InfoReplyDiscriminants>,
     #[param(value_type = Option<String>)]
     pub bill_id: Option<BillId>,
     #[param(value_type = Option<String>)]
@@ -166,7 +165,7 @@ pub struct ListReply {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct LightInfo {
     pub id: uuid::Uuid,
-    pub status: StatusReplyDiscriminants,
+    pub status: InfoReplyDiscriminants,
     #[schema(value_type = u64)]
     pub sum: bitcoin::Amount,
 }
@@ -177,8 +176,9 @@ pub struct ListReplyLight {
 }
 
 /// --------------------------- Quote info request
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
 #[serde(rename_all = "PascalCase", tag = "status")]
+#[strum_discriminants(derive(Serialize, Deserialize, ToSchema, strum::Display))]
 pub enum InfoReply {
     Pending {
         id: uuid::Uuid,
@@ -234,7 +234,7 @@ pub enum InfoReply {
         minting_status: MintingStatus,
         #[schema(value_type = String)]
         fee: crate::wallet::Token,
-    }
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
