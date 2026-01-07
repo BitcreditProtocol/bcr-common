@@ -104,6 +104,12 @@ pub struct BillPaymentStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct SimplifiedBillPaymentStatus {
+    payment_status: BillPaymentStatus,
+    payment_details: Option<BillWaitingForPaymentState>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillSellStatus {
     pub time_of_last_offer_to_sell: Option<u64>,
     pub sold: bool,

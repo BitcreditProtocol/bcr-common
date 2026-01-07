@@ -284,4 +284,26 @@ impl Client {
         res.error_for_status()?;
         Ok(())
     }
+
+    pub const GET_BILL_PAYMENT_STATUS_EP_V1: &'static str =
+        "/v1/admin/bill/payment_status/{bill_id}";
+    pub async fn get_payment_status(
+        &self,
+        bill_id: BillId,
+    ) -> Result<wire_bill::SimplifiedBillPaymentStatus> {
+        let url = self
+            .base
+            .join(&Self::GET_BILL_PAYMENT_STATUS_EP_V1.replace("{bill_id}", &bill_id.to_string()))
+            .expect("bill payment status relative path");
+        let req = self.cl.get(url);
+        let res = self.auth.authorize(req).send().await?;
+        if res.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        if res.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(bill_id.to_string()));
+        }
+        let status = res.json::<wire_bill::SimplifiedBillPaymentStatus>().await?;
+        Ok(status)
+    }
 }
