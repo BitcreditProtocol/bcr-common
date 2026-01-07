@@ -1,7 +1,7 @@
 // ----- standard library imports
 // ----- extra library imports
 use bitcoin::{Address, Amount, address::NetworkUnchecked};
-use cashu::{CurrencyUnit, nuts::MeltOptions};
+use cashu::{CurrencyUnit, MeltQuoteState, nuts::MeltOptions};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
@@ -29,4 +29,29 @@ pub struct MeltQuoteOnchainRequest {
     /// Wallet signature
     #[schema(value_type = String)]
     pub signature: bitcoin::secp256k1::schnorr::Signature,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MeltQuoteOnchainResponse {
+    /// Quote ID (UUID v4)
+    #[schema(value_type = String)]
+    pub quote: uuid::Uuid,
+    /// Bitcoin address to send payment
+    #[schema(value_type = String)]
+    pub txid: Option<bitcoin::Txid>,
+    /// The fee reserve that is required
+    #[schema(value_type = u64)]
+    pub fee_reserve: Amount,
+    /// The amount that needs to be provided
+    #[schema(value_type = u64)]
+    pub amount: Amount,
+    /// Quote State
+    pub state: MeltQuoteState,
+    /// Unix timestamp until the quote is valid
+    pub expiry: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unit: Option<CurrencyUnit>,
+    /// Change
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub change: Option<Vec<cashu::BlindSignature>>,
 }
