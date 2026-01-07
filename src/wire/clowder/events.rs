@@ -18,6 +18,16 @@ pub struct KeysetCreationResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeysetDeactivationRequest {
+    pub id: cashu::Id,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeysetDeactivationResponse {
+    pub id: cashu::Id,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintOnchainRequest {
     pub mint_signature: String,
     pub keyset_id: cashu::Id,
