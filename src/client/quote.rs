@@ -254,4 +254,20 @@ impl Client {
         let reply = self.auth.authorize(request).send().await?.json().await?;
         Ok(reply)
     }
+
+    pub const ADMIN_LOOKUP_EP_V1: &'static str = "/v1/admin/credit/quote/{qid}";
+    #[cfg(feature = "authorized")]
+    pub async fn admin_lookup(&self, qid: Uuid) -> Result<wire_quotes::InfoReply> {
+        let url = self
+            .base
+            .join(&Self::ADMIN_LOOKUP_EP_V1.replace("{qid}", &qid.to_string()))
+            .expect("admin lookup relative path");
+        let request = self.cl.get(url);
+        let response = self.auth.authorize(request).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(qid));
+        }
+        let reply = response.json::<wire_quotes::InfoReply>().await?;
+        Ok(reply)
+    }
 }
