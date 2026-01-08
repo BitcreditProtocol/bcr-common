@@ -29,7 +29,6 @@ pub struct KeysetDeactivationResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintOnchainRequest {
-    pub mint_signature: String,
     pub keyset_id: cashu::Id,
     pub quote_id: uuid::Uuid,
     pub amount: cashu::Amount,
@@ -43,7 +42,6 @@ pub struct MintOnchainResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintEiouRequest {
-    pub mint_signature: String,
     pub keyset_id: cashu::Id,
     pub quote_id: uuid::Uuid,
     pub amount: cashu::Amount,
