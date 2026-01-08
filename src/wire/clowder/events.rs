@@ -80,6 +80,6 @@ pub struct SwapResponse {
 pub struct HeartbeatResponse {}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HearbeatRequest {
+pub struct HeartbeatRequest {
     pub timestamp: u64,
 }
