@@ -155,6 +155,19 @@ pub struct Coverage {
     pub ebill_collateral: bitcoin::Amount,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintCollateralResponse {
+    pub onchain: bitcoin::Amount,
+    pub ebill: bitcoin::Amount,
+    pub eiou: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintCirculatingSupplyResponse {
+    pub debit: cashu::Amount,
+    pub credit: cashu::Amount,
+}
+
 ///--------------------------- Onchain Mint Information
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
