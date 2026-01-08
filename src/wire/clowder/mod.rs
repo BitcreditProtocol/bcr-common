@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{bill as wire_bill, keys as wire_keys};
-
+pub mod messages;
 // ----- end imports
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,6 +142,17 @@ pub struct EbillAmountResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EiouAmountResponse {
     pub amount: u64,
+}
+
+/// Collateral and circulating supply coverage information
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct Coverage {
+    pub debit_circulating_supply: cashu::Amount,
+    pub credit_circulating_supply: cashu::Amount,
+    #[schema(value_type = u64)]
+    pub onchain_collateral: bitcoin::Amount,
+    #[schema(value_type = u64)]
+    pub ebill_collateral: bitcoin::Amount,
 }
 
 ///--------------------------- Onchain Mint Information

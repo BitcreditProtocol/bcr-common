@@ -1,0 +1,97 @@
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+///--------------------------- Keyset Creation
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeysetCreationRequest {
+    pub id: cashu::Id,
+    pub expiry: u64,
+    pub unit: cashu::CurrencyUnit,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeysetCreationResponse {
+    pub public_keys: BTreeMap<cashu::Amount, cashu::PublicKey>,
+    pub id: cashu::Id,
+    pub expiry: u64,
+    pub unit: cashu::CurrencyUnit,
+}
+
+///--------------------------- Keyset Deactivation
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeysetDeactivationRequest {
+    pub id: cashu::Id,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeysetDeactivationResponse {
+    pub id: cashu::Id,
+}
+
+///--------------------------- Mint Onchain
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintOnchainRequest {
+    pub keyset_id: cashu::Id,
+    pub quote_id: uuid::Uuid,
+    pub amount: cashu::Amount,
+    pub expiry: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintOnchainResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
+}
+
+///--------------------------- Mint EIOU
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintEiouRequest {
+    pub keyset_id: cashu::Id,
+    pub quote_id: uuid::Uuid,
+    pub amount: cashu::Amount,
+    pub expiry: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintEiouResponse {}
+
+///--------------------------- Melt Onchain
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeltOnchainRequest {
+    pub quote: uuid::Uuid,
+    pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeltOnchainResponse {
+    pub txid: bitcoin::Txid,
+}
+
+///--------------------------- Swap
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwapRequest {
+    pub proofs: Vec<cashu::Proof>,
+    pub blinds: Vec<cashu::BlindedMessage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwapResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
+}
+
+///--------------------------- Heartbeat
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HeartbeatResponse {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HeartbeatRequest {
+    pub timestamp: u64,
+}
