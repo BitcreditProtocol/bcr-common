@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+///--------------------------- Keyset Creation
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeysetCreationRequest {
     pub id: cashu::Id,
@@ -17,6 +19,8 @@ pub struct KeysetCreationResponse {
     pub unit: cashu::CurrencyUnit,
 }
 
+///--------------------------- Keyset Deactivation
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeysetDeactivationRequest {
     pub id: cashu::Id,
@@ -26,6 +30,8 @@ pub struct KeysetDeactivationRequest {
 pub struct KeysetDeactivationResponse {
     pub id: cashu::Id,
 }
+
+///--------------------------- Mint Onchain
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintOnchainRequest {
@@ -40,6 +46,8 @@ pub struct MintOnchainResponse {
     pub signatures: Vec<cashu::BlindSignature>,
 }
 
+///--------------------------- Mint EIOU
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintEiouRequest {
     pub keyset_id: cashu::Id,
@@ -50,6 +58,8 @@ pub struct MintEiouRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintEiouResponse {}
+
+///--------------------------- Melt Onchain
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltOnchainRequest {
@@ -63,6 +73,8 @@ pub struct MeltOnchainResponse {
     pub txid: bitcoin::Txid,
 }
 
+///--------------------------- Swap
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapRequest {
     pub proofs: Vec<cashu::Proof>,
@@ -73,6 +85,8 @@ pub struct SwapRequest {
 pub struct SwapResponse {
     pub signatures: Vec<cashu::BlindSignature>,
 }
+
+///--------------------------- Heartbeat
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeartbeatResponse {}

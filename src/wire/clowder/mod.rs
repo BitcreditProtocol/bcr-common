@@ -144,6 +144,7 @@ pub struct EiouAmountResponse {
     pub amount: u64,
 }
 
+/// Collateral and circulating supply coverage information
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Coverage {
     pub debit_circulating_supply: cashu::Amount,
