@@ -153,6 +153,7 @@ pub struct Coverage {
     pub onchain_collateral: bitcoin::Amount,
     #[schema(value_type = u64)]
     pub ebill_collateral: bitcoin::Amount,
+    pub eiou_collateral: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
