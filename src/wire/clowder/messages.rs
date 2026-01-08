@@ -66,6 +66,7 @@ pub struct MeltOnchainRequest {
     pub quote: uuid::Uuid,
     pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
     pub amount: bitcoin::Amount,
+    pub proofs: Vec<cashu::Proof>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
