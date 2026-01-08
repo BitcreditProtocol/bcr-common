@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{bill as wire_bill, keys as wire_keys};
-pub mod events;
+pub mod messages;
 // ----- end imports
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

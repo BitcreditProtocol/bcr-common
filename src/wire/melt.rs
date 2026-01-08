@@ -37,6 +37,7 @@ pub struct MeltQuoteOnchainResponse {
     #[schema(value_type = String)]
     pub quote: uuid::Uuid,
     /// Bitcoin address to send payment
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(value_type = String)]
     pub txid: Option<bitcoin::Txid>,
     /// The fee reserve that is required
