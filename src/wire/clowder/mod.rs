@@ -144,7 +144,7 @@ pub struct EiouAmountResponse {
     pub amount: u64,
 }
 
-/// Collateral and circulating supply coverage information
+/// Collateral backing eCash and circulating supply information regarding eCash
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Coverage {
     pub debit_circulating_supply: cashu::Amount,
@@ -153,6 +153,22 @@ pub struct Coverage {
     pub onchain_collateral: bitcoin::Amount,
     #[schema(value_type = u64)]
     pub ebill_collateral: bitcoin::Amount,
+    pub eiou_collateral: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MintCollateralResponse {
+    #[schema(value_type = u64)]
+    pub onchain: bitcoin::Amount,
+    #[schema(value_type = u64)]
+    pub ebill: bitcoin::Amount,
+    pub eiou: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MintCirculatingSupplyResponse {
+    pub debit: cashu::Amount,
+    pub credit: cashu::Amount,
 }
 
 ///--------------------------- Onchain Mint Information
