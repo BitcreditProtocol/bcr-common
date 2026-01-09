@@ -1,7 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
 use borsh::{BorshDeserialize, BorshSerialize};
-use cashu::{nut01 as cdk01, nut02 as cdk02};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
@@ -71,7 +70,7 @@ pub struct EnquireRequest {
         deserialize_with = "deserialize_as_str"
     )]
     /// corresponding secret key must be used later in key_client::mint request
-    pub minting_pubkey: cdk01::PublicKey,
+    pub minting_pubkey: cashu::PublicKey,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -106,7 +105,7 @@ pub enum StatusReply {
         tstamp: DateTime<Utc>,
     },
     Offered {
-        keyset_id: cdk02::Id,
+        keyset_id: cashu::Id,
         expiration_date: DateTime<Utc>,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
@@ -118,7 +117,7 @@ pub enum StatusReply {
         discounted: bitcoin::Amount,
     },
     Accepted {
-        keyset_id: cdk02::Id,
+        keyset_id: cashu::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
         minting_pubkey: cashu::PublicKey,
@@ -195,7 +194,7 @@ pub enum InfoReply {
         id: uuid::Uuid,
         bill: BillInfo,
         ttl: DateTime<Utc>,
-        keyset_id: cdk02::Id,
+        keyset_id: cashu::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
     },
@@ -214,7 +213,7 @@ pub enum InfoReply {
     Accepted {
         id: uuid::Uuid,
         bill: BillInfo,
-        keyset_id: cdk02::Id,
+        keyset_id: cashu::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
     },
@@ -228,12 +227,11 @@ pub enum InfoReply {
     Minting {
         id: uuid::Uuid,
         bill: BillInfo,
-        keyset_id: cdk02::Id,
+        keyset_id: cashu::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
         minting_status: MintingStatus,
-        #[schema(value_type = String)]
-        fee: crate::wallet::Token,
+        fee: String, // serialized crate::wallet::Token
     },
 }
 
