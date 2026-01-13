@@ -39,7 +39,7 @@ pub struct SharedBill {
     pub receiver: bitcoin::PublicKey,
 }
 
-#[derive(Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize, ToSchema)]
 pub struct BillInfo {
     #[schema(value_type = String)]
     pub id: BillId,
