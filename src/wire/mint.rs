@@ -31,4 +31,6 @@ pub struct MintQuoteOnchainResponse {
     pub amount: Amount,
     /// Expiry timestamp
     pub expiry: u64,
+    /// Quote State
+    pub state: Option<cashu::MintQuoteState>,
 }
