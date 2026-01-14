@@ -53,7 +53,8 @@ pub struct NewMintOperationRequest {
     pub kid: cashu::Id,
     pub pub_key: cashu::PublicKey,
     pub target: cashu::Amount,
-    pub bill_info: super::quotes::BillInfo,
+    #[schema(value_type = String)]
+    pub bill_id: crate::core::BillId,
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
