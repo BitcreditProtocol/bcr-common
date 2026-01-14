@@ -56,7 +56,7 @@ jobs:
       - name: Activate cache
         uses: Swatinem/rust-cache@v2.8.0
         with:
-          prefix-key: "ebill-01"
+          prefix-key: "bcrcommon-01"
 
       - name: Install required cargo tools
         run: cargo install cargo-deny clippy-sarif sarif-fmt
