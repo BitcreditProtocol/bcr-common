@@ -213,6 +213,7 @@ impl Client {
         kid: cashu::Id,
         pk: cashu::PublicKey,
         target: cashu::Amount,
+        bill_info: crate::wire::quotes::BillInfo,
     ) -> Result<()> {
         let url = self
             .base
@@ -223,6 +224,7 @@ impl Client {
             kid,
             pub_key: pk,
             target,
+            bill_info,
         };
         let request = self.cl.post(url).json(&msg);
         let response = self.auth.authorize(request).send().await?;

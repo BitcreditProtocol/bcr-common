@@ -1,8 +1,5 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
-
-use crate::wire::quotes::BillInfo;
+use std::collections::BTreeMap;
 
 ///--------------------------- Keyset Creation
 
@@ -53,7 +50,7 @@ pub struct MintOnchainResponse {
 pub struct MintEbillRequest {
     pub keyset_id: cashu::Id,
     pub quote_id: uuid::Uuid,
-    pub info: BillInfo,
+    pub bill_id: crate::core::BillId,
     pub amount: cashu::Amount,
 }
 

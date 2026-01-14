@@ -53,6 +53,7 @@ pub struct NewMintOperationRequest {
     pub kid: cashu::Id,
     pub pub_key: cashu::PublicKey,
     pub target: cashu::Amount,
+    pub bill_info: super::quotes::BillInfo,
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
