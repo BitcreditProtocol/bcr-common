@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 ///--------------------------- Keyset Creation
 
@@ -38,11 +37,38 @@ pub struct MintOnchainRequest {
     pub keyset_id: cashu::Id,
     pub quote_id: uuid::Uuid,
     pub amount: cashu::Amount,
-    pub expiry: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintOnchainResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
+}
+
+///--------------------------- Mint Ebill
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintEbillRequest {
+    pub keyset_id: cashu::Id,
+    pub quote_id: uuid::Uuid,
+    pub bill_id: crate::core::BillId,
+    pub amount: cashu::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintEbillResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
+}
+
+///--------------------------- Mint Foreign eCash
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintForeignEcashRequest {
+    pub alpha_id: bitcoin::secp256k1::PublicKey,
+    pub proofs: Vec<cashu::Proof>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintForeignEcashResponse {
     pub signatures: Vec<cashu::BlindSignature>,
 }
 
