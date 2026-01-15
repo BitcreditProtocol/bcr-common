@@ -1,5 +1,8 @@
 // ----- standard library imports
-use std::{convert::{From, TryFrom}, str::FromStr};
+use std::{
+    convert::{From, TryFrom},
+    str::FromStr,
+};
 // ----- extra library imports
 use bitcoin::secp256k1;
 use borsh::io::{Error as BorshError, ErrorKind, Read, Write};
@@ -17,7 +20,7 @@ where
     borsh::BorshSerialize::serialize(&stringified, writer)?;
     Ok(())
 }
-pub fn deserialize_as_str<T>(reader: &mut impl Read) -> Result<T>
+pub fn deserialize_from_str<T>(reader: &mut impl Read) -> Result<T>
 where
     T: FromStr,
     <T as FromStr>::Err: Into<Box<dyn std::error::Error + Send + Sync>>,
@@ -37,7 +40,7 @@ where
     Ok(())
 }
 
-pub fn deserialize_as_u64<T>(reader: &mut impl Read) -> Result<T>
+pub fn deserialize_from_u64<T>(reader: &mut impl Read) -> Result<T>
 where
     T: TryFrom<u64>,
     <T as TryFrom<u64>>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
@@ -256,7 +259,7 @@ mod tests {
         let date = chrono::NaiveDate::from_ymd_opt(2023, 10, 5).unwrap();
         let mut buf = Vec::new();
         serialize_as_str(&date, &mut buf).unwrap();
-        let deserialized_date = deserialize_as_str(&mut buf.as_slice()).unwrap();
+        let deserialized_date = deserialize_from_str(&mut buf.as_slice()).unwrap();
         assert_eq!(date, deserialized_date);
     }
 
@@ -266,7 +269,7 @@ mod tests {
         let pubkey = bitcoin::PublicKey::from_str(pubkey_str).unwrap();
         let mut buf = Vec::new();
         serialize_as_str(&pubkey, &mut buf).unwrap();
-        let deserialized_pubkey = deserialize_as_str(&mut buf.as_slice()).unwrap();
+        let deserialized_pubkey = deserialize_from_str(&mut buf.as_slice()).unwrap();
         assert_eq!(pubkey, deserialized_pubkey);
     }
 
@@ -276,7 +279,7 @@ mod tests {
         let mut buf = Vec::new();
         serialize_as_str(&tstamp, &mut buf).unwrap();
         let deserialized_tstamp: chrono::DateTime<chrono::Utc> =
-            deserialize_as_str(&mut buf.as_slice()).unwrap();
+            deserialize_from_str(&mut buf.as_slice()).unwrap();
         assert_eq!(tstamp, deserialized_tstamp);
     }
 

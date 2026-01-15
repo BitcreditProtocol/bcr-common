@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
     borsh::{
-        deserialize_as_str, deserialize_vec_of_jsons, serialize_as_str, serialize_vec_of_jsons,
+        deserialize_from_str, deserialize_vec_of_jsons, serialize_as_str, serialize_vec_of_jsons,
     },
     keys::ProofFingerprint,
 };
@@ -45,7 +45,7 @@ pub struct CommitmentContent {
     pub outputs: Vec<cashu::BlindedMessage>,
     #[borsh(
         serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_as_str"
+        deserialize_with = "deserialize_from_str"
     )]
     pub expiration: chrono::DateTime<chrono::Utc>,
 }

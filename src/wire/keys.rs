@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 use crate::{
     core,
     wire::borsh::{
-        deserialize_as_str, deserialize_optionproofdleq, deserialize_optionwitness,
+        deserialize_from_str, deserialize_optionproofdleq, deserialize_optionwitness,
         serialize_as_str, serialize_optionproofdleq, serialize_optionwitness,
     },
 };
@@ -76,18 +76,18 @@ pub struct MintOperationStatus {
 pub struct ProofFingerprint {
     #[borsh(
         serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_as_str"
+        deserialize_with = "deserialize_from_str"
     )]
     pub keyset_id: cashu::Id,
     pub amount: u64,
     #[borsh(
         serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_as_str"
+        deserialize_with = "deserialize_from_str"
     )]
     pub y: cashu::PublicKey, // Y = hash_to_curve(secret)
     #[borsh(
         serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_as_str"
+        deserialize_with = "deserialize_from_str"
     )]
     pub c: cashu::PublicKey, // unblinded signature
     #[borsh(

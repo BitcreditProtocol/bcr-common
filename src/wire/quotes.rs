@@ -10,7 +10,7 @@ use crate::{
     wire::{
         bill::{BillIdentParticipant, BillParticipant},
         borsh::{
-            deserialize_as_str, deserialize_vec_of_strs, serialize_as_str, serialize_vec_of_strs,
+            deserialize_from_str, deserialize_vec_of_strs, serialize_as_str, serialize_vec_of_strs,
         },
     },
 };
@@ -33,7 +33,7 @@ pub struct SharedBill {
     pub signature: String,
     #[borsh(
         serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_as_str"
+        deserialize_with = "deserialize_from_str"
     )]
     #[schema(value_type = String)]
     pub receiver: bitcoin::PublicKey,
@@ -50,7 +50,7 @@ pub struct BillInfo {
     pub sum: u64, // in satoshis, converted to bitcoin::Amount in the service
     #[borsh(
         serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_as_str"
+        deserialize_with = "deserialize_from_str"
     )]
     pub maturity_date: chrono::NaiveDate,
     #[borsh(
@@ -67,7 +67,7 @@ pub struct EnquireRequest {
     pub content: SharedBill,
     #[borsh(
         serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_as_str"
+        deserialize_with = "deserialize_from_str"
     )]
     /// corresponding secret key must be used later in key_client::mint request
     pub minting_pubkey: cashu::PublicKey,
