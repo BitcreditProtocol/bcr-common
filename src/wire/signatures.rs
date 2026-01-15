@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::{
     core::BillId,
-    wire::borsh::{deserialize_as_str, serialize_as_str},
+    wire::borsh::{deserialize_as_str, serialize_as_str, serialize_as_u64, deserialize_as_u64},
 };
 
 /// --------------------------- request to mint from ebill description
@@ -40,4 +40,25 @@ pub struct RequestToMintFromEBillRequest {
 pub struct RequestToMintFromEBillResponse {
     pub request_id: String,
     pub request: String,
+}
+
+/// --------------------------- request to melt
+#[derive(Debug, BorshSerialize, BorshDeserialize)]
+pub struct RequestToMeltDesc {
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_as_str"
+    )]
+    pub qid: uuid::Uuid,
+    #[borsh(
+        serialize_with = "serialize_as_u64",
+        deserialize_with = "deserialize_as_u64"
+    )]
+    pub amount: cashu::Amount,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SignedRequestToMeltDesc {
+    pub content: String, // base64 borsh serialized RequestToMeltDesc
+    pub signature: bitcoin::secp256k1::schnorr::Signature,
 }

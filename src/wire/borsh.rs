@@ -1,5 +1,5 @@
 // ----- standard library imports
-use std::str::FromStr;
+use std::{convert::{From, TryFrom}, str::FromStr};
 // ----- extra library imports
 use bitcoin::secp256k1;
 use borsh::io::{Error as BorshError, ErrorKind, Read, Write};
@@ -24,6 +24,26 @@ where
 {
     let stringified: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
     let t = T::from_str(&stringified).map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
+    Ok(t)
+}
+
+pub fn serialize_as_u64<T>(t: &T, writer: &mut impl Write) -> Result<()>
+where
+    T: Clone,
+    u64: From<T>,
+{
+    let value: u64 = u64::from(t.clone());
+    borsh::BorshSerialize::serialize(&value, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_as_u64<T>(reader: &mut impl Read) -> Result<T>
+where
+    T: TryFrom<u64>,
+    <T as TryFrom<u64>>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    let value: u64 = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let t = T::try_from(value).map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
     Ok(t)
 }
 
