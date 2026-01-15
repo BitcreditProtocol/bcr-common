@@ -18,6 +18,7 @@ pub struct RequestToMintFromEBillDesc {
         deserialize_with = "deserialize_as_str"
     )]
     pub deadline: chrono::DateTime<chrono::Utc>,
+    pub sweeping_address: String, // bitcoin::Address is either Serialize or Deserialize
 }
 
 #[derive(Debug, Serialize, Deserialize)]
