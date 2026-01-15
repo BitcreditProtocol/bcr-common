@@ -171,6 +171,18 @@ pub struct MintCirculatingSupplyResponse {
     pub credit: cashu::Amount,
 }
 
+///--------------------------- Clowder Node Information
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ClowderNodeInfo {
+    #[schema(value_type = String)]
+    pub change_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    pub node_id: cashu::PublicKey,
+    pub version: String,
+    #[schema(value_type = String)]
+    pub network: bitcoin::Network,
+}
+
 ///--------------------------- Onchain Mint Information
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
