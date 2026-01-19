@@ -47,13 +47,13 @@ pub struct MintOnchainResponse {
 ///--------------------------- Redemption
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedemptionRequest {
+pub struct BillPaymentRequest {
     pub bill_id: crate::core::BillId,
     pub payment_clowder_quote: uuid::Uuid,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedemptionResponse {}
+pub struct BillPaymentResponse {}
 
 ///--------------------------- Mint Ebill
 
