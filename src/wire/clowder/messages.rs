@@ -49,16 +49,11 @@ pub struct MintOnchainResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RedemptionRequest {
     pub bill_id: crate::core::BillId,
-    pub amount: bitcoin::Amount,
-    pub payment_clowder_quote: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
-    pub redeemed_timestamp: u64,
-    pub credit_proofs: Vec<cashu::Proof>,
+    pub payment_clowder_quote: uuid::Uuid,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedemptionResponse {
-    pub debit_signatures: Vec<cashu::BlindSignature>,
-}
+pub struct RedemptionResponse {}
 
 ///--------------------------- Mint Ebill
 
