@@ -2,8 +2,6 @@
 // ----- extra library imports
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-
-use crate::wire::clowder::ClowderNodeInfo;
 // ----- local imports
 
 // ----- end imports
@@ -11,12 +9,14 @@ use crate::wire::clowder::ClowderNodeInfo;
 /// Version information for the mint
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct VersionInfo {
-    /// Wildcat version (from PKG_VERSION)
+    /// Wildcat version
     pub wildcat: String,
     /// bcr-ebill-core version
-    pub bcr_ebill_core: Option<String>,
-    /// cdk-mintd version (from upstream mint info)
-    pub cdk_mintd: Option<String>,
+    pub bcr_ebill_core: String,
+    /// cdk-mintd version
+    pub cdk_mintd: String,
+    /// Clowder version
+    pub clowder: String,
 }
 
 /// Mint information including network, build time, versions, and uptime
@@ -26,11 +26,15 @@ pub struct WildcatInfo {
     #[schema(value_type = String)]
     pub network: bitcoin::Network,
     /// Build timestamp
-    pub build_time: Option<chrono::DateTime<chrono::Utc>>,
+    pub build_time: chrono::DateTime<chrono::Utc>,
     /// Service uptime, last started
-    pub uptime_timestamp: u64,
+    pub uptime_timestamp: chrono::DateTime<chrono::Utc>,
     /// Version information
     pub versions: VersionInfo,
-    /// Clowder
-    pub clowder: ClowderNodeInfo,
+    /// Clowder node id
+    #[schema(value_type = String)]
+    pub clowder_node_id: bitcoin::secp256k1::PublicKey,
+    /// Clowder change address
+    #[schema(value_type = String)]
+    pub change_address: bitcoin::address::Address<bitcoin::address::NetworkUnchecked>,
 }
