@@ -8,8 +8,9 @@ use crate::wire::{bill as wire_bill, keys as wire_keys};
 pub mod messages;
 // ----- end imports
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PathRequest {
+    #[schema(value_type = String)]
     pub origin_mint_url: cashu::MintUrl,
 }
 
