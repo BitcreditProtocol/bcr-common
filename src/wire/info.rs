@@ -36,5 +36,5 @@ pub struct WildcatInfo {
     pub clowder_node_id: bitcoin::secp256k1::PublicKey,
     /// Clowder change address
     #[schema(value_type = String)]
-    pub change_address: bitcoin::address::Address<bitcoin::address::NetworkUnchecked>,
+    pub clowder_change_address: bitcoin::address::Address<bitcoin::address::NetworkUnchecked>,
 }
