@@ -2,6 +2,8 @@
 // ----- extra library imports
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+use crate::wire::clowder::ClowderNodeInfo;
 // ----- local imports
 
 // ----- end imports
@@ -29,4 +31,6 @@ pub struct WildcatInfo {
     pub uptime_timestamp: u64,
     /// Version information
     pub versions: VersionInfo,
+    /// Clowder
+    pub clowder: ClowderNodeInfo,
 }
