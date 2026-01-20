@@ -44,6 +44,17 @@ pub struct MintOnchainResponse {
     pub signatures: Vec<cashu::BlindSignature>,
 }
 
+///--------------------------- Redemption
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillPaymentRequest {
+    pub bill_id: crate::core::BillId,
+    pub payment_clowder_quote: uuid::Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillPaymentResponse {}
+
 ///--------------------------- Mint Ebill
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
