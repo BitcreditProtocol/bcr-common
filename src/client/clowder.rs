@@ -4,7 +4,7 @@ use bitcoin::secp256k1;
 use thiserror::Error;
 // ----- local imports
 use crate::wire::{
-    clowder::{self as wire_clowder, Coverage},
+    clowder::{self as wire_clowder, ClowderNodeInfo, Coverage},
     exchange as wire_exchange,
 };
 // ----- end imports
@@ -119,9 +119,9 @@ impl Client {
         Ok(response)
     }
 
-    pub const ID_EP_V1: &'static str = "/v1/local/id";
-    pub async fn get_id(&self) -> Result<wire_clowder::PublicKeyResponse> {
-        let url = self.base.join(Self::ID_EP_V1).expect("id relative path");
+    pub const INFO_EP_V1: &'static str = "/v1/local/info";
+    pub async fn get_id(&self) -> Result<ClowderNodeInfo> {
+        let url = self.base.join(Self::INFO_EP_V1).expect("id relative path");
         let res = self.cl.get(url).send().await?;
         let response = res.json().await?;
         Ok(response)
