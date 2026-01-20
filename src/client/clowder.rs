@@ -3,7 +3,10 @@
 use bitcoin::secp256k1;
 use thiserror::Error;
 // ----- local imports
-use crate::wire::{clowder as wire_clowder, exchange as wire_exchange};
+use crate::wire::{
+    clowder::{self as wire_clowder, Coverage},
+    exchange as wire_exchange,
+};
 // ----- end imports
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -98,7 +101,7 @@ impl Client {
         Ok(response)
     }
 
-    pub const PATH_EP_V1: &'static str = "/v1/path";
+    pub const PATH_EP_V1: &'static str = "/v1/local/path";
     pub async fn post_path(
         &self,
         origin_mint_url: cashu::MintUrl,
@@ -116,7 +119,7 @@ impl Client {
         Ok(response)
     }
 
-    pub const ID_EP_V1: &'static str = "/v1/id";
+    pub const ID_EP_V1: &'static str = "/v1/local/id";
     pub async fn get_id(&self) -> Result<wire_clowder::PublicKeyResponse> {
         let url = self.base.join(Self::ID_EP_V1).expect("id relative path");
         let res = self.cl.get(url).send().await?;
@@ -124,13 +127,27 @@ impl Client {
         Ok(response)
     }
 
-    pub const BETAS_EP_V1: &'static str = "/v1/betas";
+    pub const BETAS_EP_V1: &'static str = "/v1/local/betas";
     pub async fn get_betas(&self) -> Result<wire_clowder::ConnectedMintsResponse> {
         let url = self
             .base
             .join(Self::BETAS_EP_V1)
             .expect("betas relative path");
         let res = self.cl.get(url).send().await?;
+        let response = res.json().await?;
+        Ok(response)
+    }
+
+    pub const COVERAGE_EP_V1: &'static str = "/v1/local/coverage";
+    pub async fn post_coverage_exchange(&self) -> Result<Coverage> {
+        let url = self
+            .base
+            .join(Self::COVERAGE_EP_V1)
+            .expect("online exchange relative path");
+        let res = self.cl.get(url).send().await?;
+        if res.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::NotFound);
+        }
         let response = res.json().await?;
         Ok(response)
     }

@@ -178,6 +178,7 @@ pub struct ClowderNodeInfo {
     #[schema(value_type = String)]
     pub change_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
     pub node_id: cashu::PublicKey,
+    pub uptime_timestamp: u64,
     pub version: String,
     #[schema(value_type = String)]
     pub network: bitcoin::Network,
