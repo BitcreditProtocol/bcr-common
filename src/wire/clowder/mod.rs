@@ -19,7 +19,7 @@ pub struct PublicKeyResponse {
     pub public_key: secp256k1::PublicKey,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct OfflineResponse {
     pub offline: bool,
 }
