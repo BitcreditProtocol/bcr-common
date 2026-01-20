@@ -7,6 +7,7 @@ pub mod clowder;
 pub mod contact;
 pub mod exchange;
 pub mod identity;
+pub mod info;
 pub mod keys;
 pub mod melt;
 pub mod mint;
