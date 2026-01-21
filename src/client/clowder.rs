@@ -146,7 +146,7 @@ impl Client {
         let url = self
             .base
             .join(Self::LOCAL_COVERAGE_EP_V1)
-            .expect("online exchange relative path");
+            .expect("coverage relative path");
         let res = self.cl.get(url).send().await?;
         if res.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
