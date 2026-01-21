@@ -8,8 +8,9 @@ use crate::wire::{bill as wire_bill, keys as wire_keys};
 pub mod messages;
 // ----- end imports
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PathRequest {
+    #[schema(value_type = String)]
     pub origin_mint_url: cashu::MintUrl,
 }
 
@@ -18,7 +19,7 @@ pub struct PublicKeyResponse {
     pub public_key: secp256k1::PublicKey,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct OfflineResponse {
     pub offline: bool,
 }
@@ -178,6 +179,7 @@ pub struct ClowderNodeInfo {
     #[schema(value_type = String)]
     pub change_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
     pub node_id: cashu::PublicKey,
+    pub uptime_timestamp: u64,
     pub version: String,
     #[schema(value_type = String)]
     pub network: bitcoin::Network,
