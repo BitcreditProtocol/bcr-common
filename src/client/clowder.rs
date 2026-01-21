@@ -142,7 +142,7 @@ impl Client {
     }
 
     pub const LOCAL_COVERAGE_EP_V1: &'static str = "/v1/local/coverage";
-    pub async fn post_coverage_exchange(&self) -> Result<Coverage> {
+    pub async fn get_coverage(&self) -> Result<Coverage> {
         let url = self
             .base
             .join(Self::LOCAL_COVERAGE_EP_V1)
