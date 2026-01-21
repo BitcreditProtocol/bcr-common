@@ -33,14 +33,14 @@ impl Client {
         }
     }
 
-    pub const OFFLINE_EP_V1: &'static str = "/v1/foreign/offline/{alpha_id}";
+    pub const FOREIGN_OFFLINE_EP_V1: &'static str = "/v1/foreign/offline/{alpha_id}";
     pub async fn get_offline(
         &self,
         alpha_id: secp256k1::PublicKey,
     ) -> Result<wire_clowder::OfflineResponse> {
         let url = self
             .base
-            .join(&Self::OFFLINE_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
+            .join(&Self::FOREIGN_OFFLINE_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
             .expect("offline relative path");
         let res = self.cl.get(url).send().await?;
         if res.status() == reqwest::StatusCode::NOT_FOUND {
@@ -50,14 +50,14 @@ impl Client {
         Ok(response)
     }
 
-    pub const STATUS_EP_V1: &'static str = "/v1/foreign/status/{alpha_id}";
+    pub const FOREIGN_STATUS_EP_V1: &'static str = "/v1/foreign/status/{alpha_id}";
     pub async fn get_status(
         &self,
         alpha_id: secp256k1::PublicKey,
     ) -> Result<wire_clowder::AlphaStateResponse> {
         let url = self
             .base
-            .join(&Self::STATUS_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
+            .join(&Self::FOREIGN_STATUS_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
             .expect("status relative path");
         let res = self.cl.get(url).send().await?;
         if res.status() == reqwest::StatusCode::NOT_FOUND {
@@ -67,14 +67,14 @@ impl Client {
         Ok(response)
     }
 
-    pub const SUBSTITUTE_EP_V1: &'static str = "/v1/foreign/substitute/{alpha_id}";
+    pub const FOREIGN_SUBSTITUTE_EP_V1: &'static str = "/v1/foreign/substitute/{alpha_id}";
     pub async fn get_substitute(
         &self,
         alpha_id: secp256k1::PublicKey,
     ) -> Result<wire_clowder::ConnectedMintResponse> {
         let url = self
             .base
-            .join(&Self::SUBSTITUTE_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
+            .join(&Self::FOREIGN_SUBSTITUTE_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
             .expect("substitute relative path");
         let res = self.cl.get(url).send().await?;
         if res.status() == reqwest::StatusCode::NOT_FOUND {
@@ -84,14 +84,14 @@ impl Client {
         Ok(response)
     }
 
-    pub const KEYSETS_EP_V1: &'static str = "/v1/foreign/keysets/{alpha_id}";
+    pub const FOREIGN_KEYSETS_EP_V1: &'static str = "/v1/foreign/keysets/{alpha_id}";
     pub async fn get_active_keysets(
         &self,
-        alpha_id: &secp256k1::PublicKey,
+        alpha_id: secp256k1::PublicKey,
     ) -> Result<cashu::KeysResponse> {
         let url = self
             .base
-            .join(&Self::KEYSETS_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
+            .join(&Self::FOREIGN_KEYSETS_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
             .expect("keysets relative path");
         let res = self.cl.get(url).send().await?;
         if res.status() == reqwest::StatusCode::NOT_FOUND {
@@ -101,14 +101,14 @@ impl Client {
         Ok(response)
     }
 
-    pub const PATH_EP_V1: &'static str = "/v1/local/path";
+    pub const LOCAL_PATH_EP_V1: &'static str = "/v1/local/path";
     pub async fn post_path(
         &self,
         origin_mint_url: cashu::MintUrl,
     ) -> Result<wire_clowder::ConnectedMintsResponse> {
         let url = self
             .base
-            .join(Self::PATH_EP_V1)
+            .join(Self::LOCAL_PATH_EP_V1)
             .expect("path relative path");
         let request = wire_clowder::PathRequest { origin_mint_url };
         let res = self.cl.post(url).json(&request).send().await?;
@@ -119,30 +119,33 @@ impl Client {
         Ok(response)
     }
 
-    pub const INFO_EP_V1: &'static str = "/v1/local/info";
-    pub async fn get_id(&self) -> Result<ClowderNodeInfo> {
-        let url = self.base.join(Self::INFO_EP_V1).expect("id relative path");
+    pub const LOCAL_INFO_EP_V1: &'static str = "/v1/local/info";
+    pub async fn get_info(&self) -> Result<ClowderNodeInfo> {
+        let url = self
+            .base
+            .join(Self::LOCAL_INFO_EP_V1)
+            .expect("info relative path");
         let res = self.cl.get(url).send().await?;
         let response = res.json().await?;
         Ok(response)
     }
 
-    pub const BETAS_EP_V1: &'static str = "/v1/local/betas";
+    pub const LOCAL_BETAS_EP_V1: &'static str = "/v1/local/betas";
     pub async fn get_betas(&self) -> Result<wire_clowder::ConnectedMintsResponse> {
         let url = self
             .base
-            .join(Self::BETAS_EP_V1)
+            .join(Self::LOCAL_BETAS_EP_V1)
             .expect("betas relative path");
         let res = self.cl.get(url).send().await?;
         let response = res.json().await?;
         Ok(response)
     }
 
-    pub const COVERAGE_EP_V1: &'static str = "/v1/local/coverage";
+    pub const LOCAL_COVERAGE_EP_V1: &'static str = "/v1/local/coverage";
     pub async fn post_coverage_exchange(&self) -> Result<Coverage> {
         let url = self
             .base
-            .join(Self::COVERAGE_EP_V1)
+            .join(Self::LOCAL_COVERAGE_EP_V1)
             .expect("online exchange relative path");
         let res = self.cl.get(url).send().await?;
         if res.status() == reqwest::StatusCode::NOT_FOUND {
