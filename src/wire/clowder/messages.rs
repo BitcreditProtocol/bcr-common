@@ -87,7 +87,6 @@ pub struct MintForeignEcashResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintForeignOfflineEcashRequest {
-    pub alpha_id: bitcoin::secp256k1::PublicKey,
     pub fingerprints: Vec<ProofFingerprint>,
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
     pub wallet_pk: cashu::PublicKey,
