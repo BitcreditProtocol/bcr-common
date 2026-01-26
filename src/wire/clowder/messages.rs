@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+use crate::wire::keys::ProofFingerprint;
+
 ///--------------------------- Keyset Creation
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,13 +76,25 @@ pub struct MintEbillResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintForeignEcashRequest {
-    pub alpha_id: bitcoin::secp256k1::PublicKey,
     pub proofs: Vec<cashu::Proof>,
+    pub exchange_path: Vec<bitcoin::secp256k1::PublicKey>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintForeignEcashResponse {
-    pub signatures: Vec<cashu::BlindSignature>,
+    pub proofs: Vec<cashu::Proof>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintForeignOfflineEcashRequest {
+    pub fingerprints: Vec<ProofFingerprint>,
+    pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
+    pub wallet_pk: cashu::PublicKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintForeignOfflineEcashResponse {
+    pub proofs: Vec<cashu::Proof>,
 }
 
 ///--------------------------- Mint EIOU
