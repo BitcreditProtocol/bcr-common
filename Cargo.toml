@@ -5,9 +5,11 @@ edition = "2024"
 license = "MIT"
 
 [features]
-default = []
-test-utils = ["rand", "cdk-common", "mockall", "async-trait"]
+default = ["wallet"]
+test-utils = ["rand", "mockall", "async-trait"]
 authorized = []
+wallet = ["cashu/wallet", "cdk/wallet", "cdk-common/wallet" ]
+mint = ["cashu/mint", "cdk/mint", "cdk-common/mint", "cdk-redb", "cdk-payment-processor"]
 
 [dependencies]
 async-trait = {version = "0.1", optional = true}
@@ -15,9 +17,11 @@ bdk_wallet = {version = "2.1"}
 bip39 = {version = "2.2"}
 bitcoin = {version = "0.32", features = ["serde"]}
 borsh = {version = "1.5", features = ["derive"]}
-cashu = {version = "0.13", features = ["swagger"]}
-cdk = {version = "0.13", default-features = false, features = ["wallet"]}
-cdk-common = {version = "0.13", optional = true}
+cashu = {version = "=0.13.1", features = ["swagger"]}
+cdk = {version = "=0.13.1", default-features = false}
+cdk-common = {version = "=0.13.1"}
+cdk-payment-processor = {version = "=0.13.1", optional = true}
+cdk-redb = {version = "=0.13.1", optional = true}
 chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
 mockall = {version = "0.13", optional = true}
