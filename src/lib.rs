@@ -12,3 +12,12 @@ pub mod wire;
 pub use core::test_utils as core_tests;
 #[cfg(feature = "test-utils")]
 pub use wire::test_utils as wire_tests;
+
+pub use cashu;
+pub use cdk;
+pub use cdk_common;
+
+#[cfg(feature = "mint")]
+pub use cdk_payment_processor;
+#[cfg(feature = "mint")]
+pub use cdk_redb;
