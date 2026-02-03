@@ -70,11 +70,13 @@ pub enum SimpleAlphaState {
     /// Last seen timestamp
     Online(u64),
     /// Last seen timestamp
+    Interim(u64),
+    /// Last seen timestamp
     Offline(u64),
     /// Pre Rabid
     Rabid(String),
     /// Post Rabid
-    ConfiscatedRabid(bitcoin::Txid, String),
+    ConfiscatedRabid(bitcoin::Txid, bitcoin::secp256k1::PublicKey, String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
