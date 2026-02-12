@@ -173,7 +173,7 @@ impl Client {
             .join(&Self::UPDATE_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("deny quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Deny;
-        let request = self.cl.post(url).json(&body);
+        let request = self.cl.patch(url).json(&body);
         let reply = self.auth.authorize(request).send().await?.json().await?;
         Ok(reply)
     }
@@ -190,7 +190,7 @@ impl Client {
             .join(&Self::UPDATE_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("offer quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Offer { discounted, ttl };
-        let request = self.cl.post(url).json(&body);
+        let request = self.cl.patch(url).json(&body);
         let reply = self.auth.authorize(request).send().await?.json().await?;
         Ok(reply)
     }
@@ -203,7 +203,7 @@ impl Client {
             .expect("accept offer relative path");
         let res = self
             .cl
-            .post(url)
+            .patch(url)
             .json(&wire_quotes::ResolveOffer::Accept)
             .send()
             .await?;
@@ -220,7 +220,7 @@ impl Client {
             .expect("reject offer relative path");
         let res = self
             .cl
-            .post(url)
+            .patch(url)
             .json(&wire_quotes::ResolveOffer::Reject)
             .send()
             .await?;
@@ -250,7 +250,7 @@ impl Client {
             .join(&Self::ENABLE_MINTING_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("enable minting relative path");
         let body = wire_quotes::EnableMintingRequest {};
-        let request = self.cl.post(url).json(&body);
+        let request = self.cl.patch(url).json(&body);
         let reply = self.auth.authorize(request).send().await?.json().await?;
         Ok(reply)
     }
