@@ -32,6 +32,14 @@ pub struct MeltQuoteOnchainRequest {
     pub signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MeltTx {
+    #[schema(value_type = Option<String>)]
+    pub alpha_txid: Option<bitcoin::Txid>,
+    #[schema(value_type = Option<String>)]
+    pub beta_txid: Option<bitcoin::Txid>,
+}
+
 /// Onchain Melt quote response
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MeltQuoteOnchainResponse {
@@ -40,8 +48,7 @@ pub struct MeltQuoteOnchainResponse {
     pub quote: uuid::Uuid,
     /// Confirmed transaction id after a melt is successful sent onchain
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(value_type = String)]
-    pub txid: Option<bitcoin::Txid>,
+    pub txid: Option<MeltTx>,
     /// The fee reserve that is required
     #[schema(value_type = u64)]
     pub fee_reserve: Amount,
