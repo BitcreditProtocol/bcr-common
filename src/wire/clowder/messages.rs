@@ -122,7 +122,7 @@ pub struct MeltOnchainRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltOnchainResponse {
-    pub txid: bitcoin::Txid,
+    pub txid: crate::wire::melt::MeltTx,
 }
 
 ///--------------------------- Swap
