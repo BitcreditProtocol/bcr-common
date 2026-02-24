@@ -48,3 +48,23 @@ pub struct OfflineExchangeResponse {
     #[schema(value_type = String)]
     pub signature: bitcoin::secp256k1::schnorr::Signature,
 }
+
+///--------------------------- HtlcSwapAttemptRequest
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct HtlcSwapAttemptRequest {
+    pub preimage: String,
+}
+
+///--------------------------- RequestToMintFromForeignECash
+#[derive(Debug, borsh::BorshSerialize, borsh::BorshDeserialize, ToSchema)]
+pub struct RequestToMintFromForeignECashPayload {
+    pub foreign_amount_sat: u64,
+    pub nonce: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct RequestToMintFromForeignECash {
+    pub payload: String, // b64 borsh payload
+    #[schema(value_type = String)]
+    pub signature: secp256k1::schnorr::Signature,
+}
