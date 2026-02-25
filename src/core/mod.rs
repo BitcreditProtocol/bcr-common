@@ -7,7 +7,6 @@ mod nodeid;
 pub mod signature;
 #[cfg(feature = "test-utils")]
 pub mod test_utils;
-
 // ----- end imports
 
 #[derive(Debug, Error)]

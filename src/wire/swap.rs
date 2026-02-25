@@ -79,3 +79,57 @@ pub struct ForceSwapRequest {
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccumulatorWitness {
+    pub root: [u8; 32],
+    pub inputs: Vec<AccumulatorWitnessInput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccumulatorWitnessInput {
+    pub leaf_index: usize,
+    pub path: Vec<([u8; 32], bool)>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StarkAccumulatorProof {
+    pub root: [u8; 32],
+    pub proof_bytes: Vec<u8>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SwapRequest {
+    pub inputs: Vec<cashu::Proof>,
+    pub outputs: Vec<cashu::BlindedMessage>,
+    pub accumulator_proof: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SwapResponse {
+    pub signatures: Vec<cashu::nuts::BlindSignature>,
+    pub accumulator_witness: AccumulatorWitness,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MintWithWitnessResponse {
+    pub signatures: Vec<cashu::nuts::BlindSignature>,
+    pub accumulator_witness: AccumulatorWitness,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AccumulatorInfoResponse {
+    pub leaf_count: usize,
+    pub root: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AccumulatorPathsRequest {
+    pub indices: Vec<usize>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AccumulatorPathsResponse {
+    pub root: String,
+    pub paths: Vec<Option<Vec<(String, bool)>>>,
+}
