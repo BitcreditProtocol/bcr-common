@@ -7,7 +7,6 @@ license = "MIT"
 [features]
 default = ["wallet"]
 test-utils = ["rand", "mockall", "async-trait"]
-authorized = []
 wallet = ["cashu/wallet", "cdk/wallet", "cdk-common/wallet" ]
 mint = ["cashu/mint", "cdk/mint", "cdk-common/mint", "cdk-redb", "cdk-payment-processor"]
 
@@ -38,4 +37,4 @@ utoipa = {version = "5.4", features = ["chrono", "uuid", "url"]}
 uuid = {version = "1", features = ["serde"]}
 
 [dev-dependencies]
-bcr-common = {path = ".", features = ["test-utils", "authorized"]}
+bcr-common = {path = ".", features = ["test-utils"]}

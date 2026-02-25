@@ -16,28 +16,14 @@ pub enum Error {
     InvalidRequest,
     #[error("signature {0}")]
     Signature(#[from] crate::core::signature::BorshMsgSignatureError),
-    #[error("authorization {0}")]
-    Auth(String),
     #[error("internal {0}")]
     Reqwest(#[from] reqwest::Error),
-}
-
-#[cfg(feature = "authorized")]
-impl std::convert::From<crate::client::authorization::Error> for Error {
-    fn from(e: crate::client::authorization::Error) -> Self {
-        match e {
-            crate::client::authorization::Error::Reqwest(e) => Error::Reqwest(e),
-            _ => Error::Auth(e.to_string()),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Client {
     cl: reqwest::Client,
     base: reqwest::Url,
-    #[cfg(feature = "authorized")]
-    auth: std::sync::Arc<crate::client::authorization::AuthorizationPlugin>,
 }
 
 impl Client {
@@ -45,39 +31,8 @@ impl Client {
         Self {
             cl: reqwest::Client::new(),
             base,
-            #[cfg(feature = "authorized")]
-            auth: Default::default(),
         }
     }
-
-    #[cfg(feature = "authorized")]
-    pub async fn authenticate(
-        &mut self,
-        token_url: reqwest::Url,
-        client_id: &str,
-        client_secret: &str,
-        username: &str,
-        password: &str,
-    ) -> Result<()> {
-        self.auth
-            .authenticate(
-                &self.cl,
-                token_url,
-                client_id,
-                client_secret,
-                username,
-                password,
-            )
-            .await?;
-        Ok(())
-    }
-
-    #[cfg(feature = "authorized")]
-    pub async fn refresh_access_token(&self, client_id: String) -> Result<std::time::Duration> {
-        let exp = self.auth.refresh_access_token(&self.cl, client_id).await?;
-        Ok(exp)
-    }
-
     pub const ENQUIRE_EP_V1: &'static str = "/v1/mint/quote/credit";
     pub async fn enquire(
         &self,
@@ -95,8 +50,8 @@ impl Client {
             .base
             .join(Self::ENQUIRE_EP_V1)
             .expect("enquire relative path");
-        let res = self.cl.post(url).json(&signed).send().await?;
-        let reply = res.json::<wire_quotes::EnquireReply>().await?;
+        let response = self.cl.post(url).json(&signed).send().await?;
+        let reply = response.json::<wire_quotes::EnquireReply>().await?;
         Ok(reply.id)
     }
 
@@ -106,16 +61,15 @@ impl Client {
             .base
             .join(&Self::LOOKUP_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("lookup relative path");
-        let res = self.cl.get(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.get(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::ResourceNotFound(qid));
         }
-        let reply = res.json::<wire_quotes::StatusReply>().await?;
+        let reply = response.json::<wire_quotes::StatusReply>().await?;
         Ok(reply)
     }
 
     pub const LIST_EP_V1: &'static str = "/v1/admin/credit/quote";
-    #[cfg(feature = "authorized")]
     pub async fn list(
         &self,
         params: wire_quotes::ListParam,
@@ -161,12 +115,11 @@ impl Client {
             request = request.query(&[("bill_holder_id", bill_holder_id)]);
         }
 
-        let reply = self.auth.authorize(request).send().await?.json().await?;
+        let reply = request.send().await?.json().await?;
         Ok(reply)
     }
 
     pub const UPDATE_EP_V1: &'static str = "/v1/admin/credit/quote/{qid}";
-    #[cfg(feature = "authorized")]
     pub async fn deny(&self, qid: Uuid) -> Result<wire_quotes::UpdateQuoteResponse> {
         let url = self
             .base
@@ -174,11 +127,10 @@ impl Client {
             .expect("deny quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Deny;
         let request = self.cl.patch(url).json(&body);
-        let reply = self.auth.authorize(request).send().await?.json().await?;
+        let reply = request.send().await?.json().await?;
         Ok(reply)
     }
 
-    #[cfg(feature = "authorized")]
     pub async fn offer(
         &self,
         qid: Uuid,
@@ -191,7 +143,7 @@ impl Client {
             .expect("offer quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Offer { discounted, ttl };
         let request = self.cl.patch(url).json(&body);
-        let reply = self.auth.authorize(request).send().await?.json().await?;
+        let reply = request.send().await?.json().await?;
         Ok(reply)
     }
 
@@ -201,13 +153,13 @@ impl Client {
             .base
             .join(&Self::RESOLVE_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("accept offer relative path");
-        let res = self
+        let response = self
             .cl
             .patch(url)
             .json(&wire_quotes::ResolveOffer::Accept)
             .send()
             .await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::ResourceNotFound(qid));
         }
         Ok(())
@@ -218,13 +170,13 @@ impl Client {
             .base
             .join(&Self::RESOLVE_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("reject offer relative path");
-        let res = self
+        let response = self
             .cl
             .patch(url)
             .json(&wire_quotes::ResolveOffer::Reject)
             .send()
             .await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::ResourceNotFound(qid));
         }
         Ok(())
@@ -235,15 +187,14 @@ impl Client {
             .base
             .join(&Self::RESOLVE_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("cancel enquiry relative path");
-        let res = self.cl.delete(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.delete(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::ResourceNotFound(qid));
         }
         Ok(())
     }
 
     pub const ENABLE_MINTING_EP_V1: &'static str = "/v1/admin/credit/quote/enable_mint/{qid}";
-    #[cfg(feature = "authorized")]
     pub async fn enable_minting(&self, qid: Uuid) -> Result<wire_quotes::EnableMintingResponse> {
         let url = self
             .base
@@ -251,19 +202,18 @@ impl Client {
             .expect("enable minting relative path");
         let body = wire_quotes::EnableMintingRequest {};
         let request = self.cl.patch(url).json(&body);
-        let reply = self.auth.authorize(request).send().await?.json().await?;
+        let reply = request.send().await?.json().await?;
         Ok(reply)
     }
 
     pub const ADMIN_LOOKUP_EP_V1: &'static str = "/v1/admin/credit/quote/{qid}";
-    #[cfg(feature = "authorized")]
     pub async fn admin_lookup(&self, qid: Uuid) -> Result<wire_quotes::InfoReply> {
         let url = self
             .base
             .join(&Self::ADMIN_LOOKUP_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("admin lookup relative path");
         let request = self.cl.get(url);
-        let response = self.auth.authorize(request).send().await?;
+        let response = request.send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::ResourceNotFound(qid));
         }

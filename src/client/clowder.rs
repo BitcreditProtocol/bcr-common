@@ -42,12 +42,12 @@ impl Client {
             .base
             .join(&Self::FOREIGN_OFFLINE_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
             .expect("offline relative path");
-        let res = self.cl.get(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.get(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
         }
-        let response = res.json().await?;
-        Ok(response)
+        let payload = response.json().await?;
+        Ok(payload)
     }
 
     pub const FOREIGN_STATUS_EP_V1: &'static str = "/v1/foreign/status/{alpha_id}";
@@ -59,11 +59,11 @@ impl Client {
             .base
             .join(&Self::FOREIGN_STATUS_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
             .expect("status relative path");
-        let res = self.cl.get(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.get(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
         }
-        let response = res.json().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 
@@ -76,11 +76,11 @@ impl Client {
             .base
             .join(&Self::FOREIGN_SUBSTITUTE_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
             .expect("substitute relative path");
-        let res = self.cl.get(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.get(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
         }
-        let response = res.json().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 
@@ -93,11 +93,11 @@ impl Client {
             .base
             .join(&Self::FOREIGN_KEYSETS_EP_V1.replace("{alpha_id}", &alpha_id.to_string()))
             .expect("keysets relative path");
-        let res = self.cl.get(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.get(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
         }
-        let response = res.json().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 
@@ -111,11 +111,11 @@ impl Client {
             .join(Self::LOCAL_PATH_EP_V1)
             .expect("path relative path");
         let request = wire_clowder::PathRequest { origin_mint_url };
-        let res = self.cl.post(url).json(&request).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.post(url).json(&request).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
         }
-        let response = res.json().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 
@@ -125,8 +125,8 @@ impl Client {
             .base
             .join(Self::LOCAL_INFO_EP_V1)
             .expect("info relative path");
-        let res = self.cl.get(url).send().await?;
-        let response = res.json().await?;
+        let response = self.cl.get(url).send().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 
@@ -136,8 +136,8 @@ impl Client {
             .base
             .join(Self::LOCAL_BETAS_EP_V1)
             .expect("betas relative path");
-        let res = self.cl.get(url).send().await?;
-        let response = res.json().await?;
+        let response = self.cl.get(url).send().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 
@@ -147,11 +147,11 @@ impl Client {
             .base
             .join(Self::LOCAL_COVERAGE_EP_V1)
             .expect("coverage relative path");
-        let res = self.cl.get(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.get(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
         }
-        let response = res.json().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 
@@ -164,11 +164,11 @@ impl Client {
             .base
             .join(Self::ONLINE_EXCHANGE_EP_V1)
             .expect("online exchange relative path");
-        let res = self.cl.post(url).json(&request).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.post(url).json(&request).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
         }
-        let response = res.json().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 
@@ -181,11 +181,11 @@ impl Client {
             .base
             .join(Self::OFFLINE_EXCHANGE_EP_V1)
             .expect("offline exchange relative path");
-        let res = self.cl.post(url).json(&request).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.post(url).json(&request).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::NotFound);
         }
-        let response = res.json().await?;
+        let response = response.json().await?;
         Ok(response)
     }
 }
