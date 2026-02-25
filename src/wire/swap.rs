@@ -102,7 +102,7 @@ pub struct StarkAccumulatorProof {
 pub struct SwapRequest {
     pub inputs: Vec<cashu::Proof>,
     pub outputs: Vec<cashu::BlindedMessage>,
-    pub accumulator_proof: Vec<u8>,
+    pub accumulator_proofs: Vec<Vec<u8>>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
