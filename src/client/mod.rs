@@ -1,8 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
 // ----- local modules
-#[cfg(feature = "authorized")]
-mod authorization;
 pub mod cdk;
 pub mod clowder;
 pub mod core;

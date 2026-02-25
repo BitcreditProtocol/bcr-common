@@ -2,7 +2,6 @@
 // ----- extra library imports
 use thiserror::Error;
 // ----- local imports
-#[cfg(feature = "authorized")]
 use crate::wire::keys as wire_keys;
 
 // ----- end imports
@@ -16,8 +15,6 @@ pub enum Error {
     MintOpNotFound(uuid::Uuid),
     #[error("invalid request")]
     InvalidRequest,
-    #[error("authorization {0}")]
-    Auth(String),
 
     #[error("internal error {0}")]
     Reqwest(#[from] reqwest::Error),
@@ -25,22 +22,10 @@ pub enum Error {
     NUT20(#[from] cashu::nut20::Error),
 }
 
-#[cfg(feature = "authorized")]
-impl std::convert::From<crate::client::authorization::Error> for Error {
-    fn from(e: crate::client::authorization::Error) -> Self {
-        match e {
-            crate::client::authorization::Error::Reqwest(e) => Error::Reqwest(e),
-            _ => Error::Auth(e.to_string()),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Client {
     cl: reqwest::Client,
     base: reqwest::Url,
-    #[cfg(feature = "authorized")]
-    auth: std::sync::Arc<crate::client::authorization::AuthorizationPlugin>,
 }
 
 impl Client {
@@ -48,51 +33,19 @@ impl Client {
         Self {
             cl: reqwest::Client::new(),
             base,
-            #[cfg(feature = "authorized")]
-            auth: Default::default(),
         }
     }
-
-    #[cfg(feature = "authorized")]
-    pub async fn authenticate(
-        &mut self,
-        token_url: reqwest::Url,
-        client_id: &str,
-        client_secret: &str,
-        username: &str,
-        password: &str,
-    ) -> Result<std::time::Duration> {
-        let exp = self
-            .auth
-            .authenticate(
-                &self.cl,
-                token_url,
-                client_id,
-                client_secret,
-                username,
-                password,
-            )
-            .await?;
-        Ok(exp)
-    }
-
-    #[cfg(feature = "authorized")]
-    pub async fn refresh_access_token(&self, client_id: String) -> Result<std::time::Duration> {
-        let exp = self.auth.refresh_access_token(&self.cl, client_id).await?;
-        Ok(exp)
-    }
-
     pub const KEYS_EP_V1: &'static str = "/v1/keys/{kid}";
     pub async fn keys(&self, kid: cashu::Id) -> Result<cashu::KeySet> {
         let url = self
             .base
             .join(&Self::KEYS_EP_V1.replace("{kid}", &kid.to_string()))
             .expect("keys relative path");
-        let res = self.cl.get(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.get(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::KeysetIdNotFound(kid));
         }
-        let ks = res.json::<cashu::KeysResponse>().await?.keysets;
+        let ks = response.json::<cashu::KeysResponse>().await?.keysets;
         ks.into_iter().next().ok_or(Error::KeysetIdNotFound(kid))
     }
 
@@ -102,8 +55,8 @@ impl Client {
             .base
             .join(Self::LISTKEYS_EP_V1)
             .expect("list keys relative path");
-        let res = self.cl.get(url).send().await?;
-        let ks = res.json::<cashu::KeysResponse>().await?;
+        let response = self.cl.get(url).send().await?;
+        let ks = response.json::<cashu::KeysResponse>().await?;
         Ok(ks.keysets)
     }
 
@@ -113,11 +66,11 @@ impl Client {
             .base
             .join(&Self::KEYSETINFO_EP_V1.replace("{kid}", &kid.to_string()))
             .expect("keyset relative path");
-        let res = self.cl.get(url).send().await?;
-        if res.status() == reqwest::StatusCode::NOT_FOUND {
+        let response = self.cl.get(url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::KeysetIdNotFound(kid));
         }
-        let ks = res.json::<cashu::KeySetInfo>().await?;
+        let ks = response.json::<cashu::KeySetInfo>().await?;
         Ok(ks)
     }
 
@@ -127,20 +80,19 @@ impl Client {
             .base
             .join(Self::LISTKEYSETINFO_EP_V1)
             .expect("keyset relative path");
-        let res = self.cl.get(url).send().await?;
-        let ks = res.json::<cashu::KeysetResponse>().await?;
+        let response = self.cl.get(url).send().await?;
+        let ks = response.json::<cashu::KeysetResponse>().await?;
         Ok(ks.keysets)
     }
 
     pub const SIGN_EP_V1: &'static str = "/v1/admin/keys/sign";
-    #[cfg(feature = "authorized")]
     pub async fn sign(&self, msg: &cashu::BlindedMessage) -> Result<cashu::BlindSignature> {
         let url = self
             .base
             .join(Self::SIGN_EP_V1)
             .expect("sign relative path");
         let request = self.cl.post(url).json(msg);
-        let response = self.auth.authorize(request).send().await?;
+        let response = request.send().await?;
         if response.status() == reqwest::StatusCode::BAD_REQUEST {
             return Err(Error::InvalidRequest);
         }
@@ -155,14 +107,13 @@ impl Client {
     }
 
     pub const VERIFY_PROOF_EP_V1: &'static str = "/v1/admin/keys/verify/proof";
-    #[cfg(feature = "authorized")]
     pub async fn verify_proof(&self, proof: &cashu::Proof) -> Result<()> {
         let url = self
             .base
             .join(Self::VERIFY_PROOF_EP_V1)
             .expect("verify relative path");
         let request = self.cl.post(url).json(proof);
-        let response = self.auth.authorize(request).send().await?;
+        let response = request.send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::KeysetIdNotFound(proof.keyset_id));
         }
@@ -174,14 +125,13 @@ impl Client {
     }
 
     pub const VERIFY_FINGERPRINT_EP_V1: &'static str = "/v1/admin/keys/verify/fingerprint";
-    #[cfg(feature = "authorized")]
     pub async fn verify_fingerprint(&self, fp: &wire_keys::ProofFingerprint) -> Result<()> {
         let url = self
             .base
             .join(Self::VERIFY_FINGERPRINT_EP_V1)
             .expect("verify relative path");
         let request = self.cl.post(url).json(fp);
-        let response = self.auth.authorize(request).send().await?;
+        let response = request.send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::KeysetIdNotFound(fp.keyset_id));
         }
@@ -193,20 +143,18 @@ impl Client {
     }
 
     pub const KEYSFOREXPIRATION_EP_V1: &'static str = "/v1/admin/keys/{date}";
-    #[cfg(feature = "authorized")]
     pub async fn keys_for_expiration(&self, date: chrono::NaiveDate) -> Result<cashu::Id> {
         let url = self
             .base
             .join(&Self::KEYSFOREXPIRATION_EP_V1.replace("{date}", &date.to_string()))
             .expect("keys for date relative path");
         let request = self.cl.get(url);
-        let res = self.auth.authorize(request).send().await?;
-        let kid = res.json::<cashu::Id>().await?;
+        let response = request.send().await?;
+        let kid = response.json::<cashu::Id>().await?;
         Ok(kid)
     }
 
     pub const NEWMINTOP_EP_V1: &'static str = "/v1/admin/keys/mintop";
-    #[cfg(feature = "authorized")]
     pub async fn new_mint_operation(
         &self,
         qid: uuid::Uuid,
@@ -227,7 +175,7 @@ impl Client {
             bill_id,
         };
         let request = self.cl.post(url).json(&msg);
-        let response = self.auth.authorize(request).send().await?;
+        let response = request.send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::KeysetIdNotFound(kid));
         }
@@ -238,7 +186,6 @@ impl Client {
     }
 
     pub const MINTOPSTATUS_EP_V1: &'static str = "/v1/admin/keys/mintop/{qid}";
-    #[cfg(feature = "authorized")]
     pub async fn mint_operation_status(
         &self,
         qid: uuid::Uuid,
@@ -248,7 +195,7 @@ impl Client {
             .join(&Self::MINTOPSTATUS_EP_V1.replace("{qid}", &qid.to_string()))
             .expect("mint operation status relative path");
         let request = self.cl.get(url);
-        let response = self.auth.authorize(request).send().await?;
+        let response = request.send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::MintOpNotFound(qid));
         }
@@ -257,14 +204,13 @@ impl Client {
     }
 
     pub const LISTMINTOPS_EP_V1: &'static str = "/v1/admin/keys/mintops/{kid}";
-    #[cfg(feature = "authorized")]
     pub async fn list_mint_operations(&self, kid: cashu::Id) -> Result<Vec<uuid::Uuid>> {
         let url = self
             .base
             .join(&Self::LISTMINTOPS_EP_V1.replace("{kid}", &kid.to_string()))
             .expect("list mint operations relative path");
         let request = self.cl.get(url);
-        let response = self.auth.authorize(request).send().await?;
+        let response = request.send().await?;
         let response = response.json::<Vec<uuid::Uuid>>().await?;
         Ok(response)
     }
@@ -319,7 +265,6 @@ impl Client {
     }
 
     pub const DEACTIVATEKEYSET_EP_V1: &'static str = "/v1/admin/keys/deactivate";
-    #[cfg(feature = "authorized")]
     pub async fn deactivate_keyset(&self, kid: cashu::Id) -> Result<cashu::Id> {
         let url = self
             .base
@@ -327,7 +272,7 @@ impl Client {
             .expect("deactivate relative path");
         let msg = wire_keys::DeactivateKeysetRequest { kid };
         let request = self.cl.post(url).json(&msg);
-        let response = self.auth.authorize(request).send().await?;
+        let response = request.send().await?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::KeysetIdNotFound(kid));
         }
