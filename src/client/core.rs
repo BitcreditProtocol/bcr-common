@@ -2,7 +2,7 @@
 // ----- extra library imports
 use thiserror::Error;
 // ----- local imports
-use crate::wire::{keys as wire_keys, swap as wire_swap};
+use crate::wire::{keys as wire_keys, swap as wire_swap, treasury as wire_treasury};
 
 // ----- end imports
 
@@ -169,7 +169,7 @@ impl Client {
             .base
             .join(Self::NEWMINTOP_EP_V1)
             .expect("mint operation relative path");
-        let msg = wire_keys::NewMintOperationRequest {
+        let msg = wire_treasury::NewMintOperationRequest {
             quote_id: qid,
             kid,
             pub_key: pk,
@@ -182,7 +182,7 @@ impl Client {
             return Err(Error::KeysetIdNotFound(kid));
         }
         let _response = response
-            .json::<wire_keys::NewMintOperationResponse>()
+            .json::<wire_treasury::NewMintOperationResponse>()
             .await?;
         Ok(())
     }
@@ -191,7 +191,7 @@ impl Client {
     pub async fn mint_operation_status(
         &self,
         qid: uuid::Uuid,
-    ) -> Result<wire_keys::MintOperationStatus> {
+    ) -> Result<wire_treasury::MintOperationStatus> {
         let url = self
             .base
             .join(&Self::MINTOPSTATUS_EP_V1.replace("{qid}", &qid.to_string()))
@@ -201,7 +201,9 @@ impl Client {
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(Error::MintOpNotFound(qid));
         }
-        let response = response.json::<wire_keys::MintOperationStatus>().await?;
+        let response = response
+            .json::<wire_treasury::MintOperationStatus>()
+            .await?;
         Ok(response)
     }
 
