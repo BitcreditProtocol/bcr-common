@@ -81,19 +81,19 @@ pub struct ForceSwapRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct AccumulatorWitness {
+pub struct IssuanceWitness {
     pub root: [u8; 32],
-    pub inputs: Vec<AccumulatorWitnessInput>,
+    pub inputs: Vec<IssuanceWitnessInput>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct AccumulatorWitnessInput {
+pub struct IssuanceWitnessInput {
     pub leaf_index: usize,
     pub path: Vec<([u8; 32], bool)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct StarkAccumulatorProof {
+pub struct IssuanceProof {
     pub root: [u8; 32],
     pub proof_bytes: Vec<u8>,
 }
@@ -102,34 +102,34 @@ pub struct StarkAccumulatorProof {
 pub struct SwapRequest {
     pub inputs: Vec<cashu::Proof>,
     pub outputs: Vec<cashu::BlindedMessage>,
-    pub accumulator_proofs: Vec<Vec<u8>>,
+    pub issuance_proofs: Vec<Vec<u8>>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct SwapResponse {
     pub signatures: Vec<cashu::nuts::BlindSignature>,
-    pub accumulator_witness: AccumulatorWitness,
+    pub issuance_witness: IssuanceWitness,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct MintWithWitnessResponse {
     pub signatures: Vec<cashu::nuts::BlindSignature>,
-    pub accumulator_witness: AccumulatorWitness,
+    pub issuance_witness: IssuanceWitness,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
-pub struct AccumulatorInfoResponse {
+pub struct IssuanceInfoResponse {
     pub leaf_count: usize,
     pub root: String,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
-pub struct AccumulatorPathsRequest {
+pub struct IssuancePathsRequest {
     pub indices: Vec<usize>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
-pub struct AccumulatorPathsResponse {
+pub struct IssuancePathsResponse {
     pub root: String,
     pub paths: Vec<Option<Vec<(String, bool)>>>,
 }

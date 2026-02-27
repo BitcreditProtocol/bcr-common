@@ -131,7 +131,7 @@ pub struct MeltOnchainResponse {
 pub struct SwapRequest {
     pub proofs: Vec<cashu::Proof>,
     pub blinds: Vec<cashu::BlindedMessage>,
-    pub accumulator_proofs: Vec<Vec<u8>>,
+    pub issuance_proofs: Vec<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

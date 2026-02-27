@@ -14,14 +14,14 @@ pub struct OnlineExchangeRequest {
     pub proofs: Vec<cashu::Proof>,
     #[schema(value_type = Vec<String>)]
     pub exchange_path: Vec<secp256k1::PublicKey>,
-    pub accumulator_proof: Vec<u8>,
+    pub issuance_proof: Vec<u8>,
 }
 
 ///--------------------------- Online ExchangeResponse
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct OnlineExchangeResponse {
     pub proofs: Vec<cashu::Proof>,
-    pub accumulator_witness: crate::wire::swap::AccumulatorWitness,
+    pub issuance_witness: crate::wire::swap::IssuanceWitness,
 }
 
 ///--------------------------- Offline ExchangeRequest
@@ -31,7 +31,7 @@ pub struct OfflineExchangeRequest {
     #[schema(value_type = Vec<String>)]
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
     pub wallet_pk: cashu::PublicKey,
-    pub accumulator_proof: Vec<u8>,
+    pub issuance_proof: Vec<u8>,
 }
 
 ///--------------------------- Offline ExchangePayload
@@ -50,5 +50,5 @@ pub struct OfflineExchangeResponse {
     pub content: String, // b64 borsh-serialized OfflineExchangePayload
     #[schema(value_type = String)]
     pub signature: bitcoin::secp256k1::schnorr::Signature,
-    pub accumulator_witness: crate::wire::swap::AccumulatorWitness,
+    pub issuance_witness: crate::wire::swap::IssuanceWitness,
 }
