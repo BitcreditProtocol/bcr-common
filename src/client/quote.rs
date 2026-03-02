@@ -194,18 +194,6 @@ impl Client {
         Ok(())
     }
 
-    pub const ENABLE_MINTING_EP_V1: &'static str = "/v1/admin/credit/quote/enable_mint/{qid}";
-    pub async fn enable_minting(&self, qid: Uuid) -> Result<wire_quotes::EnableMintingResponse> {
-        let url = self
-            .base
-            .join(&Self::ENABLE_MINTING_EP_V1.replace("{qid}", &qid.to_string()))
-            .expect("enable minting relative path");
-        let body = wire_quotes::EnableMintingRequest {};
-        let request = self.cl.patch(url).json(&body);
-        let reply = request.send().await?.json().await?;
-        Ok(reply)
-    }
-
     pub const ADMIN_LOOKUP_EP_V1: &'static str = "/v1/admin/credit/quote/{qid}";
     pub async fn admin_lookup(&self, qid: Uuid) -> Result<wire_quotes::InfoReply> {
         let url = self
