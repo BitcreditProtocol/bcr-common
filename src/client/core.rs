@@ -2,7 +2,7 @@
 // ----- extra library imports
 use thiserror::Error;
 // ----- local imports
-use crate::wire::{keys as wire_keys, swap as wire_swap, treasury as wire_treasury};
+use crate::wire::{keys as wire_keys, swap as wire_swap};
 
 // ----- end imports
 
@@ -154,94 +154,6 @@ impl Client {
         let response = request.send().await?;
         let kid = response.json::<cashu::Id>().await?;
         Ok(kid)
-    }
-
-    pub const NEWMINTOP_EP_V1: &'static str = "/v1/admin/keys/mintop";
-    pub async fn new_mint_operation(
-        &self,
-        qid: uuid::Uuid,
-        kid: cashu::Id,
-        pk: cashu::PublicKey,
-        target: cashu::Amount,
-        bill_id: crate::core::BillId,
-    ) -> Result<()> {
-        let url = self
-            .base
-            .join(Self::NEWMINTOP_EP_V1)
-            .expect("mint operation relative path");
-        let msg = wire_treasury::NewMintOperationRequest {
-            quote_id: qid,
-            kid,
-            pub_key: pk,
-            target,
-            bill_id,
-        };
-        let request = self.cl.post(url).json(&msg);
-        let response = request.send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::KeysetIdNotFound(kid));
-        }
-        let _response = response
-            .json::<wire_treasury::NewMintOperationResponse>()
-            .await?;
-        Ok(())
-    }
-
-    pub const MINTOPSTATUS_EP_V1: &'static str = "/v1/admin/keys/mintop/{qid}";
-    pub async fn mint_operation_status(
-        &self,
-        qid: uuid::Uuid,
-    ) -> Result<wire_treasury::MintOperationStatus> {
-        let url = self
-            .base
-            .join(&Self::MINTOPSTATUS_EP_V1.replace("{qid}", &qid.to_string()))
-            .expect("mint operation status relative path");
-        let request = self.cl.get(url);
-        let response = request.send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::MintOpNotFound(qid));
-        }
-        let response = response
-            .json::<wire_treasury::MintOperationStatus>()
-            .await?;
-        Ok(response)
-    }
-
-    pub const LISTMINTOPS_EP_V1: &'static str = "/v1/admin/keys/mintops/{kid}";
-    pub async fn list_mint_operations(&self, kid: cashu::Id) -> Result<Vec<uuid::Uuid>> {
-        let url = self
-            .base
-            .join(&Self::LISTMINTOPS_EP_V1.replace("{kid}", &kid.to_string()))
-            .expect("list mint operations relative path");
-        let request = self.cl.get(url);
-        let response = request.send().await?;
-        let response = response.json::<Vec<uuid::Uuid>>().await?;
-        Ok(response)
-    }
-
-    pub const MINT_EP_V1: &'static str = "/v1/mint/ebill";
-    pub async fn mint(
-        &self,
-        qid: uuid::Uuid,
-        outputs: Vec<cashu::BlindedMessage>,
-        sk: cashu::SecretKey,
-    ) -> Result<Vec<cashu::BlindSignature>> {
-        let url = self
-            .base
-            .join(Self::MINT_EP_V1)
-            .expect("mint relative path");
-        let mut msg = cashu::MintRequest {
-            quote: qid,
-            outputs,
-            signature: None,
-        };
-        msg.sign(sk)?;
-        let result = self.cl.post(url).json(&msg).send().await?;
-        if result.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::MintOpNotFound(qid));
-        }
-        let response = result.json::<cashu::MintResponse>().await?;
-        Ok(response.signatures)
     }
 
     pub const RESTORE_EP_V1: &'static str = "/v1/restore";
