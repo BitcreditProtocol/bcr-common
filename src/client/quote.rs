@@ -88,7 +88,7 @@ impl Client {
             bill_drawer_id,
             bill_payer_id,
             bill_holder_id,
-            ..
+            sort,
         } = params;
         if let Some(date) = bill_maturity_date_from {
             request = request.query(&[("bill_maturity_date_from", date.to_string())]);
@@ -113,6 +113,9 @@ impl Client {
         }
         if let Some(bill_holder_id) = bill_holder_id {
             request = request.query(&[("bill_holder_id", bill_holder_id)]);
+        }
+        if let Some(sort) = sort {
+            request = request.query(&[("sort", sort.to_string())]);
         }
 
         let reply = request.send().await?.json().await?;

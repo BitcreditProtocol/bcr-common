@@ -148,8 +148,9 @@ pub struct ListParam {
     pub sort: Option<ListSort>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, strum::Display)]
 #[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum ListSort {
     BillMaturityDateDesc,
     BillMaturityDateAsc,
@@ -160,7 +161,7 @@ pub struct ListReply {
     pub quotes: Vec<uuid::Uuid>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct LightInfo {
     pub id: uuid::Uuid,
     pub status: InfoReplyDiscriminants,
@@ -172,6 +173,8 @@ pub struct LightInfo {
 pub struct ListReplyLight {
     pub quotes: Vec<LightInfo>,
 }
+
+pub use super::common::{PaginatedResponse, Pagination};
 
 /// --------------------------- Quote info request
 #[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]

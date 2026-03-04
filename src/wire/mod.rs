@@ -4,6 +4,7 @@
 pub mod bill;
 pub mod borsh;
 pub mod clowder;
+pub mod common;
 pub mod contact;
 pub mod exchange;
 pub mod identity;
