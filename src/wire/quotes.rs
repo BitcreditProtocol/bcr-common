@@ -146,10 +146,13 @@ pub struct ListParam {
     #[param(value_type = Option<String>)]
     pub bill_holder_id: Option<NodeId>,
     pub sort: Option<ListSort>,
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, strum::Display)]
 #[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum ListSort {
     BillMaturityDateDesc,
     BillMaturityDateAsc,
@@ -169,8 +172,9 @@ pub struct LightInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct ListReplyLight {
-    pub quotes: Vec<LightInfo>,
+pub struct PaginatedResponse<T: ToSchema> {
+    pub data: Vec<T>,
+    pub total: u64,
 }
 
 /// --------------------------- Quote info request
