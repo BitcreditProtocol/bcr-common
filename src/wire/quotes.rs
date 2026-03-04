@@ -146,8 +146,6 @@ pub struct ListParam {
     #[param(value_type = Option<String>)]
     pub bill_holder_id: Option<NodeId>,
     pub sort: Option<ListSort>,
-    pub limit: Option<u32>,
-    pub offset: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, strum::Display)]
@@ -163,7 +161,7 @@ pub struct ListReply {
     pub quotes: Vec<uuid::Uuid>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct LightInfo {
     pub id: uuid::Uuid,
     pub status: InfoReplyDiscriminants,
@@ -171,7 +169,12 @@ pub struct LightInfo {
     pub sum: bitcoin::Amount,
 }
 
-pub use super::common::PaginatedResponse;
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ListReplyLight {
+    pub quotes: Vec<LightInfo>,
+}
+
+pub use super::common::{PaginatedResponse, Pagination};
 
 /// --------------------------- Quote info request
 #[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]

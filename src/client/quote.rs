@@ -73,7 +73,7 @@ impl Client {
     pub async fn list(
         &self,
         params: wire_quotes::ListParam,
-    ) -> Result<wire_quotes::PaginatedResponse<wire_quotes::LightInfo>> {
+    ) -> Result<wire_quotes::ListReplyLight> {
         let url = self
             .base
             .join(Self::LIST_EP_V1)
@@ -89,8 +89,6 @@ impl Client {
             bill_payer_id,
             bill_holder_id,
             sort,
-            limit,
-            offset,
         } = params;
         if let Some(date) = bill_maturity_date_from {
             request = request.query(&[("bill_maturity_date_from", date.to_string())]);
@@ -118,12 +116,6 @@ impl Client {
         }
         if let Some(sort) = sort {
             request = request.query(&[("sort", sort.to_string())]);
-        }
-        if let Some(limit) = limit {
-            request = request.query(&[("limit", limit.to_string())]);
-        }
-        if let Some(offset) = offset {
-            request = request.query(&[("offset", offset.to_string())]);
         }
 
         let reply = request.send().await?.json().await?;
