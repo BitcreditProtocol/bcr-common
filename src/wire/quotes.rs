@@ -171,11 +171,7 @@ pub struct LightInfo {
     pub sum: bitcoin::Amount,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct PaginatedResponse<T: ToSchema> {
-    pub data: Vec<T>,
-    pub total: u64,
-}
+pub use super::common::PaginatedResponse;
 
 /// --------------------------- Quote info request
 #[derive(Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
