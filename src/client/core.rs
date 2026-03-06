@@ -37,6 +37,30 @@ impl Client {
         }
     }
 
+    pub const NEW_KEYSET_EP_V1: &'static str = "/v1/keys";
+    pub async fn new_keyset(
+        &self,
+        unit: cashu::CurrencyUnit,
+        expiration: Option<chrono::NaiveDate>,
+        fees_ppk: u64,
+    ) -> Result<cdk_common::mint::MintKeySetInfo> {
+        let url = self
+            .base
+            .join(Self::NEW_KEYSET_EP_V1)
+            .expect("new keys relative path");
+        let request = self.cl.post(url).json(&wire_keys::NewKeysetRequest {
+            unit,
+            expiration,
+            fees_ppk,
+        });
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        let ks = response.json::<cdk_common::mint::MintKeySetInfo>().await?;
+        Ok(ks)
+    }
+
     pub const KEYS_EP_V1: &'static str = "/v1/keys/{kid}";
     pub async fn keys(&self, kid: cashu::Id) -> Result<cashu::KeySet> {
         let url = self
