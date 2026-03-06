@@ -14,6 +14,14 @@ use crate::{
 
 // ----- end imports
 
+///--------------------------- KeysetInfo filters
+#[derive(Debug, Default, Deserialize)]
+pub struct KeysetInfoFilters {
+    pub unit: Option<cashu::CurrencyUnit>,
+    pub min_expiration: Option<chrono::NaiveDate>,
+    pub max_expiration: Option<chrono::NaiveDate>,
+}
+
 ///--------------------------- Pre-sign blinded message
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SignRequest {
