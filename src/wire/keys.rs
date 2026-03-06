@@ -14,6 +14,14 @@ use crate::{
 
 // ----- end imports
 
+///--------------------------- New Keyset
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NewKeysetRequest {
+    pub unit: cashu::CurrencyUnit,
+    pub expiration: Option<chrono::NaiveDate>,
+    pub fees_ppk: u64,
+}
+
 ///--------------------------- KeysetInfo filters
 #[derive(Debug, Default, Deserialize)]
 pub struct KeysetInfoFilters {
