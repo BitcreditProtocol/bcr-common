@@ -181,18 +181,6 @@ impl Client {
         Ok(())
     }
 
-    pub const KEYSFOREXPIRATION_EP_V1: &'static str = "/v1/admin/keys/{date}";
-    pub async fn keys_for_expiration(&self, date: chrono::NaiveDate) -> Result<cashu::Id> {
-        let url = self
-            .base
-            .join(&Self::KEYSFOREXPIRATION_EP_V1.replace("{date}", &date.to_string()))
-            .expect("keys for date relative path");
-        let request = self.cl.get(url);
-        let response = request.send().await?;
-        let kid = response.json::<cashu::Id>().await?;
-        Ok(kid)
-    }
-
     pub const RESTORE_EP_V1: &'static str = "/v1/restore";
     pub async fn restore(
         &self,
