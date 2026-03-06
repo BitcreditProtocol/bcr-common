@@ -77,12 +77,25 @@ impl Client {
     }
 
     pub const LISTKEYSETINFO_EP_V1: &'static str = "/v1/keysets";
-    pub async fn list_keyset_info(&self) -> Result<Vec<cashu::KeySetInfo>> {
+    pub async fn list_keyset_info(
+        &self,
+        filters: wire_keys::KeysetInfoFilters,
+    ) -> Result<Vec<cashu::KeySetInfo>> {
         let url = self
             .base
             .join(Self::LISTKEYSETINFO_EP_V1)
             .expect("keyset relative path");
-        let response = self.cl.get(url).send().await?;
+        let mut request = self.cl.get(url);
+        if let Some(unit) = filters.unit {
+            request = request.query(&[("unit", unit.to_string())]);
+        }
+        if let Some(date) = filters.min_expiration {
+            request = request.query(&[("min_expiration", date.to_string())]);
+        }
+        if let Some(date) = filters.max_expiration {
+            request = request.query(&[("max_expiration", date.to_string())]);
+        }
+        let response = request.send().await?;
         let ks = response.json::<cashu::KeysetResponse>().await?;
         Ok(ks.keysets)
     }
