@@ -30,6 +30,8 @@ pub struct Client {
 }
 
 impl Client {
+    pub const CREDIT_UNIT: &'static str = "crsat";
+
     pub fn new(base: reqwest::Url) -> Self {
         Self {
             cl: reqwest::Client::new(),
@@ -59,6 +61,33 @@ impl Client {
         }
         let ks = response.json::<cdk_common::mint::MintKeySetInfo>().await?;
         Ok(ks)
+    }
+
+    pub async fn get_or_create_credit_keyset_with_expiration(
+        &self,
+        expiration: chrono::NaiveDate,
+    ) -> Result<cashu::KeySetInfo> {
+        let unit = cashu::CurrencyUnit::Custom(String::from(Self::CREDIT_UNIT));
+        let filters = wire_keys::KeysetInfoFilters {
+            unit: Some(unit.clone()),
+            min_expiration: Some(expiration - chrono::Duration::days(1)),
+            max_expiration: Some(expiration + chrono::Duration::days(1)),
+        };
+        let kinfos = self.list_keyset_info(filters).await?;
+        let expiration_tstamp = u64::try_from(
+            expiration
+                .and_time(chrono::NaiveTime::MIN)
+                .and_utc()
+                .timestamp(),
+        )
+        .unwrap_or(0);
+        for kinfo in kinfos {
+            if kinfo.unit == unit && kinfo.final_expiry == Some(expiration_tstamp) {
+                return Ok(kinfo);
+            }
+        }
+        let kinfo = self.new_keyset(unit, Some(expiration), 0).await?;
+        Ok(cashu::KeySetInfo::from(kinfo))
     }
 
     pub const KEYS_EP_V1: &'static str = "/v1/keys/{kid}";
