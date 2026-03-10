@@ -15,6 +15,8 @@ pub struct MintQuoteOnchainRequest {
     pub amount: Amount,
     /// Unit wallet would like to receive
     pub unit: CurrencyUnit,
+    /// wallet public key for signing mint request
+    pub pubkey: cashu::PublicKey,
 }
 
 /// Onchain Mint quote response
