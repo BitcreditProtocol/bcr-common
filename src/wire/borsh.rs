@@ -70,7 +70,7 @@ where
         .collect::<std::result::Result<Vec<T>, T::Err>>()
         .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))
 }
-pub(crate) fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
+pub fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
 where
     T: serde::ser::Serialize,
 {
@@ -80,7 +80,7 @@ where
     Ok(())
 }
 
-pub(crate) fn deserialize_vec_of_jsons<T>(reader: &mut impl Read) -> Result<Vec<T>>
+pub fn deserialize_vec_of_jsons<T>(reader: &mut impl Read) -> Result<Vec<T>>
 where
     T: serde::de::DeserializeOwned,
 {

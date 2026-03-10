@@ -1,6 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::Amount;
+use bitcoin::{Address, Amount, address::NetworkUnchecked};
 use borsh::{BorshDeserialize, BorshSerialize};
 use cashu::CurrencyUnit;
 use serde::{Deserialize, Serialize};
@@ -29,27 +29,20 @@ pub struct MintQuoteOnchainRequest {
 pub struct MintQuoteOnchainResponseBody {
     /// Quote ID (UUID v4)
     #[schema(value_type = String)]
-    #[borsh(
-        serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_from_str"
-    )]
+    #[borsh(serialize_with = "serialize_as_str", deserialize_with = "deserialize_from_str")]
     pub quote: uuid::Uuid,
     /// Bitcoin address to send payment
-    pub address: String,
+    #[schema(value_type = String)]
+    #[borsh(serialize_with = "serialize_as_str", deserialize_with = "deserialize_from_str")]
+    pub address: Address<NetworkUnchecked>,
     /// Amount received
     #[schema(value_type = u64)]
-    #[borsh(
-        serialize_with = "serialize_btc_amount",
-        deserialize_with = "deserialize_btc_amount"
-    )]
+    #[borsh(serialize_with = "serialize_btc_amount", deserialize_with = "deserialize_btc_amount")]
     pub amount: Amount,
     /// Expiry timestamp
     pub expiry: u64,
     /// Blinded messages committed to
-    #[borsh(
-        serialize_with = "serialize_vec_of_jsons",
-        deserialize_with = "deserialize_vec_of_jsons"
-    )]
+    #[borsh(serialize_with = "serialize_vec_of_jsons", deserialize_with = "deserialize_vec_of_jsons")]
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
 }
 
