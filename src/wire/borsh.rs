@@ -50,6 +50,30 @@ where
     Ok(t)
 }
 
+pub fn serialize_as_json<T: serde::Serialize>(t: &T, writer: &mut impl Write) -> Result<()> {
+    let stringified =
+        serde_json::to_string(t).map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
+    borsh::BorshSerialize::serialize(&stringified, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_from_json<T: serde::de::DeserializeOwned>(reader: &mut impl Read) -> Result<T> {
+    let stringified: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let t =
+        serde_json::from_str(&stringified).map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+    Ok(t)
+}
+
+pub fn serialize_btc_amount(amount: &bitcoin::Amount, writer: &mut impl Write) -> Result<()> {
+    borsh::BorshSerialize::serialize(&amount.to_sat(), writer)?;
+    Ok(())
+}
+
+pub fn deserialize_btc_amount(reader: &mut impl Read) -> Result<bitcoin::Amount> {
+    let sats: u64 = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    Ok(bitcoin::Amount::from_sat(sats))
+}
+
 pub fn serialize_vec_of_strs<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
 where
     T: std::fmt::Display,
