@@ -380,11 +380,30 @@ mod tests {
     }
 
     #[test]
-    fn serialize_deserialize_btc_amount() {
-        let amount = bitcoin::Amount::from_sat(123456789);
+    fn serialize_deserialize_as_json() {
+        let field = Field {
+            f1: String::from("hello"),
+            f2: 42,
+        };
         let mut buf = Vec::new();
-        serialize_btc_amount(&amount, &mut buf).unwrap();
-        let deserialized_amount = deserialize_btc_amount(&mut buf.as_slice()).unwrap();
-        assert_eq!(amount, deserialized_amount);
+        serialize_as_json(&field, &mut buf).unwrap();
+        let deserialized: Field = deserialize_from_json(&mut buf.as_slice()).unwrap();
+        assert_eq!(field, deserialized);
+    }
+
+    #[test]
+    fn serialize_deserialize_btc_amount() {
+        let cases = [
+            bitcoin::Amount::from_sat(0),
+            bitcoin::Amount::from_sat(1),
+            bitcoin::Amount::from_sat(100_000_000),
+            bitcoin::Amount::MAX,
+        ];
+        for amount in cases {
+            let mut buf = Vec::new();
+            serialize_btc_amount(&amount, &mut buf).unwrap();
+            let deserialized = deserialize_btc_amount(&mut buf.as_slice()).unwrap();
+            assert_eq!(amount, deserialized);
+        }
     }
 }

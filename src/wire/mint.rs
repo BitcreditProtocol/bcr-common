@@ -2,7 +2,6 @@
 // ----- extra library imports
 use bitcoin::{Address, Amount, address::NetworkUnchecked};
 use borsh::{BorshDeserialize, BorshSerialize};
-use cashu::CurrencyUnit;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
@@ -15,34 +14,41 @@ use crate::wire::borsh::{
 /// Onchain Mint quote request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MintQuoteOnchainRequest {
-    /// Amount to send and mint
-    #[schema(value_type = u64)]
-    pub amount: Amount,
-    /// Unit wallet would like to receive
-    pub unit: CurrencyUnit,
-    /// Blinded messages to be signed upon payment
+    /// Blinded messages to be signed upon payment, keyset must be SAT
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
 }
 
 /// Onchain Mint quote response body
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
 pub struct MintQuoteOnchainResponseBody {
-    /// Quote ID (UUID v4)
+    /// Quote ID
     #[schema(value_type = String)]
-    #[borsh(serialize_with = "serialize_as_str", deserialize_with = "deserialize_from_str")]
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
     pub quote: uuid::Uuid,
     /// Bitcoin address to send payment
     #[schema(value_type = String)]
-    #[borsh(serialize_with = "serialize_as_json", deserialize_with = "deserialize_from_json")]
+    #[borsh(
+        serialize_with = "serialize_as_json",
+        deserialize_with = "deserialize_from_json"
+    )]
     pub address: Address<NetworkUnchecked>,
-    /// Amount received
+    /// Amount to pay including fees
     #[schema(value_type = u64)]
-    #[borsh(serialize_with = "serialize_btc_amount", deserialize_with = "deserialize_btc_amount")]
-    pub amount: Amount,
-    /// Expiry timestamp
+    #[borsh(
+        serialize_with = "serialize_btc_amount",
+        deserialize_with = "deserialize_btc_amount"
+    )]
+    pub payment_amount: Amount,
+    /// Quote expiry timestamp
     pub expiry: u64,
     /// Blinded messages committed to
-    #[borsh(serialize_with = "serialize_vec_of_jsons", deserialize_with = "deserialize_vec_of_jsons")]
+    #[borsh(
+        serialize_with = "serialize_vec_of_jsons",
+        deserialize_with = "deserialize_vec_of_jsons"
+    )]
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
 }
 
