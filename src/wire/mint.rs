@@ -67,7 +67,7 @@ pub struct OnchainMintRequest {
 /// Onchain Mint quote response with commitment signature
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct OnchainMintQuoteResponse {
-    pub body: OnchainMintQuoteResponseBody,
+    pub content: String, // base64, borsh serialized OnchainMintQuoteResponseBody
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }

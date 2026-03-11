@@ -59,8 +59,8 @@ pub fn serialize_as_json<T: serde::Serialize>(t: &T, writer: &mut impl Write) ->
 
 pub fn deserialize_from_json<T: serde::de::DeserializeOwned>(reader: &mut impl Read) -> Result<T> {
     let stringified: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
-    let t =
-        serde_json::from_str(&stringified).map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+    let t = serde_json::from_str(&stringified)
+        .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
     Ok(t)
 }
 
@@ -94,7 +94,7 @@ where
         .collect::<std::result::Result<Vec<T>, T::Err>>()
         .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))
 }
-pub fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
+pub(crate) fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
 where
     T: serde::ser::Serialize,
 {
@@ -104,7 +104,7 @@ where
     Ok(())
 }
 
-pub fn deserialize_vec_of_jsons<T>(reader: &mut impl Read) -> Result<Vec<T>>
+pub(crate) fn deserialize_vec_of_jsons<T>(reader: &mut impl Read) -> Result<Vec<T>>
 where
     T: serde::de::DeserializeOwned,
 {
@@ -271,15 +271,6 @@ pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::P
     let proofs: Vec<Proof> = borsh::BorshDeserialize::deserialize_reader(reader)?;
     let output: Vec<cashu::Proof> = proofs.into_iter().map(cashu::Proof::from).collect();
     Ok(output)
-}
-
-pub fn serialize_btc_amount(amount: &bitcoin::Amount, writer: &mut impl Write) -> Result<()> {
-    serialize_as_u64(&amount.to_sat(), writer)
-}
-
-pub fn deserialize_btc_amount(reader: &mut impl Read) -> Result<bitcoin::Amount> {
-    let sats = deserialize_from_u64(reader)?;
-    Ok(bitcoin::Amount::from_sat(sats))
 }
 
 #[cfg(test)]
