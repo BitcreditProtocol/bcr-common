@@ -13,14 +13,14 @@ use crate::wire::borsh::{
 
 /// Onchain Mint quote request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MintQuoteOnchainRequest {
+pub struct OnchainMintQuoteRequest {
     /// Blinded messages to be signed upon payment, keyset must be SAT
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
 }
 
 /// Onchain Mint quote response body
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
-pub struct MintQuoteOnchainResponseBody {
+pub struct OnchainMintQuoteResponseBody {
     /// Quote ID
     #[schema(value_type = String)]
     #[borsh(
@@ -52,12 +52,30 @@ pub struct MintQuoteOnchainResponseBody {
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
 }
 
+/// Onchain Mint response body
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+pub struct OnchainMintRequest {
+    /// Quote ID
+    #[schema(value_type = String)]
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub quote: uuid::Uuid,
+}
+
 /// Onchain Mint quote response with commitment signature
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MintQuoteOnchainResponse {
-    pub content: String, // base64, borsh serialized MintQuoteOnchainResponseBody
+pub struct OnchainMintQuoteResponse {
+    pub body: OnchainMintQuoteResponseBody,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+}
+
+/// Onchain Mint response
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MintResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -66,7 +84,7 @@ pub struct MintProtestRequest {
     pub alpha_id: bitcoin::secp256k1::PublicKey,
     #[schema(value_type = String)]
     pub quote_id: uuid::Uuid,
-    pub body: MintQuoteOnchainResponseBody,
+    pub body: OnchainMintQuoteResponseBody,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
     pub payment_height: u64,
