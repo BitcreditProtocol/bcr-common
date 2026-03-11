@@ -249,6 +249,15 @@ pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::P
     Ok(output)
 }
 
+pub fn serialize_btc_amount(amount: &bitcoin::Amount, writer: &mut impl Write) -> Result<()> {
+    serialize_as_u64(&amount.to_sat(), writer)
+}
+
+pub fn deserialize_btc_amount(reader: &mut impl Read) -> Result<bitcoin::Amount> {
+    let sats = deserialize_from_u64(reader)?;
+    Ok(bitcoin::Amount::from_sat(sats))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -344,5 +353,14 @@ mod tests {
         let deserialized_t =
             borsh::BorshDeserialize::deserialize_reader(&mut buf.as_slice()).unwrap();
         assert_eq!(t, deserialized_t);
+    }
+
+    #[test]
+    fn serialize_deserialize_btc_amount() {
+        let amount = bitcoin::Amount::from_sat(123456789);
+        let mut buf = Vec::new();
+        serialize_btc_amount(&amount, &mut buf).unwrap();
+        let deserialized_amount = deserialize_btc_amount(&mut buf.as_slice()).unwrap();
+        assert_eq!(amount, deserialized_amount);
     }
 }
