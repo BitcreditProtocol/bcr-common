@@ -252,7 +252,14 @@ pub struct Endorsement {
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct LightSignedBy {
     pub data: LightBillParticipant,
-    pub signatory: Option<LightBillIdentParticipant>,
+    pub signatory: Option<LightBillSignatory>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct LightBillSignatory {
+    pub name: Option<String>,
+    #[schema(value_type = String)]
+    pub node_id: NodeId,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
