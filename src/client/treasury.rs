@@ -362,6 +362,4 @@ impl Client {
     pub const MELTQUOTE_ONCHAIN_EP_V1: &'static str = "/v1/melt/quote/onchain";
     pub const MELT_ONCHAIN_EP_V1: &'static str = "/v1/melt/onchain";
     pub const MINTQUOTE_ONCHAIN_EP_V1: &'static str = "/v1/mint/quote/onchain";
-    pub const MINTQUOTE_ONCHAIN_GET_EP_V1: &'static str = "/v1/mint/quote/onchain/{quote_id}";
-    pub const MINT_ONCHAIN_EP_V1: &'static str = "/v1/mint/onchain";
 }
