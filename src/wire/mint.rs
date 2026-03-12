@@ -81,7 +81,6 @@ pub struct MintProtestRequest {
     pub content: String, // base64, borsh serialized OnchainMintQuoteResponseBody
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
-    pub payment_height: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
