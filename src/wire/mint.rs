@@ -47,16 +47,15 @@ pub struct OnchainMintQuoteResponseBody {
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
 }
 
-/// Onchain Mint response body
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+/// Onchain Mint Request to Fetch Signatures
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct OnchainMintRequest {
     /// Quote ID
     #[schema(value_type = String)]
-    #[borsh(
-        serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_from_str"
-    )]
     pub quote: uuid::Uuid,
+    /// Id of the origin mint
+    #[schema(value_type = String)]
+    pub alpha_id: bitcoin::secp256k1::PublicKey,
 }
 
 /// Onchain Mint quote response with commitment signature
@@ -67,7 +66,7 @@ pub struct OnchainMintQuoteResponse {
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
-/// Onchain Mint response
+/// Mint response
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MintResponse {
     pub signatures: Vec<cashu::BlindSignature>,
@@ -79,16 +78,10 @@ pub struct MintProtestRequest {
     pub alpha_id: bitcoin::secp256k1::PublicKey,
     #[schema(value_type = String)]
     pub quote_id: uuid::Uuid,
-    pub body: OnchainMintQuoteResponseBody,
+    pub content: String, // base64, borsh serialized OnchainMintQuoteResponseBody
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
     pub payment_height: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MintOnchainTrigger {
-    #[schema(value_type = String)]
-    pub quote_id: uuid::Uuid,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
