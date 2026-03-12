@@ -2,7 +2,6 @@
 // ----- extra library imports
 use bitcoin::Amount;
 use borsh::{BorshDeserialize, BorshSerialize};
-use cashu::CurrencyUnit;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
@@ -14,20 +13,15 @@ use crate::wire::borsh::{
 
 /// Onchain Mint quote request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MintQuoteOnchainRequest {
-    /// Amount to send and mint
-    #[schema(value_type = u64)]
-    pub amount: Amount,
-    /// Unit wallet would like to receive
-    pub unit: CurrencyUnit,
-    /// Blinded messages to be signed upon payment
+pub struct OnchainMintQuoteRequest {
+    /// Blinded messages to be signed upon payment, keyset must be SAT
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
 }
 
 /// Onchain Mint quote response body
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
-pub struct MintQuoteOnchainResponseBody {
-    /// Quote ID (UUID v4)
+pub struct OnchainMintQuoteResponseBody {
+    /// Quote ID
     #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
@@ -36,14 +30,14 @@ pub struct MintQuoteOnchainResponseBody {
     pub quote: uuid::Uuid,
     /// Bitcoin address to send payment
     pub address: String,
-    /// Amount received
+    /// Amount to pay including fees
     #[schema(value_type = u64)]
     #[borsh(
         serialize_with = "serialize_btc_amount",
         deserialize_with = "deserialize_btc_amount"
     )]
-    pub amount: Amount,
-    /// Expiry timestamp
+    pub payment_amount: Amount,
+    /// Quote expiry timestamp
     pub expiry: u64,
     /// Blinded messages committed to
     #[borsh(
@@ -53,12 +47,29 @@ pub struct MintQuoteOnchainResponseBody {
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
 }
 
+/// Onchain Mint Request to Fetch Signatures
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OnchainMintRequest {
+    /// Quote ID
+    #[schema(value_type = String)]
+    pub quote: uuid::Uuid,
+    /// Id of the origin mint
+    #[schema(value_type = String)]
+    pub alpha_id: bitcoin::secp256k1::PublicKey,
+}
+
 /// Onchain Mint quote response with commitment signature
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MintQuoteOnchainResponse {
-    pub content: String, // base64, borsh serialized MintQuoteOnchainResponseBody
+pub struct OnchainMintQuoteResponse {
+    pub content: String, // base64, borsh serialized OnchainMintQuoteResponseBody
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+}
+
+/// Mint response
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MintResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -67,16 +78,9 @@ pub struct MintProtestRequest {
     pub alpha_id: bitcoin::secp256k1::PublicKey,
     #[schema(value_type = String)]
     pub quote_id: uuid::Uuid,
-    pub body: MintQuoteOnchainResponseBody,
+    pub content: String, // base64, borsh serialized OnchainMintQuoteResponseBody
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
-    pub payment_height: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MintOnchainTrigger {
-    #[schema(value_type = String)]
-    pub quote_id: uuid::Uuid,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
