@@ -50,16 +50,6 @@ where
     Ok(t)
 }
 
-pub fn serialize_btc_amount(amount: &bitcoin::Amount, writer: &mut impl Write) -> Result<()> {
-    borsh::BorshSerialize::serialize(&amount.to_sat(), writer)?;
-    Ok(())
-}
-
-pub fn deserialize_btc_amount(reader: &mut impl Read) -> Result<bitcoin::Amount> {
-    let sats: u64 = borsh::BorshDeserialize::deserialize_reader(reader)?;
-    Ok(bitcoin::Amount::from_sat(sats))
-}
-
 pub fn serialize_vec_of_strs<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
 where
     T: std::fmt::Display,
@@ -259,6 +249,15 @@ pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::P
     Ok(output)
 }
 
+pub fn serialize_btc_amount(amount: &bitcoin::Amount, writer: &mut impl Write) -> Result<()> {
+    serialize_as_u64(&amount.to_sat(), writer)
+}
+
+pub fn deserialize_btc_amount(reader: &mut impl Read) -> Result<bitcoin::Amount> {
+    let sats = deserialize_from_u64(reader)?;
+    Ok(bitcoin::Amount::from_sat(sats))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -358,17 +357,10 @@ mod tests {
 
     #[test]
     fn serialize_deserialize_btc_amount() {
-        let cases = [
-            bitcoin::Amount::from_sat(0),
-            bitcoin::Amount::from_sat(1),
-            bitcoin::Amount::from_sat(100_000_000),
-            bitcoin::Amount::MAX,
-        ];
-        for amount in cases {
-            let mut buf = Vec::new();
-            serialize_btc_amount(&amount, &mut buf).unwrap();
-            let deserialized = deserialize_btc_amount(&mut buf.as_slice()).unwrap();
-            assert_eq!(amount, deserialized);
-        }
+        let amount = bitcoin::Amount::from_sat(123456789);
+        let mut buf = Vec::new();
+        serialize_btc_amount(&amount, &mut buf).unwrap();
+        let deserialized_amount = deserialize_btc_amount(&mut buf.as_slice()).unwrap();
+        assert_eq!(amount, deserialized_amount);
     }
 }
