@@ -1,13 +1,13 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::{Address, Amount, address::NetworkUnchecked};
+use bitcoin::Amount;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::borsh::{
-    deserialize_btc_amount, deserialize_from_json, deserialize_from_str, deserialize_vec_of_jsons,
-    serialize_as_json, serialize_as_str, serialize_btc_amount, serialize_vec_of_jsons,
+    deserialize_btc_amount, deserialize_from_str, deserialize_vec_of_jsons, serialize_as_str,
+    serialize_btc_amount, serialize_vec_of_jsons,
 };
 // ----- end imports
 
@@ -29,12 +29,7 @@ pub struct OnchainMintQuoteResponseBody {
     )]
     pub quote: uuid::Uuid,
     /// Bitcoin address to send payment
-    #[schema(value_type = String)]
-    #[borsh(
-        serialize_with = "serialize_as_json",
-        deserialize_with = "deserialize_from_json"
-    )]
-    pub address: Address<NetworkUnchecked>,
+    pub address: String,
     /// Amount to pay including fees
     #[schema(value_type = u64)]
     #[borsh(

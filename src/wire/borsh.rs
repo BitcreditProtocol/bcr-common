@@ -50,20 +50,6 @@ where
     Ok(t)
 }
 
-pub fn serialize_as_json<T: serde::Serialize>(t: &T, writer: &mut impl Write) -> Result<()> {
-    let stringified =
-        serde_json::to_string(t).map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))?;
-    borsh::BorshSerialize::serialize(&stringified, writer)?;
-    Ok(())
-}
-
-pub fn deserialize_from_json<T: serde::de::DeserializeOwned>(reader: &mut impl Read) -> Result<T> {
-    let stringified: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
-    let t = serde_json::from_str(&stringified)
-        .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
-    Ok(t)
-}
-
 pub fn serialize_btc_amount(amount: &bitcoin::Amount, writer: &mut impl Write) -> Result<()> {
     borsh::BorshSerialize::serialize(&amount.to_sat(), writer)?;
     Ok(())
@@ -368,18 +354,6 @@ mod tests {
         let deserialized_t =
             borsh::BorshDeserialize::deserialize_reader(&mut buf.as_slice()).unwrap();
         assert_eq!(t, deserialized_t);
-    }
-
-    #[test]
-    fn serialize_deserialize_as_json() {
-        let field = Field {
-            f1: String::from("hello"),
-            f2: 42,
-        };
-        let mut buf = Vec::new();
-        serialize_as_json(&field, &mut buf).unwrap();
-        let deserialized: Field = deserialize_from_json(&mut buf.as_slice()).unwrap();
-        assert_eq!(field, deserialized);
     }
 
     #[test]
