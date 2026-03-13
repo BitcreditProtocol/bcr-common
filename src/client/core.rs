@@ -30,7 +30,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub const CREDIT_UNIT: &'static str = "crsat";
+    pub fn credit_unit() -> cashu::CurrencyUnit {
+        cashu::CurrencyUnit::Custom(String::from(String::from("crsat")))
+    }
+    pub fn debit_unit() -> cashu::CurrencyUnit {
+        cashu::CurrencyUnit::Sat
+    }
 
     pub fn new(base: reqwest::Url) -> Self {
         Self {
@@ -39,7 +44,7 @@ impl Client {
         }
     }
 
-    pub const NEW_KEYSET_EP_V1: &'static str = "/v1/keys";
+    pub const NEW_KEYSET_EP_V1: &'static str = "/v1/admin/keys";
     pub async fn new_keyset(
         &self,
         unit: cashu::CurrencyUnit,
@@ -67,7 +72,7 @@ impl Client {
         &self,
         expiration: chrono::NaiveDate,
     ) -> Result<cashu::KeySetInfo> {
-        let unit = cashu::CurrencyUnit::Custom(String::from(Self::CREDIT_UNIT));
+        let unit = Self::credit_unit();
         let filters = wire_keys::KeysetInfoFilters {
             unit: Some(unit.clone()),
             min_expiration: Some(expiration - chrono::Duration::days(1)),
