@@ -105,8 +105,8 @@ pub struct BillPaymentStatus {
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct SimplifiedBillPaymentStatus {
-    payment_status: BillPaymentStatus,
-    payment_details: Option<BillWaitingForPaymentState>,
+    pub payment_status: BillPaymentStatus,
+    pub payment_details: Option<BillWaitingForPaymentState>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
