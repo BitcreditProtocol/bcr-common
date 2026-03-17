@@ -1,7 +1,7 @@
 // ----- standard library imports
 // ----- extra library imports
 use bitcoin::{Address, Amount, address::NetworkUnchecked};
-use cashu::{CurrencyUnit, MeltQuoteState, nuts::MeltOptions};
+use cashu::{CurrencyUnit, MeltQuoteState};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
@@ -25,6 +25,9 @@ pub struct MeltQuoteOnchainRequest {
     pub request: OnchainInvoice,
     /// Unit wallet would like to pay with
     pub unit: CurrencyUnit,
+    /// Change
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub change: Vec<cashu::BlindedMessage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -41,9 +44,6 @@ pub struct MeltQuoteOnchainResponse {
     /// Quote ID (UUID v4)
     #[schema(value_type = String)]
     pub quote: uuid::Uuid,
-    /// Confirmed transaction id after a melt is successful sent onchain
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub txid: Option<MeltTx>,
     /// The fee reserve that is required
     #[schema(value_type = u64)]
     pub fee_reserve: Amount,
@@ -56,7 +56,20 @@ pub struct MeltQuoteOnchainResponse {
     pub expiry: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unit: Option<CurrencyUnit>,
-    /// Change
+}
+
+/// Onchain Melt response
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MeltOnchainResponse {
+    /// Quote ID (UUID v4)
+    #[schema(value_type = String)]
+    pub quote: uuid::Uuid,
+    /// Quote State
+    pub state: MeltQuoteState,
+    /// Confirmed transaction id after a melt is successfully sent onchain
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub change: Option<Vec<cashu::BlindSignature>>,
+    pub txid: Option<MeltTx>,
+    /// Change
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub change: Vec<cashu::BlindSignature>,
 }
