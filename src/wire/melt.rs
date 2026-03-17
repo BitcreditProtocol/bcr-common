@@ -25,11 +25,6 @@ pub struct MeltQuoteOnchainRequest {
     pub request: OnchainInvoice,
     /// Unit wallet would like to pay with
     pub unit: CurrencyUnit,
-    /// Payment Options
-    pub options: Option<MeltOptions>,
-    /// Wallet signature
-    #[schema(value_type = String)]
-    pub signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
