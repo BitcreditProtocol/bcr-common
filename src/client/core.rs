@@ -159,12 +159,23 @@ impl Client {
     }
 
     pub const SIGN_EP_V1: &'static str = "/v1/admin/keys/sign";
-    pub async fn sign(&self, msg: &cashu::BlindedMessage) -> Result<cashu::BlindSignature> {
+    pub async fn sign(&self, msgs: &[cashu::BlindedMessage]) -> Result<Vec<cashu::BlindSignature>> {
+        if msgs.is_empty() {
+            return Ok(vec![]);
+        }
+        let unique_kids = msgs
+            .iter()
+            .map(|m| m.keyset_id)
+            .collect::<std::collections::HashSet<_>>();
+        if unique_kids.len() > 1 {
+            return Err(Error::InvalidRequest);
+        }
+        let kid = unique_kids.into_iter().next().unwrap();
         let url = self
             .base
             .join(Self::SIGN_EP_V1)
             .expect("sign relative path");
-        let request = self.cl.post(url).json(msg);
+        let request = self.cl.post(url).json(msgs);
         let response = request.send().await?;
         if response.status() == reqwest::StatusCode::BAD_REQUEST {
             return Err(Error::InvalidRequest);
@@ -173,10 +184,10 @@ impl Client {
             return Err(Error::InvalidRequest);
         }
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::KeysetIdNotFound(msg.keyset_id));
+            return Err(Error::KeysetIdNotFound(kid));
         }
-        let sig = response.json::<cashu::BlindSignature>().await?;
-        Ok(sig)
+        let sigs = response.json::<Vec<cashu::BlindSignature>>().await?;
+        Ok(sigs)
     }
 
     pub const VERIFY_PROOF_EP_V1: &'static str = "/v1/admin/keys/verify/proof";
