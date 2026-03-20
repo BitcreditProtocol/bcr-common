@@ -71,7 +71,7 @@ pub struct BillWaitingStatePaymentData {
     pub payment_deadline: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillStatus {
     pub acceptance: BillAcceptanceStatus,
     pub payment: BillPaymentStatus,
@@ -83,7 +83,7 @@ pub struct BillStatus {
     pub last_block_time: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillAcceptanceStatus {
     pub time_of_request_to_accept: Option<u64>,
     pub requested_to_accept: bool,
@@ -93,7 +93,7 @@ pub struct BillAcceptanceStatus {
     pub acceptance_deadline_timestamp: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillPaymentStatus {
     pub time_of_request_to_pay: Option<u64>,
     pub requested_to_pay: bool,
@@ -109,7 +109,7 @@ pub struct SimplifiedBillPaymentStatus {
     pub payment_details: Option<BillWaitingForPaymentState>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillSellStatus {
     pub time_of_last_offer_to_sell: Option<u64>,
     pub sold: bool,
@@ -119,7 +119,7 @@ pub struct BillSellStatus {
     pub buying_deadline_timestamp: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillRecourseStatus {
     pub time_of_last_request_to_recourse: Option<u64>,
     pub recoursed: bool,
@@ -129,12 +129,12 @@ pub struct BillRecourseStatus {
     pub recourse_deadline_timestamp: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillMintStatus {
     pub has_mint_requests: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillData {
     pub time_of_drawing: u64,
     pub issue_date: chrono::NaiveDate,
