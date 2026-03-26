@@ -249,6 +249,37 @@ pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::P
     Ok(output)
 }
 
+pub(crate) fn serialize_option_vec_of_jsons<T>(
+    opt: &Option<Vec<T>>,
+    writer: &mut impl Write,
+) -> Result<()>
+where
+    T: serde::ser::Serialize,
+{
+    match opt {
+        None => borsh::BorshSerialize::serialize(&false, writer),
+        Some(vec) => {
+            borsh::BorshSerialize::serialize(&true, writer)?;
+            serialize_vec_of_jsons(vec, writer)
+        }
+    }
+}
+
+pub(crate) fn deserialize_option_vec_of_jsons<T>(
+    reader: &mut impl Read,
+) -> Result<Option<Vec<T>>>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let is_some: bool = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    if is_some {
+        let vec = deserialize_vec_of_jsons(reader)?;
+        Ok(Some(vec))
+    } else {
+        Ok(None)
+    }
+}
+
 pub fn serialize_btc_amount(amount: &bitcoin::Amount, writer: &mut impl Write) -> Result<()> {
     serialize_as_u64(&amount.to_sat(), writer)
 }

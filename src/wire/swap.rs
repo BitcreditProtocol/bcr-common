@@ -6,9 +6,12 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
     borsh::{
-        deserialize_from_str, deserialize_vec_of_jsons, serialize_as_str, serialize_vec_of_jsons,
+        deserialize_from_str, deserialize_option_vec_of_jsons, deserialize_vec_of_jsons,
+        deserialize_vec_of_strs, deserialize_vecof_cdkproof, serialize_as_str,
+        serialize_option_vec_of_jsons, serialize_vec_of_jsons, serialize_vec_of_strs,
+        serialize_vecof_cdkproof,
     },
-    keys::ProofFingerprint,
+    common::ProtestStatus,
 };
 
 // ----- end imports
@@ -33,49 +36,102 @@ pub struct RecoverRequest {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RecoverResponse {}
 
-///--------------------------- Commitment Request
-
+///--------------------------- Swap Commitment Request Body
 #[derive(Debug, BorshSerialize, BorshDeserialize)]
-pub struct CommitmentContent {
-    pub inputs: Vec<ProofFingerprint>,
+pub struct SwapCommitmentRequestBody {
+    #[borsh(
+        serialize_with = "serialize_vec_of_strs",
+        deserialize_with = "deserialize_vec_of_strs"
+    )]
+    pub inputs: Vec<cashu::PublicKey>, // Y = hash_to_curve(secret)
     #[borsh(
         serialize_with = "serialize_vec_of_jsons",
         deserialize_with = "deserialize_vec_of_jsons"
     )]
     pub outputs: Vec<cashu::BlindedMessage>,
+    pub expiry_height: u64,
+}
+
+///--------------------------- Swap Commitment Request
+#[derive(Debug, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+pub struct SwapCommitmentRequest {
+    pub content: String, // base64, borsh-serialized SwapCommitmentRequestBody
+    #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub expiration: chrono::DateTime<chrono::Utc>,
+    pub wallet_key: cashu::PublicKey,
+    #[schema(value_type = String)]
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
+///--------------------------- Swap Commitment Response
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct CommitmentRequest {
-    pub content: String, // base64, borsh-serialized CommitmentContent
-}
-
-///--------------------------- Commitment Response
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct CommitmentResponse {
+pub struct SwapCommitmentResponse {
+    pub content: String, // base64, borsh-serialized SwapCommitmentRequest
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
-///--------------------------- Protest
+///--------------------------- Swap Request
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct Protest {
-    pub commitment_content: String, // base64, borsh-serialized CommitmentContent
-    #[schema(value_type = String)]
-    pub signature: bitcoin::secp256k1::schnorr::Signature,
-    pub proofs: Vec<cashu::Proof>,
-}
-
-///--------------------------- ForceRequest
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct ForceSwapRequest {
+pub struct SwapRequest {
     pub inputs: Vec<cashu::Proof>,
     pub outputs: Vec<cashu::BlindedMessage>,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+}
+
+///--------------------------- Swap Response
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct SwapResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
+}
+
+///--------------------------- Swap Protest Request Body
+#[derive(Debug, BorshSerialize, BorshDeserialize)]
+pub struct SwapProtestRequestBody {
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub alpha_id: bitcoin::secp256k1::PublicKey,
+    #[borsh(
+        serialize_with = "serialize_vecof_cdkproof",
+        deserialize_with = "deserialize_vecof_cdkproof"
+    )]
+    pub proofs: Vec<cashu::Proof>,
+    pub content: String, // base64, borsh-serialized SwapCommitmentRequestBody
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    #[borsh(
+        serialize_with = "serialize_option_vec_of_jsons",
+        deserialize_with = "deserialize_option_vec_of_jsons"
+    )]
+    pub blind_signatures: Option<Vec<cashu::BlindSignature>>,
+}
+
+///--------------------------- Swap Protest Request
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct SwapProtestRequest {
+    pub body: String, // base64, borsh-serialized SwapProtestRequestBody
+    #[schema(value_type = String)]
+    pub wallet_key: cashu::PublicKey,
+    #[schema(value_type = String)]
+    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
+}
+
+///--------------------------- Swap Protest Response
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct SwapProtestResponse {
+    pub status: ProtestStatus,
+    pub signatures: Option<Vec<cashu::BlindSignature>>,
 }

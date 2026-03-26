@@ -83,11 +83,7 @@ pub struct MintProtestRequest {
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub enum ProtestStatus {
-    Resolved,
-    Rabid,
-}
+pub use crate::wire::common::ProtestStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MintProtestResponse {

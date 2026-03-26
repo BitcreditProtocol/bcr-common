@@ -18,3 +18,9 @@ pub struct Pagination {
     #[serde(default)]
     pub offset: Option<u32>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum ProtestStatus {
+    Resolved,
+    Rabid,
+}
