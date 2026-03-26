@@ -7,11 +7,11 @@ use utoipa::ToSchema;
 use crate::wire::{
     borsh::{
         deserialize_from_str, deserialize_option_vec_of_jsons, deserialize_vec_of_jsons,
-        deserialize_vec_of_strs, deserialize_vecof_cdkproof, serialize_as_str,
-        serialize_option_vec_of_jsons, serialize_vec_of_jsons, serialize_vec_of_strs,
-        serialize_vecof_cdkproof,
+        deserialize_vecof_cdkproof, serialize_as_str, serialize_option_vec_of_jsons,
+        serialize_vec_of_jsons, serialize_vecof_cdkproof,
     },
     common::ProtestStatus,
+    keys::ProofFingerprint,
 };
 
 // ----- end imports
@@ -39,11 +39,7 @@ pub struct RecoverResponse {}
 ///--------------------------- Swap Commitment Request Body
 #[derive(Debug, BorshSerialize, BorshDeserialize)]
 pub struct SwapCommitmentRequestBody {
-    #[borsh(
-        serialize_with = "serialize_vec_of_strs",
-        deserialize_with = "deserialize_vec_of_strs"
-    )]
-    pub inputs: Vec<cashu::PublicKey>, // Y = hash_to_curve(secret)
+    pub inputs: Vec<ProofFingerprint>,
     #[borsh(
         serialize_with = "serialize_vec_of_jsons",
         deserialize_with = "deserialize_vec_of_jsons"
