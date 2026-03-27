@@ -145,6 +145,7 @@ pub struct SwapCommitmentResponse {
 pub struct SwapRequest {
     pub proofs: Vec<cashu::Proof>,
     pub blinds: Vec<cashu::BlindedMessage>,
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
