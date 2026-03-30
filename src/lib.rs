@@ -2,6 +2,7 @@
 // ----- extra library imports
 // ----- local modules
 pub mod client;
+pub mod clowder;
 pub mod core;
 pub mod wallet;
 pub mod wire;
