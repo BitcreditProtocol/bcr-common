@@ -5,7 +5,7 @@ use bitcoin::hashes::{Hash, HashEngine, sha256};
 use bitcoin::key::TapTweak;
 use bitcoin::opcodes::all::{OP_CHECKSIG, OP_CHECKSIGVERIFY, OP_CSV};
 use bitcoin::script::Builder as ScriptBuilder;
-use bitcoin::secp256k1::{Parity, PublicKey, Secp256k1};
+use bitcoin::secp256k1::{Parity, PublicKey};
 use bitcoin::taproot::{ControlBlock, LeafVersion, TapLeafHash, TaprootBuilder, TaprootSpendInfo};
 use bitcoin::{Address, Network, ScriptBuf};
 use uuid::Uuid;
@@ -14,7 +14,8 @@ use super::{Error, Result};
 // ----- end imports
 
 /// BIP 341 taproot tweak
-fn taproot_tweak_pubkey(pubkey: [u8; 32], merkle_root: &[u8]) -> (bool, [u8; 32]) {
+fn taproot_tweak_pubkey(pubkey: [u8; 32], merkle_root: &[u8]) -> Result<(bool, [u8; 32])> {
+    // Used in frost_secp256k1_tr, and as a result when aggregating and signing we use the same prefix
     let prefix = sha256::Hash::hash(b"TapTweak");
 
     let mut engine = sha256::Hash::engine();
@@ -24,21 +25,20 @@ fn taproot_tweak_pubkey(pubkey: [u8; 32], merkle_root: &[u8]) -> (bool, [u8; 32]
     engine.input(merkle_root);
     let tweak_hash = sha256::Hash::from_engine(engine);
 
-    let secp = Secp256k1::new();
     let mut tweak_bytes = [0u8; 32];
     tweak_bytes.copy_from_slice(tweak_hash.as_ref());
-    let tweak = bitcoin::secp256k1::Scalar::from_be_bytes(tweak_bytes).unwrap();
+    let tweak = bitcoin::secp256k1::Scalar::from_be_bytes(tweak_bytes)?;
 
     let mut pubkey_bytes = [0u8; 33];
     // SEC1 compressed-point prefix for even y-coordinate
     pubkey_bytes[0] = 0x02;
     pubkey_bytes[1..].copy_from_slice(&pubkey);
-    let pubkey_point = PublicKey::from_slice(&pubkey_bytes).unwrap();
+    let pubkey_point = PublicKey::from_slice(&pubkey_bytes)?;
 
-    let tweaked = pubkey_point.add_exp_tweak(&secp, &tweak).unwrap();
+    let tweaked = pubkey_point.add_exp_tweak(bitcoin::secp256k1::SECP256K1, &tweak)?;
     let (xonly, parity) = tweaked.x_only_public_key();
 
-    (parity == Parity::Odd, xonly.serialize())
+    Ok((parity == Parity::Odd, xonly.serialize()))
 }
 
 pub fn taproot_tweak(
@@ -48,7 +48,7 @@ pub fn taproot_tweak(
     let pubkey_bytes = pubkey.serialize()[1..]
         .try_into()
         .map_err(|_| Error::InvalidPubkey)?;
-    let (y_odd, tweaked_x) = taproot_tweak_pubkey(pubkey_bytes, merkle_root);
+    let (y_odd, tweaked_x) = taproot_tweak_pubkey(pubkey_bytes, merkle_root)?;
 
     let xonly = XOnlyPublicKey::from_slice(&tweaked_x)?;
     let parity = if y_odd { Parity::Odd } else { Parity::Even };
@@ -159,8 +159,6 @@ pub fn build_tap_tree(
     timelock_blocks: u32,
     internal_key: &XOnlyPublicKey,
 ) -> Result<TapTreeInfo> {
-    let secp = Secp256k1::verification_only();
-
     let beta_script = build_beta_script(frost_agg_key);
     let alpha_script = build_alpha_script(alpha_key, timelock_blocks);
 
@@ -170,7 +168,7 @@ pub fn build_tap_tree(
     let tap_info = TaprootBuilder::new()
         .add_leaf(1, beta_script.clone())?
         .add_leaf(1, alpha_script.clone())?
-        .finalize(&secp, *internal_key)
+        .finalize(bitcoin::secp256k1::SECP256K1, *internal_key)
         .map_err(|_| Error::IncompleteTaprootTree)?;
 
     Ok(TapTreeInfo {

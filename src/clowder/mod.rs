@@ -13,6 +13,8 @@ pub enum Error {
     InvalidPubkey,
     #[error("secp256k1 {0}")]
     Secp256k1(#[from] bitcoin::secp256k1::Error),
+    #[error("scalar out of range {0}")]
+    ScalarOutOfRange(#[from] bitcoin::secp256k1::scalar::OutOfRangeError),
     #[error("taproot builder {0}")]
     TaprootBuilder(#[from] bitcoin::taproot::TaprootBuilderError),
     #[error("incomplete taproot tree")]
