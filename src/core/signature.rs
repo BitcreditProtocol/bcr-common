@@ -184,8 +184,8 @@ pub fn verify_ecash_fingerprint(
         return Err(ECashSignatureError::NoKeyForAmount(fp.amount));
     };
     let scalar = key.secret_key.clone().to_scalar();
-    let y = fp.c.mul_tweak(secp::global::SECP256K1, &scalar)?;
-    if y == fp.y {
+    let expected_c = fp.y.mul_tweak(secp::global::SECP256K1, &scalar)?;
+    if expected_c == fp.c {
         Ok(())
     } else {
         Err(ECashSignatureError::Invalid)
@@ -225,5 +225,29 @@ mod tests {
             deserialize_borsh_msg(&b64_msg).expect("Deserialization failed");
         assert_eq!(msg, deserialized_msg);
         schnorr_verify_b64(&b64_msg, &signature, &xonly_pk).expect("Verification failed");
+    }
+
+    #[test]
+    fn test_verify_ecash_fingerprint() {
+        use crate::core::test_utils::{generate_random_ecash_keyset, generate_random_ecash_proofs};
+
+        let (_, keyset) = generate_random_ecash_keyset();
+        let proofs = generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)]);
+        let proof = &proofs[0];
+        let y = proof.y().expect("hash_to_curve");
+
+        let valid_fp = ProofFingerprint {
+            keyset_id: proof.keyset_id,
+            amount: proof.amount,
+            c: *proof.c,
+            y: *y,
+        };
+        verify_ecash_fingerprint(&keyset, &valid_fp).expect("valid fingerprint");
+
+        let invalid_fp = ProofFingerprint {
+            c: secp::Keypair::new_global(&mut rand::thread_rng()).public_key(),
+            ..valid_fp
+        };
+        assert!(verify_ecash_fingerprint(&keyset, &invalid_fp).is_err());
     }
 }
