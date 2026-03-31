@@ -243,10 +243,7 @@ impl Client {
             signatures,
             ..
         } = msg;
-        let ret_val = outputs
-            .into_iter()
-            .zip(signatures)
-            .collect::<Vec<_>>();
+        let ret_val = outputs.into_iter().zip(signatures).collect::<Vec<_>>();
         Ok(ret_val)
     }
 
