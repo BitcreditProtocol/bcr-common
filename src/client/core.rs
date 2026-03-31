@@ -31,7 +31,7 @@ pub struct Client {
 
 impl Client {
     pub fn credit_unit() -> cashu::CurrencyUnit {
-        cashu::CurrencyUnit::Custom(String::from(String::from("crsat")))
+        cashu::CurrencyUnit::Custom(String::from("crsat"))
     }
     pub fn debit_unit() -> cashu::CurrencyUnit {
         cashu::CurrencyUnit::Sat
@@ -245,7 +245,7 @@ impl Client {
         } = msg;
         let ret_val = outputs
             .into_iter()
-            .zip(signatures.into_iter())
+            .zip(signatures)
             .collect::<Vec<_>>();
         Ok(ret_val)
     }
