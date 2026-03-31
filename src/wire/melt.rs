@@ -26,7 +26,7 @@ pub struct MeltQuoteOnchainRequest {
     /// Unit wallet would like to pay with
     pub unit: CurrencyUnit,
     /// Change
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub change: Vec<cashu::BlindedMessage>,
 }
 
@@ -70,6 +70,6 @@ pub struct MeltOnchainResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub txid: Option<MeltTx>,
     /// Change
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub change: Vec<cashu::BlindSignature>,
 }
