@@ -10,7 +10,7 @@ use crate::{
     core::{BillId, signature},
     wire::{
         exchange as wire_exchange, keys as wire_keys, signatures as wire_signatures,
-        treasury as wire_treasury, wallet as wire_wallet,
+        swap as wire_swap, treasury as wire_treasury, wallet as wire_wallet,
     },
 };
 
@@ -48,14 +48,19 @@ impl Client {
         &self,
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
+        commitment: bitcoin::secp256k1::schnorr::Signature,
     ) -> Result<Vec<cashu::BlindSignature>> {
-        let msg = cashu::SwapRequest::new(inputs, outputs);
+        let msg = wire_swap::SwapRequest {
+            inputs,
+            outputs,
+            commitment,
+        };
         let url = self
             .base
             .join(Self::REDEEM_EP_V1)
             .expect("redeem relative path");
         let request = self.cl.post(url).json(&msg);
-        let response: cashu::SwapResponse = request.send().await?.json().await?;
+        let response: wire_swap::SwapResponse = request.send().await?.json().await?;
         Ok(response.signatures)
     }
 

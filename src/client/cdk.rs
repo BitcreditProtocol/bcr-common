@@ -1,11 +1,18 @@
 // ----- standard library imports
 // ----- extra library imports
+use async_trait::async_trait;
 // ----- local imports
+use crate::wire::swap as wire_swap;
 
 // ----- end imports
 
-pub trait MintConnectorExt: cdk::wallet::MintConnector + Send + Sync {}
-impl MintConnectorExt for cdk::HttpClient {}
+#[async_trait]
+pub trait MintConnectorExt: cdk::wallet::MintConnector + Send + Sync {
+    async fn swap(
+        &self,
+        request: wire_swap::SwapRequest,
+    ) -> std::result::Result<wire_swap::SwapResponse, cdk::Error>;
+}
 
 #[cfg(all(feature = "test-utils", not(target_arch = "wasm32")))]
 pub mod test_utils {
@@ -75,7 +82,12 @@ pub mod test_utils {
             ) -> CdkResult<cashu::MeltQuoteBolt11Response<String>>;
         }
 
+        #[async_trait]
         impl super::MintConnectorExt for MintConnector {
+            async fn swap(
+                &self,
+                request: crate::wire::swap::SwapRequest,
+            ) -> std::result::Result<crate::wire::swap::SwapResponse, cdk::Error>;
         }
     }
 }
