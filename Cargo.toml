@@ -21,6 +21,7 @@ cdk = {version = "=0.13.1", default-features = false}
 cdk-common = {version = "=0.13.1"}
 chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
+infer = {version="0.19"}
 mockall = {version = "0.13", optional = true}
 nostr = {version = "0.43"}
 rand = {version = "0.8", optional = true}

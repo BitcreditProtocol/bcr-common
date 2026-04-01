@@ -155,6 +155,24 @@ impl Client {
         Ok(response)
     }
 
+    pub const LOCAL_DERIVE_EBILL_PAYMENT_ADDRESS_EP_V1: &'static str =
+        "/v1/local/derive_ebill_payment_address";
+    pub async fn post_derive_ebill_payment_address(
+        &self,
+        request: wire_clowder::DeriveEbillPaymentAddressRequest,
+    ) -> Result<wire_clowder::DeriveEbillPaymentAddressResponse> {
+        let url = self
+            .base
+            .join(Self::LOCAL_DERIVE_EBILL_PAYMENT_ADDRESS_EP_V1)
+            .expect("derive ebill address relative path");
+        let response = self.cl.post(url).json(&request).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::NotFound);
+        }
+        let response = response.json().await?;
+        Ok(response)
+    }
+
     pub const ONLINE_EXCHANGE_EP_V1: &'static str = "/v1/exchange/online";
     pub async fn post_online_exchange(
         &self,

@@ -8,10 +8,7 @@ use thiserror::Error;
 use crate::{
     cashu,
     core::{BillId, signature},
-    wire::{
-        exchange as wire_exchange, keys as wire_keys, signatures as wire_signatures,
-        treasury as wire_treasury,
-    },
+    wire::{exchange as wire_exchange, keys as wire_keys, treasury as wire_treasury},
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -50,8 +47,8 @@ impl Client {
         ebill_id: BillId,
         amount: Amount,
         deadline: chrono::DateTime<chrono::Utc>,
-    ) -> Result<wire_signatures::RequestToMintFromEBillResponse> {
-        let request = wire_signatures::RequestToMintFromEBillRequest {
+    ) -> Result<wire_treasury::RequestToPayFromEBillResponse> {
+        let request = wire_treasury::RequestToPayFromEBillRequest {
             ebill_id,
             amount,
             deadline,
@@ -61,7 +58,7 @@ impl Client {
             .join(Self::REQTOPAY_EP_V1)
             .expect("request_to_pay_ebill relative path");
         let request = self.cl.post(url).json(&request);
-        let response: wire_signatures::RequestToMintFromEBillResponse =
+        let response: wire_treasury::RequestToPayFromEBillResponse =
             request.send().await?.json().await?;
         Ok(response)
     }
