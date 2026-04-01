@@ -1,5 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
+use crate::core::BillId;
 use bitcoin::XOnlyPublicKey;
 use bitcoin::hashes::{Hash, HashEngine, sha256};
 use bitcoin::key::TapTweak;
@@ -9,6 +10,7 @@ use bitcoin::secp256k1::{Parity, PublicKey};
 use bitcoin::taproot::{ControlBlock, LeafVersion, TapLeafHash, TaprootBuilder, TaprootSpendInfo};
 use bitcoin::{Address, Network, ScriptBuf};
 use uuid::Uuid;
+
 // ----- local imports
 use super::{Error, Result};
 // ----- end imports
@@ -105,6 +107,24 @@ pub fn derive_receive_tweak(aggregated_key: &XOnlyPublicKey, uuid: &Uuid) -> [u8
 
 pub fn derive_change_tweak(aggregated_key: &XOnlyPublicKey) -> [u8; 32] {
     clowder_tagged_hash(b"change", aggregated_key, &[])
+}
+
+/// Derives the tweak for E-Bill mint request to pay
+/// Contains the bill id, block id and previous block hash of the payment request
+pub fn derive_ebill_mint_req_to_pay_tweak(
+    aggregated_key: &XOnlyPublicKey,
+    bill_id: &BillId,
+    block_id: u64,
+    previous_block_hash: &[u8; 32],
+) -> [u8; 32] {
+    let purpose = b"bcr/mint-request-to-pay/v1";
+    let bill_id_ser = bill_id.to_string();
+    let mut payload = Vec::with_capacity(bill_id_ser.len() + 8 + 32); // bill id + block_id (u64) + hash (32xu8)
+    payload.extend_from_slice(bill_id_ser.as_bytes());
+    payload.extend_from_slice(&block_id.to_be_bytes());
+    payload.extend_from_slice(previous_block_hash);
+
+    clowder_tagged_hash(purpose, aggregated_key, &payload)
 }
 
 pub fn build_beta_script(frost_agg_key: &XOnlyPublicKey) -> ScriptBuf {
@@ -225,8 +245,27 @@ pub fn derive_change_address(
     )
 }
 
+pub fn derive_ebill_mint_req_to_pay_address(
+    frost_agg_key: &XOnlyPublicKey,
+    alpha_key: &XOnlyPublicKey,
+    timelock_blocks: u32,
+    bill_id: &BillId,
+    block_id: u64,
+    previous_block_hash: &[u8; 32],
+    network: Network,
+) -> Result<Address> {
+    let tweak =
+        derive_ebill_mint_req_to_pay_tweak(frost_agg_key, bill_id, block_id, previous_block_hash);
+    Ok(
+        build_tap_tree_for_tweak(frost_agg_key, alpha_key, timelock_blocks, &tweak)?
+            .address(network),
+    )
+}
+
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use bitcoin::secp256k1::SECP256K1;
 
@@ -303,6 +342,113 @@ mod tests {
         assert_ne!(r1, c1);
         assert_eq!(c1, c2);
         assert_ne!(r1, r3);
+        assert!(r1.to_string().starts_with("bcrt1p"));
+    }
+
+    #[test]
+    fn test_ebill_address_and_tweak_derivation() {
+        let mut rng = bitcoin::secp256k1::rand::thread_rng();
+        let frost = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
+        let frost2 = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
+        let alpha = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
+        let net = Network::Regtest;
+        let bill_id_1 = BillId::new(
+            PublicKey::from_str(
+                "026423b7d36d05b8d50a89a1b4ef2a06c88bcd2c5e650f25e122fa682d3b39686c",
+            )
+            .unwrap(),
+            net,
+        );
+        let bill_id_2 = BillId::new(
+            PublicKey::from_str(
+                "0364f8de530163a528b4de33405ebe434bbd974a26ac24708674de572efacbdfdd",
+            )
+            .unwrap(),
+            net,
+        );
+        let prev_block_hash_1 = sha256::Hash::hash("blockhash1".as_bytes()).to_byte_array();
+        let prev_block_hash_2 = sha256::Hash::hash("blockhash2".as_bytes()).to_byte_array();
+
+        let r1 = derive_ebill_mint_req_to_pay_address(
+            &frost,
+            &alpha,
+            144,
+            &bill_id_1,
+            3,
+            &prev_block_hash_1,
+            net,
+        )
+        .unwrap();
+        let r2 = derive_ebill_mint_req_to_pay_address(
+            &frost,
+            &alpha,
+            144,
+            &bill_id_1,
+            4,
+            &prev_block_hash_1,
+            net,
+        )
+        .unwrap();
+        let r3 = derive_ebill_mint_req_to_pay_address(
+            &frost,
+            &alpha,
+            144,
+            &bill_id_2,
+            3,
+            &prev_block_hash_2,
+            net,
+        )
+        .unwrap();
+        let r4 = derive_ebill_mint_req_to_pay_address(
+            &frost,
+            &alpha,
+            144,
+            &bill_id_2,
+            3,
+            &prev_block_hash_2,
+            net,
+        )
+        .unwrap();
+        let r5 = derive_ebill_mint_req_to_pay_address(
+            &frost2,
+            &alpha,
+            144,
+            &bill_id_2,
+            3,
+            &prev_block_hash_2,
+            net,
+        )
+        .unwrap();
+        let r6 = derive_ebill_mint_req_to_pay_address(
+            &frost,
+            &alpha,
+            144,
+            &bill_id_1,
+            3,
+            &prev_block_hash_2,
+            net,
+        )
+        .unwrap();
+        let r7 = derive_ebill_mint_req_to_pay_address(
+            &frost,
+            &alpha,
+            144,
+            &bill_id_2,
+            3,
+            &prev_block_hash_1,
+            net,
+        )
+        .unwrap();
+
+        assert_ne!(r1, r2); // block id differs
+        assert_ne!(r1, r3);
+        assert_ne!(r2, r3);
+        assert_ne!(r2, r4);
+        assert_ne!(r1, r4);
+        assert_eq!(r3, r4);
+        assert_ne!(r4, r5); // frost key differs
+        assert_ne!(r1, r6); // prev hash differs
+        assert_ne!(r1, r7); // bill id differs
         assert!(r1.to_string().starts_with("bcrt1p"));
     }
 }

@@ -1,6 +1,7 @@
 // ----- standard library imports
 // ----- extra library imports
 use borsh::{BorshDeserialize, BorshSerialize};
+use nostr::secp256k1;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
@@ -232,6 +233,30 @@ pub struct RequestToPayBitcreditBillPayload {
     pub bill_id: BillId,
     pub currency: String,
     pub deadline: chrono::DateTime<chrono::Utc>,
+    #[schema(value_type = String)]
+    pub payment_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct RequestToPayBitcreditBillResponse {
+    pub block_id: u64,
+    #[schema(value_type = String)]
+    pub previous_block_hash: bitcoin::hashes::sha256::Hash,
+    #[schema(value_type = String)]
+    pub bill_private_key: secp256k1::SecretKey,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct PrepareRequestToPayBitcreditBillPayload {
+    #[schema(value_type = String)]
+    pub bill_id: BillId,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct PrepareRequestToPayBitcreditBillResponse {
+    pub block_id: u64,
+    #[schema(value_type = String)]
+    pub previous_block_hash: bitcoin::hashes::sha256::Hash,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
