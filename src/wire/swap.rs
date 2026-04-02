@@ -52,7 +52,7 @@ pub struct SwapCommitmentRequestBody {
 ///--------------------------- Swap Commitment Request
 #[derive(Debug, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
 pub struct SwapCommitmentRequest {
-    pub content: String, // base64, borsh-serialized SwapCommitmentRequestBody
+    pub content: String, // base64(borsh(SwapCommitmentRequestBody)), the swap body
     #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
@@ -68,9 +68,11 @@ pub struct SwapCommitmentRequest {
 }
 
 ///--------------------------- Swap Commitment Response
+/// The mint borsh-serializes the full SwapCommitmentRequest (body + wallet fields),
+/// signs that, and returns the serialized bytes as `content` with the signature as `commitment`.
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SwapCommitmentResponse {
-    pub content: String, // base64, borsh-serialized SwapCommitmentRequest
+    pub content: String, // base64(borsh(SwapCommitmentRequest)), signed by mint
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
@@ -103,7 +105,7 @@ pub struct SwapProtestRequestBody {
         deserialize_with = "deserialize_vecof_cdkproof"
     )]
     pub proofs: Vec<cashu::Proof>,
-    pub content: String, // base64, borsh-serialized SwapCommitmentRequestBody
+    pub content: String, // base64(borsh(SwapCommitmentRequestBody)), same as SwapCommitmentRequest.content
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
