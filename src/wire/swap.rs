@@ -6,9 +6,10 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
     borsh::{
-        deserialize_from_str, deserialize_option_vec_of_jsons, deserialize_vec_of_jsons,
-        deserialize_vecof_cdkproof, serialize_as_str, serialize_option_vec_of_jsons,
-        serialize_vec_of_jsons, serialize_vecof_cdkproof,
+        deserialize_from_str, deserialize_option_vecof_blindsignature,
+        deserialize_vecof_blindedmessage, deserialize_vecof_cdkproof, serialize_as_str,
+        serialize_option_vecof_blindsignature, serialize_vecof_blindedmessage,
+        serialize_vecof_cdkproof,
     },
     common::ProtestStatus,
     keys::ProofFingerprint,
@@ -41,8 +42,8 @@ pub struct RecoverResponse {}
 pub struct SwapCommitmentRequestBody {
     pub inputs: Vec<ProofFingerprint>,
     #[borsh(
-        serialize_with = "serialize_vec_of_jsons",
-        deserialize_with = "deserialize_vec_of_jsons"
+        serialize_with = "serialize_vecof_blindedmessage",
+        deserialize_with = "deserialize_vecof_blindedmessage"
     )]
     pub outputs: Vec<cashu::BlindedMessage>,
     pub expiry_height: u64,
@@ -109,8 +110,8 @@ pub struct SwapProtestRequestBody {
     )]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
     #[borsh(
-        serialize_with = "serialize_option_vec_of_jsons",
-        deserialize_with = "deserialize_option_vec_of_jsons"
+        serialize_with = "serialize_option_vecof_blindsignature",
+        deserialize_with = "deserialize_option_vecof_blindsignature"
     )]
     pub blind_signatures: Option<Vec<cashu::BlindSignature>>,
 }

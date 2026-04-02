@@ -249,31 +249,135 @@ pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::P
     Ok(output)
 }
 
-pub(crate) fn serialize_option_vec_of_jsons<T>(
-    opt: &Option<Vec<T>>,
+#[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct BlindedMessageBorsh {
+    amount: u64,
+    kid: Vec<u8>,
+    blinded_secret: [u8; secp256k1::constants::PUBLIC_KEY_SIZE],
+    witness: Option<WitnessEnum>,
+}
+impl std::convert::From<cashu::BlindedMessage> for BlindedMessageBorsh {
+    fn from(msg: cashu::BlindedMessage) -> Self {
+        BlindedMessageBorsh {
+            amount: u64::from(msg.amount),
+            kid: msg.keyset_id.to_bytes(),
+            blinded_secret: msg.blinded_secret.to_bytes(),
+            witness: msg.witness.map(WitnessEnum::from),
+        }
+    }
+}
+impl std::convert::From<BlindedMessageBorsh> for cashu::BlindedMessage {
+    fn from(msg: BlindedMessageBorsh) -> Self {
+        cashu::BlindedMessage {
+            amount: cashu::Amount::from(msg.amount),
+            keyset_id: cashu::Id::from_bytes(&msg.kid).expect("keyset_id parse"),
+            blinded_secret: cashu::PublicKey::from_slice(&msg.blinded_secret)
+                .expect("blinded_secret parse"),
+            witness: msg.witness.map(cashu::Witness::from),
+        }
+    }
+}
+pub fn serialize_vecof_blindedmessage(
+    input: &[cashu::BlindedMessage],
     writer: &mut impl Write,
-) -> Result<()>
-where
-    T: serde::ser::Serialize,
-{
+) -> Result<()> {
+    let msgs: Vec<_> = input.iter().cloned().map(BlindedMessageBorsh::from).collect();
+    borsh::BorshSerialize::serialize(&msgs, writer)?;
+    Ok(())
+}
+pub fn deserialize_vecof_blindedmessage(
+    reader: &mut impl Read,
+) -> Result<Vec<cashu::BlindedMessage>> {
+    let msgs: Vec<BlindedMessageBorsh> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    Ok(msgs.into_iter().map(cashu::BlindedMessage::from).collect())
+}
+
+#[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct BlindSigDleq {
+    e: String,
+    s: String,
+}
+impl std::convert::From<cashu::BlindSignatureDleq> for BlindSigDleq {
+    fn from(d: cashu::BlindSignatureDleq) -> Self {
+        BlindSigDleq {
+            e: d.e.to_string(),
+            s: d.s.to_string(),
+        }
+    }
+}
+impl std::convert::TryFrom<BlindSigDleq> for cashu::BlindSignatureDleq {
+    type Error = BorshError;
+    fn try_from(d: BlindSigDleq) -> Result<Self> {
+        let e = cashu::SecretKey::from_str(&d.e)
+            .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+        let s = cashu::SecretKey::from_str(&d.s)
+            .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+        Ok(cashu::BlindSignatureDleq { e, s })
+    }
+}
+
+#[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct BlindSignatureBorsh {
+    amount: u64,
+    kid: Vec<u8>,
+    c: [u8; secp256k1::constants::PUBLIC_KEY_SIZE],
+    dleq: Option<BlindSigDleq>,
+}
+impl std::convert::From<cashu::BlindSignature> for BlindSignatureBorsh {
+    fn from(sig: cashu::BlindSignature) -> Self {
+        BlindSignatureBorsh {
+            amount: u64::from(sig.amount),
+            kid: sig.keyset_id.to_bytes(),
+            c: sig.c.to_bytes(),
+            dleq: sig.dleq.map(BlindSigDleq::from),
+        }
+    }
+}
+impl std::convert::TryFrom<BlindSignatureBorsh> for cashu::BlindSignature {
+    type Error = BorshError;
+    fn try_from(sig: BlindSignatureBorsh) -> Result<Self> {
+        Ok(cashu::BlindSignature {
+            amount: cashu::Amount::from(sig.amount),
+            keyset_id: cashu::Id::from_bytes(&sig.kid).expect("keyset_id parse"),
+            c: cashu::PublicKey::from_slice(&sig.c).expect("c parse"),
+            dleq: sig.dleq.map(cashu::BlindSignatureDleq::try_from).transpose()?,
+        })
+    }
+}
+pub fn serialize_vecof_blindsignature(
+    input: &[cashu::BlindSignature],
+    writer: &mut impl Write,
+) -> Result<()> {
+    let sigs: Vec<_> = input.iter().cloned().map(BlindSignatureBorsh::from).collect();
+    borsh::BorshSerialize::serialize(&sigs, writer)?;
+    Ok(())
+}
+pub fn deserialize_vecof_blindsignature(
+    reader: &mut impl Read,
+) -> Result<Vec<cashu::BlindSignature>> {
+    let sigs: Vec<BlindSignatureBorsh> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    sigs.into_iter()
+        .map(cashu::BlindSignature::try_from)
+        .collect()
+}
+pub fn serialize_option_vecof_blindsignature(
+    opt: &Option<Vec<cashu::BlindSignature>>,
+    writer: &mut impl Write,
+) -> Result<()> {
     match opt {
         None => borsh::BorshSerialize::serialize(&false, writer),
         Some(vec) => {
             borsh::BorshSerialize::serialize(&true, writer)?;
-            serialize_vec_of_jsons(vec, writer)
+            serialize_vecof_blindsignature(vec, writer)
         }
     }
 }
-
-pub(crate) fn deserialize_option_vec_of_jsons<T>(
+pub fn deserialize_option_vecof_blindsignature(
     reader: &mut impl Read,
-) -> Result<Option<Vec<T>>>
-where
-    T: serde::de::DeserializeOwned,
-{
+) -> Result<Option<Vec<cashu::BlindSignature>>> {
     let is_some: bool = borsh::BorshDeserialize::deserialize_reader(reader)?;
     if is_some {
-        let vec = deserialize_vec_of_jsons(reader)?;
+        let vec = deserialize_vecof_blindsignature(reader)?;
         Ok(Some(vec))
     } else {
         Ok(None)
@@ -393,5 +497,52 @@ mod tests {
         serialize_btc_amount(&amount, &mut buf).unwrap();
         let deserialized_amount = deserialize_btc_amount(&mut buf.as_slice()).unwrap();
         assert_eq!(amount, deserialized_amount);
+    }
+
+    #[test]
+    fn serialize_deserialize_blinded_messages_and_signatures() {
+        let (_, keyset) = core_tests::generate_random_ecash_keyset();
+        let amounts = cashu::Amount::from_str("1000").unwrap().split();
+
+        // BlindedMessages
+        let msgs: Vec<cashu::BlindedMessage> = amounts
+            .iter()
+            .map(|a| {
+                let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+                let (b_, _) = cashu::dhke::blind_message(secret.as_bytes(), None).unwrap();
+                cashu::BlindedMessage {
+                    amount: *a,
+                    keyset_id: keyset.id,
+                    blinded_secret: b_,
+                    witness: None,
+                }
+            })
+            .collect();
+        let mut buf = Vec::new();
+        serialize_vecof_blindedmessage(&msgs, &mut buf).unwrap();
+        let deser_msgs = deserialize_vecof_blindedmessage(&mut buf.as_slice()).unwrap();
+        assert_eq!(msgs, deser_msgs);
+        // determinism: re-serializing produces identical bytes
+        let mut buf2 = Vec::new();
+        serialize_vecof_blindedmessage(&msgs, &mut buf2).unwrap();
+        assert_eq!(buf, buf2);
+
+        // BlindSignatures
+        let sigs = core_tests::generate_ecash_signatures(&keyset, &amounts);
+        buf.clear();
+        serialize_vecof_blindsignature(&sigs, &mut buf).unwrap();
+        let deser_sigs = deserialize_vecof_blindsignature(&mut buf.as_slice()).unwrap();
+        assert_eq!(sigs, deser_sigs);
+
+        // Option<Vec<BlindSignature>>
+        buf.clear();
+        serialize_option_vecof_blindsignature(&Some(sigs.clone()), &mut buf).unwrap();
+        let deser_opt = deserialize_option_vecof_blindsignature(&mut buf.as_slice()).unwrap();
+        assert_eq!(deser_opt, Some(sigs));
+
+        buf.clear();
+        serialize_option_vecof_blindsignature(&None, &mut buf).unwrap();
+        let deser_none = deserialize_option_vecof_blindsignature(&mut buf.as_slice()).unwrap();
+        assert_eq!(deser_none, None);
     }
 }
