@@ -125,12 +125,27 @@ pub struct MeltOnchainResponse {
     pub txid: crate::wire::melt::MeltTx,
 }
 
+///--------------------------- Swap Commitment
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwapCommitmentRequest {
+    pub content: String,
+    pub wallet_key: cashu::PublicKey,
+    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwapCommitmentResponse {
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+}
+
 ///--------------------------- Swap
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapRequest {
     pub proofs: Vec<cashu::Proof>,
     pub blinds: Vec<cashu::BlindedMessage>,
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -268,14 +268,19 @@ impl Client {
         &self,
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
+        commitment: bitcoin::secp256k1::schnorr::Signature,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let url = self
             .base
             .join(Self::SWAP_EP_V1)
             .expect("swap relative path");
-        let request = cashu::SwapRequest::new(inputs, outputs);
+        let request = wire_swap::SwapRequest {
+            inputs,
+            outputs,
+            commitment,
+        };
         let response = self.cl.post(url).json(&request).send().await?;
-        let signatures: cashu::SwapResponse = response.json().await?;
+        let signatures: wire_swap::SwapResponse = response.json().await?;
         Ok(signatures.signatures)
     }
 

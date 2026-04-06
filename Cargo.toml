@@ -6,12 +6,12 @@ license = "MIT"
 
 [features]
 default = ["wallet"]
-test-utils = ["rand", "mockall", "async-trait"]
+test-utils = ["rand", "mockall"]
 wallet = ["cashu/wallet", "cdk/wallet", "cdk-common/wallet" ]
 mint = ["cashu/mint", "cdk-common/mint"]
 
 [dependencies]
-async-trait = {version = "0.1", optional = true}
+async-trait = {version = "0.1"}
 bdk_wallet = {version = "2.1"}
 bip39 = {version = "2.2"}
 bitcoin = {version = "0.32", features = ["serde"]}
