@@ -207,24 +207,24 @@ impl std::convert::From<cashu::Proof> for Proof {
         }
     }
 }
-impl std::convert::From<Proof> for cashu::Proof {
-    fn from(proof: Proof) -> Self {
-        let keyset_id = cashu::Id::from_bytes(&proof.kid).expect("keyset_id parse");
-        let secret = cashu::secret::Secret::from_str(&proof.secret).expect("secret parse");
-        let dleq = proof
-            .dleq
-            .map(cashu::ProofDleq::try_from)
-            .transpose()
-            .expect("dleq parse");
-        let c = cashu::PublicKey::from_slice(&proof.c).expect("c parse");
-        cashu::Proof {
+impl std::convert::TryFrom<Proof> for cashu::Proof {
+    type Error = BorshError;
+    fn try_from(proof: Proof) -> Result<Self> {
+        let keyset_id = cashu::Id::from_bytes(&proof.kid)
+            .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+        let secret = cashu::secret::Secret::from_str(&proof.secret)
+            .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+        let dleq = proof.dleq.map(cashu::ProofDleq::try_from).transpose()?;
+        let c = cashu::PublicKey::from_slice(&proof.c)
+            .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?;
+        Ok(cashu::Proof {
             amount: cashu::Amount::from(proof.amount),
             keyset_id,
             c,
             secret,
             dleq,
             witness: proof.witness.map(cashu::Witness::from),
-        }
+        })
     }
 }
 pub fn serialize_cdkproof(input: &cashu::Proof, writer: &mut impl Write) -> Result<()> {
@@ -240,13 +240,11 @@ pub fn serialize_vecof_cdkproof(input: &[cashu::Proof], writer: &mut impl Write)
 
 pub fn deserialize_cdkproof(reader: &mut impl Read) -> Result<cashu::Proof> {
     let proof: Proof = borsh::BorshDeserialize::deserialize_reader(reader)?;
-    let output = cashu::Proof::from(proof);
-    Ok(output)
+    cashu::Proof::try_from(proof)
 }
 pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::Proof>> {
     let proofs: Vec<Proof> = borsh::BorshDeserialize::deserialize_reader(reader)?;
-    let output: Vec<cashu::Proof> = proofs.into_iter().map(cashu::Proof::from).collect();
-    Ok(output)
+    proofs.into_iter().map(cashu::Proof::try_from).collect()
 }
 
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
@@ -266,15 +264,17 @@ impl std::convert::From<cashu::BlindedMessage> for BlindedMessageBorsh {
         }
     }
 }
-impl std::convert::From<BlindedMessageBorsh> for cashu::BlindedMessage {
-    fn from(msg: BlindedMessageBorsh) -> Self {
-        cashu::BlindedMessage {
+impl std::convert::TryFrom<BlindedMessageBorsh> for cashu::BlindedMessage {
+    type Error = BorshError;
+    fn try_from(msg: BlindedMessageBorsh) -> Result<Self> {
+        Ok(cashu::BlindedMessage {
             amount: cashu::Amount::from(msg.amount),
-            keyset_id: cashu::Id::from_bytes(&msg.kid).expect("keyset_id parse"),
+            keyset_id: cashu::Id::from_bytes(&msg.kid)
+                .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?,
             blinded_secret: cashu::PublicKey::from_slice(&msg.blinded_secret)
-                .expect("blinded_secret parse"),
+                .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?,
             witness: msg.witness.map(cashu::Witness::from),
-        }
+        })
     }
 }
 pub fn serialize_vecof_blindedmessage(
@@ -293,7 +293,9 @@ pub fn deserialize_vecof_blindedmessage(
     reader: &mut impl Read,
 ) -> Result<Vec<cashu::BlindedMessage>> {
     let msgs: Vec<BlindedMessageBorsh> = borsh::BorshDeserialize::deserialize_reader(reader)?;
-    Ok(msgs.into_iter().map(cashu::BlindedMessage::from).collect())
+    msgs.into_iter()
+        .map(cashu::BlindedMessage::try_from)
+        .collect()
 }
 
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
@@ -342,8 +344,10 @@ impl std::convert::TryFrom<BlindSignatureBorsh> for cashu::BlindSignature {
     fn try_from(sig: BlindSignatureBorsh) -> Result<Self> {
         Ok(cashu::BlindSignature {
             amount: cashu::Amount::from(sig.amount),
-            keyset_id: cashu::Id::from_bytes(&sig.kid).expect("keyset_id parse"),
-            c: cashu::PublicKey::from_slice(&sig.c).expect("c parse"),
+            keyset_id: cashu::Id::from_bytes(&sig.kid)
+                .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?,
+            c: cashu::PublicKey::from_slice(&sig.c)
+                .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))?,
             dleq: sig
                 .dleq
                 .map(cashu::BlindSignatureDleq::try_from)
