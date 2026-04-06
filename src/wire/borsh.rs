@@ -281,7 +281,11 @@ pub fn serialize_vecof_blindedmessage(
     input: &[cashu::BlindedMessage],
     writer: &mut impl Write,
 ) -> Result<()> {
-    let msgs: Vec<_> = input.iter().cloned().map(BlindedMessageBorsh::from).collect();
+    let msgs: Vec<_> = input
+        .iter()
+        .cloned()
+        .map(BlindedMessageBorsh::from)
+        .collect();
     borsh::BorshSerialize::serialize(&msgs, writer)?;
     Ok(())
 }
@@ -340,7 +344,10 @@ impl std::convert::TryFrom<BlindSignatureBorsh> for cashu::BlindSignature {
             amount: cashu::Amount::from(sig.amount),
             keyset_id: cashu::Id::from_bytes(&sig.kid).expect("keyset_id parse"),
             c: cashu::PublicKey::from_slice(&sig.c).expect("c parse"),
-            dleq: sig.dleq.map(cashu::BlindSignatureDleq::try_from).transpose()?,
+            dleq: sig
+                .dleq
+                .map(cashu::BlindSignatureDleq::try_from)
+                .transpose()?,
         })
     }
 }
@@ -348,7 +355,11 @@ pub fn serialize_vecof_blindsignature(
     input: &[cashu::BlindSignature],
     writer: &mut impl Write,
 ) -> Result<()> {
-    let sigs: Vec<_> = input.iter().cloned().map(BlindSignatureBorsh::from).collect();
+    let sigs: Vec<_> = input
+        .iter()
+        .cloned()
+        .map(BlindSignatureBorsh::from)
+        .collect();
     borsh::BorshSerialize::serialize(&sigs, writer)?;
     Ok(())
 }

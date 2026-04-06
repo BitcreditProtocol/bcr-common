@@ -5,6 +5,7 @@ pub mod cdk;
 pub mod clowder;
 pub mod core;
 pub mod ebill;
+pub mod mint;
 pub mod quote;
 pub mod treasury;
 
