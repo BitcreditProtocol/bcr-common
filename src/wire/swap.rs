@@ -46,7 +46,8 @@ pub struct SwapCommitmentRequestBody {
         deserialize_with = "deserialize_vecof_blindedmessage"
     )]
     pub outputs: Vec<cashu::BlindedMessage>,
-    pub expiry_height: u64,
+    /// Unix timestamp when the commitment expires, this will become expiry_height denoted in Bitcoin blockchain height later
+    pub expiry: u64,
 }
 
 ///--------------------------- Swap Commitment Request
@@ -105,7 +106,7 @@ pub struct SwapProtestRequestBody {
         deserialize_with = "deserialize_vecof_cdkproof"
     )]
     pub proofs: Vec<cashu::Proof>,
-    pub content: String, // base64(borsh(SwapCommitmentRequestBody)), same as SwapCommitmentRequest.content
+    pub content: String, // base64(borsh(SwapCommitmentRequestBody)) — same as SwapCommitmentRequest.content
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
