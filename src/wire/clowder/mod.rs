@@ -1,6 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::{hashes::sha256::Hash as Sha256Hash, secp256k1};
+use bitcoin::{XOnlyPublicKey, hashes::sha256::Hash as Sha256Hash, secp256k1};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
@@ -180,6 +180,9 @@ pub struct MintCirculatingSupplyResponse {
 pub struct ClowderNodeInfo {
     #[schema(value_type = String)]
     pub change_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    /// FROST aggregated public key
+    #[schema(value_type = String)]
+    pub multisig_agg_xonly: XOnlyPublicKey,
     pub node_id: cashu::PublicKey,
     pub uptime_timestamp: u64,
     pub version: String,
