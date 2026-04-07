@@ -75,6 +75,28 @@ pub fn generate_random_ecash_proofs(
     proofs
 }
 
+pub fn generate_random_ecash_blindedmessages(
+    kid: cashu::Id,
+    amounts: &[cashu::Amount],
+) -> Vec<(
+    cashu::BlindedMessage,
+    cashu::secret::Secret,
+    cashu::SecretKey,
+)> {
+    let mut blinds: Vec<(
+        cashu::BlindedMessage,
+        cashu::secret::Secret,
+        cashu::SecretKey,
+    )> = Vec::new();
+    for amount in amounts {
+        let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+        let (b_, r) =
+            cashu::dhke::blind_message(secret.as_bytes(), None).expect("cdk_dhke::blind_message");
+        blinds.push((cashu::BlindedMessage::new(*amount, kid, b_), secret, r));
+    }
+    blinds
+}
+
 pub fn generate_ecash_signatures(
     keyset: &cashu::MintKeySet,
     amounts: &[cashu::Amount],
