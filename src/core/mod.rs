@@ -5,6 +5,8 @@ use thiserror::Error;
 mod billid;
 mod nodeid;
 pub mod signature;
+#[cfg(any(feature = "wallet", feature = "mint"))]
+pub mod swap;
 #[cfg(feature = "test-utils")]
 pub mod test_utils;
 
