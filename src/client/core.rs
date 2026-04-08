@@ -30,10 +30,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn credit_unit() -> cashu::CurrencyUnit {
-        cashu::CurrencyUnit::Custom(String::from("crsat"))
-    }
-    pub fn debit_unit() -> cashu::CurrencyUnit {
+    pub fn currency_unit() -> cashu::CurrencyUnit {
         cashu::CurrencyUnit::Sat
     }
 
@@ -68,11 +65,11 @@ impl Client {
         Ok(ks)
     }
 
-    pub async fn get_or_create_credit_keyset_with_expiration(
+    pub async fn get_or_create_keyset_with_expiration(
         &self,
         expiration: chrono::NaiveDate,
     ) -> Result<cashu::KeySetInfo> {
-        let unit = Self::credit_unit();
+        let unit = Self::currency_unit();
         let filters = wire_keys::KeysetInfoFilters {
             unit: Some(unit.clone()),
             min_expiration: Some(expiration - chrono::Duration::days(1)),
