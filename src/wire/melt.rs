@@ -1,75 +1,101 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::{Address, Amount, address::NetworkUnchecked};
-use cashu::{CurrencyUnit, MeltQuoteState};
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
+use crate::wire::{
+    borsh::{
+        deserialize_from_str, deserialize_vecof_blindedmessage, serialize_as_str,
+        serialize_vecof_blindedmessage,
+    },
+    common::ProtestStatus,
+    keys::ProofFingerprint,
+};
 // ----- end imports
 
-/// Onchain invoice for melt request
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-pub struct OnchainInvoice {
-    /// Total BTC amount
-    #[schema(value_type = u64)]
-    pub amount: Amount,
-    /// Bitcoin address to pay
-    #[schema(value_type = String)]
-    pub address: Address<NetworkUnchecked>,
-}
-
-/// Onchain Melt quote request
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+///--------------------------- Melt Quote Onchain Request
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct MeltQuoteOnchainRequest {
-    /// Bitcoin Address
-    pub request: OnchainInvoice,
-    /// Unit wallet would like to pay with
-    pub unit: CurrencyUnit,
-    /// Change
+    pub inputs: Vec<ProofFingerprint>,
+    pub address: String,
+    pub amount: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub change: Vec<cashu::BlindedMessage>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MeltTx {
-    #[schema(value_type = Option<String>)]
-    pub alpha_txid: Option<bitcoin::Txid>,
-    #[schema(value_type = Option<String>)]
-    pub beta_txid: Option<bitcoin::Txid>,
-}
-
-/// Onchain Melt quote response
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MeltQuoteOnchainResponse {
-    /// Quote ID (UUID v4)
     #[schema(value_type = String)]
+    pub wallet_key: cashu::PublicKey,
+}
+
+///--------------------------- Melt Quote Onchain Response Body
+#[derive(Debug, BorshSerialize, BorshDeserialize)]
+pub struct MeltQuoteOnchainResponseBody {
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
     pub quote: uuid::Uuid,
-    /// The fee reserve that is required
-    #[schema(value_type = u64)]
-    pub fee_reserve: Amount,
-    /// The BTC amount that needs to be provided
-    #[schema(value_type = u64)]
-    pub amount: Amount,
-    /// Quote State
-    pub state: MeltQuoteState,
-    /// Unix timestamp until the quote is valid
+    pub inputs: Vec<ProofFingerprint>,
+    pub address: String,
+    pub amount: u64,
+    #[borsh(
+        serialize_with = "serialize_vecof_blindedmessage",
+        deserialize_with = "deserialize_vecof_blindedmessage"
+    )]
+    pub change: Vec<cashu::BlindedMessage>,
+    /// Unix timestamp when the commitment expires
     pub expiry: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub unit: Option<CurrencyUnit>,
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub wallet_key: cashu::PublicKey,
 }
 
-/// Onchain Melt response
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MeltOnchainResponse {
-    /// Quote ID (UUID v4)
+///--------------------------- Melt Quote Onchain Response
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct MeltQuoteOnchainResponse {
+    pub content: String, // base64(borsh(MeltQuoteOnchainResponseBody))
+    #[schema(value_type = String)]
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+}
+
+///--------------------------- Melt Onchain Request
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct MeltOnchainRequest {
     #[schema(value_type = String)]
     pub quote: uuid::Uuid,
-    /// Quote State
-    pub state: MeltQuoteState,
-    /// Confirmed transaction id after a melt is successfully sent onchain
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub txid: Option<MeltTx>,
-    /// Change
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inputs: Vec<cashu::Proof>,
+}
+
+///--------------------------- Melt Onchain Response
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct MeltOnchainResponse {
+    #[schema(value_type = String)]
+    pub txid: bitcoin::Txid,
     pub change: Vec<cashu::BlindSignature>,
+}
+
+///--------------------------- Melt Protest Request
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct MeltProtestRequest {
+    #[schema(value_type = String)]
+    pub alpha_id: bitcoin::secp256k1::PublicKey,
+    #[schema(value_type = String)]
+    pub quote_id: uuid::Uuid,
+    pub content: String,
+    #[schema(value_type = String)]
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    #[schema(value_type = String)]
+    pub wallet_key: cashu::PublicKey,
+    #[schema(value_type = String)]
+    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
+}
+
+///--------------------------- Melt Protest Response
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct MeltProtestResponse {
+    pub status: ProtestStatus,
+    #[schema(value_type = Option<String>)]
+    pub txid: Option<bitcoin::Txid>,
+    pub change: Option<Vec<cashu::BlindSignature>>,
 }
