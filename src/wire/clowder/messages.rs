@@ -118,14 +118,16 @@ pub struct MintEiouResponse {}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltOnchainRequest {
     pub quote: uuid::Uuid,
-    pub address: String,
+    pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
     pub amount: u64,
-    pub proofs: Vec<cashu::Proof>,
+    pub inputs: Vec<cashu::Proof>,
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltOnchainResponse {
-    pub txid: bitcoin::Txid,
+    pub txid: crate::wire::melt::MeltTx,
+    pub change: Vec<cashu::BlindSignature>,
 }
 
 ///--------------------------- Melt Quote Onchain
@@ -134,6 +136,7 @@ pub struct MeltOnchainResponse {
 pub struct MeltQuoteOnchainRequest {
     pub content: String,
     pub wallet_key: cashu::PublicKey,
+    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
