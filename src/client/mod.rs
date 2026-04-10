@@ -13,3 +13,5 @@ pub use reqwest::Url;
 pub use admin::core;
 pub use admin::quote;
 pub use admin::treasury;
+
+const CURRENCY_UNIT: cashu::CurrencyUnit = cashu::CurrencyUnit::Sat;

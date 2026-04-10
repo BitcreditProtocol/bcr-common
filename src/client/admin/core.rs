@@ -28,6 +28,10 @@ pub struct Client {
 }
 
 impl Client {
+    pub fn currency_unit() -> cashu::CurrencyUnit {
+        crate::client::CURRENCY_UNIT
+    }
+
     pub fn new(base: reqwest::Url) -> Self {
         Self {
             cl: reqwest::Client::new(),
@@ -38,7 +42,6 @@ impl Client {
     pub const NEW_KEYSET_EP_V1: &'static str = "/v1/admin/keys";
     pub async fn new_keyset(
         &self,
-        unit: cashu::CurrencyUnit,
         expiration: Option<chrono::NaiveDate>,
         fees_ppk: u64,
     ) -> Result<cdk_common::mint::MintKeySetInfo> {
@@ -47,7 +50,7 @@ impl Client {
             .join(Self::NEW_KEYSET_EP_V1)
             .expect("new keys relative path");
         let request = self.cl.post(url).json(&wire_keys::NewKeysetRequest {
-            unit,
+            unit: crate::client::CURRENCY_UNIT,
             expiration,
             fees_ppk,
         });
