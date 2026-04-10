@@ -3,7 +3,7 @@
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
-use crate::{core::signature::serialize_n_schnorr_sign_borsh_msg, wire::quotes as wire_quotes};
+use crate::wire::quotes as wire_quotes;
 
 // ----- end imports
 
@@ -14,8 +14,6 @@ pub enum Error {
     ResourceNotFound(Uuid),
     #[error("invalid request")]
     InvalidRequest,
-    #[error("signature {0}")]
-    Signature(#[from] crate::core::signature::BorshMsgSignatureError),
     #[error("internal {0}")]
     Reqwest(#[from] reqwest::Error),
 }
@@ -32,41 +30,6 @@ impl Client {
             cl: reqwest::Client::new(),
             base,
         }
-    }
-    pub const ENQUIRE_EP_V1: &'static str = "/v1/mint/quote/credit";
-    pub async fn enquire(
-        &self,
-        bill: wire_quotes::SharedBill,
-        minting_pubkey: cashu::PublicKey,
-        signing_key: &bitcoin::secp256k1::Keypair,
-    ) -> Result<Uuid> {
-        let request = wire_quotes::EnquireRequest {
-            content: bill,
-            minting_pubkey,
-        };
-        let (content, signature) = serialize_n_schnorr_sign_borsh_msg(&request, signing_key)?;
-        let signed = wire_quotes::SignedEnquireRequest { content, signature };
-        let url = self
-            .base
-            .join(Self::ENQUIRE_EP_V1)
-            .expect("enquire relative path");
-        let response = self.cl.post(url).json(&signed).send().await?;
-        let reply = response.json::<wire_quotes::EnquireReply>().await?;
-        Ok(reply.id)
-    }
-
-    pub const LOOKUP_EP_V1: &'static str = "/v1/mint/quote/credit/{qid}";
-    pub async fn lookup(&self, qid: Uuid) -> Result<wire_quotes::StatusReply> {
-        let url = self
-            .base
-            .join(&Self::LOOKUP_EP_V1.replace("{qid}", &qid.to_string()))
-            .expect("lookup relative path");
-        let response = self.cl.get(url).send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(qid));
-        }
-        let reply = response.json::<wire_quotes::StatusReply>().await?;
-        Ok(reply)
     }
 
     pub const LIST_EP_V1: &'static str = "/v1/admin/credit/quote";
@@ -148,53 +111,6 @@ impl Client {
         let request = self.cl.patch(url).json(&body);
         let reply = request.send().await?.json().await?;
         Ok(reply)
-    }
-
-    pub const RESOLVE_EP_V1: &'static str = "/v1/mint/quote/credit/{qid}";
-    pub async fn accept_offer(&self, qid: Uuid) -> Result<()> {
-        let url = self
-            .base
-            .join(&Self::RESOLVE_EP_V1.replace("{qid}", &qid.to_string()))
-            .expect("accept offer relative path");
-        let response = self
-            .cl
-            .patch(url)
-            .json(&wire_quotes::ResolveOffer::Accept)
-            .send()
-            .await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(qid));
-        }
-        Ok(())
-    }
-
-    pub async fn reject_offer(&self, qid: Uuid) -> Result<()> {
-        let url = self
-            .base
-            .join(&Self::RESOLVE_EP_V1.replace("{qid}", &qid.to_string()))
-            .expect("reject offer relative path");
-        let response = self
-            .cl
-            .patch(url)
-            .json(&wire_quotes::ResolveOffer::Reject)
-            .send()
-            .await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(qid));
-        }
-        Ok(())
-    }
-
-    pub async fn cancel_enquiry(&self, qid: Uuid) -> Result<()> {
-        let url = self
-            .base
-            .join(&Self::RESOLVE_EP_V1.replace("{qid}", &qid.to_string()))
-            .expect("cancel enquiry relative path");
-        let response = self.cl.delete(url).send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::ResourceNotFound(qid));
-        }
-        Ok(())
     }
 
     pub const ADMIN_LOOKUP_EP_V1: &'static str = "/v1/admin/credit/quote/{qid}";

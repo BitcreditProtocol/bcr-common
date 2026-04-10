@@ -1,14 +1,15 @@
 // ----- standard library imports
 // ----- extra library imports
 // ----- local modules
-pub mod cdk;
-pub mod clowder;
-pub mod core;
+pub mod admin;
 pub mod ebill;
 pub mod mint;
-pub mod quote;
-pub mod treasury;
 
 // ----- end imports
 
 pub use reqwest::Url;
+
+// Re-export admin clients at the old paths for backward compatibility.
+pub use admin::core;
+pub use admin::quote;
+pub use admin::treasury;
