@@ -1,6 +1,7 @@
 // ----- standard library imports
 // ----- extra library imports
 use bitcoin::secp256k1;
+use chrono::{DateTime, Utc};
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
@@ -8,8 +9,8 @@ use crate::{
     cashu,
     core::signature::{self, BorshMsgSignatureError},
     wire::{
-        clowder as wire_clowder, exchange as wire_exchange, keys as wire_keys,
-        quotes as wire_quotes, swap as wire_swap,
+        clowder as wire_clowder, exchange as wire_exchange, keys as wire_keys, melt as wire_melt,
+        mint as wire_mint, quotes as wire_quotes, swap as wire_swap,
     },
 };
 
@@ -23,13 +24,15 @@ pub enum Error {
     KeysetIdNotFound(cashu::Id),
     #[error("resource not found {0}")]
     ResourceNotFound(String),
-    #[error("invalid request")]
-    InvalidRequest,
+    #[error("unimplemented")]
+    Todo,
+    #[error("internal {0}")]
+    Internal(String),
+
     #[error("signature {0}")]
     Signature(#[from] BorshMsgSignatureError),
     #[error("cdk::nut20 {0}")]
     Cdk20(#[from] cashu::nut20::Error),
-
     #[error("internal error {0}")]
     Reqwest(#[from] reqwest::Error),
 }
@@ -364,24 +367,83 @@ impl Client {
         Ok(response.signatures)
     }
 
+    /// target: the amount you expect to receive in recipient
     pub const MELTQUOTE_ONCHAIN_EP_V1: &'static str = "/v1/treasury/melt/onchain/quote";
-    pub async fn onchain_melt_quote(&self) -> Result<()> {
-        todo!();
+    pub async fn onchain_melt_quote(
+        &self,
+        recipient: bitcoin::Address,
+        target: bitcoin::Amount,
+        change: Vec<cashu::BlindedMessage>,
+    ) -> Result<(Uuid, cashu::Amount, DateTime<Utc>)> {
+        let url = self
+            .base
+            .join(Self::MELTQUOTE_ONCHAIN_EP_V1)
+            .expect("onchain melt quote relative path");
+        let invoice = wire_melt::OnchainInvoice {
+            address: recipient.into_unchecked(),
+            amount: target,
+        };
+        let msg = wire_melt::MeltQuoteOnchainRequest {
+            unit: crate::client::CURRENCY_UNIT,
+            request: invoice,
+            change,
+        };
+        let request = self.cl.post(url).json(&msg);
+        let response: wire_melt::MeltQuoteOnchainResponse = request.send().await?.json().await?;
+        let wire_melt::MeltQuoteOnchainResponse {
+            quote,
+            fee_reserve,
+            amount,
+            expiry,
+            ..
+        } = response;
+        let total = amount + fee_reserve;
+        let ctotal = cashu::Amount::from(total.to_sat());
+        let expiration = DateTime::from_timestamp(expiry as i64, 0).ok_or(Error::Internal(
+            format!("chrono::from_timestamp failed for {expiry}"),
+        ))?;
+        Ok((quote, ctotal, expiration))
     }
 
     pub const MINTQUOTE_ONCHAIN_EP_V1: &'static str = "/v1/treasury/mint/onchain/quote";
-    pub async fn onchain_mint_quote(&self) -> Result<()> {
-        todo!();
+    pub async fn onchain_mint_quote(
+        &self,
+        blinds: Vec<cashu::BlindedMessage>,
+        mint_pk: secp256k1::PublicKey,
+    ) -> Result<wire_mint::OnchainMintQuoteResponse> {
+        let url = self
+            .base
+            .join(Self::MINTQUOTE_ONCHAIN_EP_V1)
+            .expect("onchain mint quote relative path");
+        let msg = wire_mint::OnchainMintQuoteRequest {
+            blinded_messages: blinds,
+        };
+        let request = self.cl.post(url).json(&msg);
+        let response: wire_mint::OnchainMintQuoteResponse = request.send().await?.json().await?;
+        signature::schnorr_verify_b64(
+            &response.content,
+            &response.commitment,
+            &mint_pk.x_only_public_key().0,
+        )?;
+        Ok(response)
     }
 
     pub const MELT_ONCHAIN_EP_V1: &'static str = "/v1/treasury/melt/onchain";
-    pub async fn onchain_melt(&self) -> Result<()> {
-        todo!();
+    pub async fn onchain_melt(&self, _qid: Uuid, _inputs: Vec<cashu::Proof>) -> Result<()> {
+        let _url = self
+            .base
+            .join(Self::MELT_ONCHAIN_EP_V1)
+            .expect("onchain melt relative path");
+        Err(Error::Todo)
     }
 
     pub const MINT_ONCHAIN_EP_V1: &'static str = "/v1/treasury/mint/onchain";
-    pub async fn onchain_mint(&self) -> Result<()> {
-        todo!();
+    pub async fn onchain_mint(&self, _qid: Uuid) -> Result<()> {
+        let _url = self
+            .base
+            .join(Self::MINT_ONCHAIN_EP_V1)
+            .expect("onchain mint relative path");
+        Err(Error::Todo)
     }
 
     // -------------------------------------------------------------------------
