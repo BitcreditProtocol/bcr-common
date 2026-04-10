@@ -14,7 +14,7 @@ pub mod messages;
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PathRequest {
     #[schema(value_type = String)]
-    pub origin_mint_url: cashu::MintUrl,
+    pub origin_mint_url: reqwest::Url,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
