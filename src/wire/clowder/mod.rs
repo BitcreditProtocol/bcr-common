@@ -4,7 +4,10 @@ use bitcoin::{XOnlyPublicKey, hashes::sha256::Hash as Sha256Hash, secp256k1};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
-use crate::wire::{bill as wire_bill, keys as wire_keys};
+use crate::{
+    core::BillId,
+    wire::{bill as wire_bill, keys as wire_keys},
+};
 pub mod messages;
 // ----- end imports
 
@@ -217,4 +220,25 @@ pub struct VerifyMintPaymentRequest {
     pub quote_id: uuid::Uuid,
     pub keyset_id: cashu::Id,
     pub min_confirmations: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct VerifyEbillMintPaymentRequest {
+    #[schema(value_type = String)]
+    pub bill_id: BillId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DeriveEbillPaymentAddressRequest {
+    #[schema(value_type = String)]
+    pub bill_id: BillId,
+    pub block_id: u64,
+    #[schema(value_type = String)]
+    pub previous_block_hash: Sha256Hash,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DeriveEbillPaymentAddressResponse {
+    #[schema(value_type = String)]
+    pub payment_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
 }

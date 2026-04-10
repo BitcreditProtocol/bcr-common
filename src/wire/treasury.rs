@@ -2,6 +2,8 @@
 // ----- extra library imports
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+use crate::core::BillId;
 // ----- local imports
 
 // ----- end imports
@@ -28,3 +30,16 @@ pub struct MintOperationStatus {
     pub target: cashu::Amount,
     pub current: cashu::Amount,
 }
+
+/// --------------------------- request to pay ebill
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct RequestToPayFromEBillRequest {
+    #[schema(value_type = String)]
+    pub ebill_id: BillId,
+    #[schema(value_type = u64)]
+    pub amount: bitcoin::Amount,
+    pub deadline: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct RequestToPayFromEBillResponse {}
