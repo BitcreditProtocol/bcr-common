@@ -137,11 +137,12 @@ pub struct MeltQuoteOnchainRequest {
     pub content: String,
     pub wallet_key: cashu::PublicKey,
     pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
+    pub quote_id: uuid::Uuid,
+    pub expiry: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltQuoteOnchainResponse {
-    pub content: String,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
