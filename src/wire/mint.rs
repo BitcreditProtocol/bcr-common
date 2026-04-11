@@ -16,6 +16,8 @@ use crate::wire::borsh::{
 pub struct OnchainMintQuoteRequest {
     /// Blinded messages to be signed upon payment, keyset must be SAT
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
+    #[schema(value_type = String)]
+    pub wallet_key: cashu::PublicKey,
 }
 
 /// Onchain Mint quote response body
@@ -45,6 +47,12 @@ pub struct OnchainMintQuoteResponseBody {
         deserialize_with = "deserialize_vec_of_jsons"
     )]
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
+    #[schema(value_type = String)]
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub wallet_key: cashu::PublicKey,
 }
 
 /// Onchain Mint Request to Fetch Signatures
@@ -78,9 +86,11 @@ pub struct MintProtestRequest {
     pub alpha_id: bitcoin::secp256k1::PublicKey,
     #[schema(value_type = String)]
     pub quote_id: uuid::Uuid,
-    pub content: String, // base64, borsh serialized OnchainMintQuoteResponseBody
+    pub content: String,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    #[schema(value_type = String)]
+    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
 pub use crate::wire::common::ProtestStatus;

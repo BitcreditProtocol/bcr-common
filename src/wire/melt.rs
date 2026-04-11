@@ -14,9 +14,9 @@ use crate::wire::{
 };
 // ----- end imports
 
-///--------------------------- Melt Quote Onchain Request Body
-#[derive(Debug, BorshSerialize, BorshDeserialize)]
-pub struct MeltQuoteOnchainRequestBody {
+///--------------------------- Melt Quote Onchain Request
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+pub struct MeltQuoteOnchainRequest {
     pub inputs: Vec<ProofFingerprint>,
     pub address: String,
     pub amount: u64,
@@ -25,24 +25,12 @@ pub struct MeltQuoteOnchainRequestBody {
         deserialize_with = "deserialize_vecof_blindedmessage"
     )]
     pub change: Vec<cashu::BlindedMessage>,
-}
-
-///--------------------------- Melt Quote Onchain Request
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
-pub struct MeltQuoteOnchainRequest {
-    pub content: String, // base64(borsh(MeltQuoteOnchainRequestBody))
     #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
     pub wallet_key: cashu::PublicKey,
-    #[schema(value_type = String)]
-    #[borsh(
-        serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_from_str"
-    )]
-    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
 ///--------------------------- Melt Quote Onchain Response Body
@@ -53,25 +41,27 @@ pub struct MeltQuoteOnchainResponseBody {
         deserialize_with = "deserialize_from_str"
     )]
     pub quote: uuid::Uuid,
-    pub content: String, // base64(borsh(MeltQuoteOnchainRequestBody)) — passthrough from request
+    pub inputs: Vec<ProofFingerprint>,
+    pub address: String,
+    pub amount: u64,
+    #[borsh(
+        serialize_with = "serialize_vecof_blindedmessage",
+        deserialize_with = "deserialize_vecof_blindedmessage"
+    )]
+    pub change: Vec<cashu::BlindedMessage>,
+    /// Unix timestamp when the commitment expires
+    pub expiry: u64,
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
     pub wallet_key: cashu::PublicKey,
-    #[borsh(
-        serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_from_str"
-    )]
-    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
-    /// Unix timestamp when the commitment expires
-    pub expiry: u64,
 }
 
 ///--------------------------- Melt Quote Onchain Response
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MeltQuoteOnchainResponse {
-    pub content: String, // base64(borsh(MeltQuoteOnchainResponseBody))
+    pub content: String,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
@@ -101,33 +91,16 @@ pub struct MeltOnchainResponse {
     pub change: Vec<cashu::BlindSignature>,
 }
 
-///--------------------------- Melt Protest Request Body
-#[derive(Debug, BorshSerialize, BorshDeserialize)]
-pub struct MeltProtestRequestBody {
-    #[borsh(
-        serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_from_str"
-    )]
-    pub alpha_id: bitcoin::secp256k1::PublicKey,
-    #[borsh(
-        serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_from_str"
-    )]
-    pub quote_id: uuid::Uuid,
-    pub content: String,
-    #[borsh(
-        serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_from_str"
-    )]
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
-}
-
 ///--------------------------- Melt Protest Request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MeltProtestRequest {
-    pub body: String, // base64(borsh(MeltProtestRequestBody))
     #[schema(value_type = String)]
-    pub wallet_key: cashu::PublicKey,
+    pub alpha_id: bitcoin::secp256k1::PublicKey,
+    #[schema(value_type = String)]
+    pub quote_id: uuid::Uuid,
+    pub content: String,
+    #[schema(value_type = String)]
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
     #[schema(value_type = String)]
     pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
 }

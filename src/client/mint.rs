@@ -326,44 +326,45 @@ impl Client {
     pub const MELTQUOTE_ONCHAIN_EP_V1: &str = "/v1/treasury/melt/onchain/quote";
     pub async fn onchain_melt_quote(
         &self,
+        inputs: Vec<wire_keys::ProofFingerprint>,
         recipient: bitcoin::Address,
         target: bitcoin::Amount,
         change: Vec<cashu::BlindedMessage>,
+        wallet_key: cashu::PublicKey,
+        mint_pk: secp256k1::PublicKey,
     ) -> Result<(Uuid, cashu::Amount, DateTime<Utc>)> {
         let url = self
             .base
             .join(Self::MELTQUOTE_ONCHAIN_EP_V1)
             .expect("onchain melt quote relative path");
-        let invoice = wire_melt::OnchainInvoice {
-            address: recipient.into_unchecked(),
-            amount: target,
-        };
         let msg = wire_melt::MeltQuoteOnchainRequest {
-            unit: crate::client::CURRENCY_UNIT,
-            request: invoice,
+            inputs,
+            address: recipient.to_string(),
+            amount: target.to_sat(),
             change,
+            wallet_key,
         };
         let request = self.cl.post(url).json(&msg);
         let response: wire_melt::MeltQuoteOnchainResponse = request.send().await?.json().await?;
-        let wire_melt::MeltQuoteOnchainResponse {
-            quote,
-            fee_reserve,
-            amount,
-            expiry,
-            ..
-        } = response;
-        let total = amount + fee_reserve;
-        let ctotal = cashu::Amount::from(total.to_sat());
-        let expiration = DateTime::from_timestamp(expiry as i64, 0).ok_or(Error::Internal(
-            format!("chrono::from_timestamp failed for {expiry}"),
+        signature::schnorr_verify_b64(
+            &response.content,
+            &response.commitment,
+            &mint_pk.x_only_public_key().0,
+        )?;
+        let body: wire_melt::MeltQuoteOnchainResponseBody =
+            signature::deserialize_borsh_msg(&response.content)?;
+        let ctotal = cashu::Amount::from(body.amount);
+        let expiration = DateTime::from_timestamp(body.expiry as i64, 0).ok_or(Error::Internal(
+            format!("chrono::from_timestamp failed for {}", body.expiry),
         ))?;
-        Ok((quote, ctotal, expiration))
+        Ok((body.quote, ctotal, expiration))
     }
 
     pub const MINTQUOTE_ONCHAIN_EP_V1: &str = "/v1/treasury/mint/onchain/quote";
     pub async fn onchain_mint_quote(
         &self,
         blinds: Vec<cashu::BlindedMessage>,
+        wallet_key: cashu::PublicKey,
         mint_pk: secp256k1::PublicKey,
     ) -> Result<wire_mint::OnchainMintQuoteResponse> {
         let url = self
@@ -372,6 +373,7 @@ impl Client {
             .expect("onchain mint quote relative path");
         let msg = wire_mint::OnchainMintQuoteRequest {
             blinded_messages: blinds,
+            wallet_key,
         };
         let request = self.cl.post(url).json(&msg);
         let response: wire_mint::OnchainMintQuoteResponse = request.send().await?.json().await?;

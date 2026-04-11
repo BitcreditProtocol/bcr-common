@@ -134,11 +134,13 @@ pub struct MeltOnchainResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltQuoteOnchainRequest {
-    pub content: String,
-    pub wallet_key: cashu::PublicKey,
-    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
     pub quote_id: uuid::Uuid,
+    pub inputs: Vec<ProofFingerprint>,
+    pub address: String,
+    pub amount: u64,
+    pub change: Vec<cashu::BlindedMessage>,
     pub expiry: u64,
+    pub wallet_key: cashu::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,13 +148,43 @@ pub struct MeltQuoteOnchainResponse {
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
+///--------------------------- Mint Quote Onchain
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintQuoteOnchainRequest {
+    pub quote_id: uuid::Uuid,
+    pub address: String,
+    pub payment_amount: bitcoin::Amount,
+    pub expiry: u64,
+    pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
+    pub wallet_key: cashu::PublicKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintQuoteOnchainResponse {
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+}
+
+///--------------------------- Offline Exchange Sign
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineExchangeSignRequest {
+    pub payload: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineExchangeSignResponse {
+    pub signature: bitcoin::secp256k1::schnorr::Signature,
+}
+
 ///--------------------------- Swap Commitment
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapCommitmentRequest {
-    pub content: String,
+    pub inputs: Vec<ProofFingerprint>,
+    pub outputs: Vec<cashu::BlindedMessage>,
+    pub expiry: u64,
     pub wallet_key: cashu::PublicKey,
-    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
