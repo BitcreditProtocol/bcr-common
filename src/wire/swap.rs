@@ -51,7 +51,7 @@ pub struct SwapCommitmentRequestBody {
 }
 
 ///--------------------------- Swap Commitment Request
-#[derive(Debug, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
 pub struct SwapCommitmentRequest {
     pub content: String, // base64(borsh(SwapCommitmentRequestBody)), the swap body
     #[schema(value_type = String)]
