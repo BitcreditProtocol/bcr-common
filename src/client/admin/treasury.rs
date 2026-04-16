@@ -1,12 +1,12 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::Amount;
+use bitcoin::{Amount, secp256k1};
 use thiserror::Error;
 // ----- local imports
 use crate::{
     cashu,
     core::BillId,
-    wire::{exchange as wire_exchange, treasury as wire_treasury},
+    wire::{exchange as wire_exchange, keys as wire_keys, treasury as wire_treasury},
 };
 
 // ----- end imports
@@ -38,7 +38,7 @@ impl Client {
         }
     }
 
-    pub const REQTOPAY_EP_V1: &'static str = "/v1/admin/treasury/request_to_pay_ebill";
+    pub const REQTOPAY_EP_V1: &str = "/v1/admin/treasury/request_to_pay_ebill";
     pub async fn request_to_pay_ebill(
         &self,
         ebill_id: BillId,
@@ -60,7 +60,7 @@ impl Client {
         Ok(response)
     }
 
-    pub const TRYHTLC_EP_V1: &'static str = "/v1/admin/treasury/try_htlc_swap";
+    pub const TRYHTLC_EP_V1: &str = "/v1/admin/treasury/try_htlc_swap";
     pub async fn try_htlc(&self, preimage: String) -> Result<cashu::Amount> {
         let url = self
             .base
@@ -72,7 +72,7 @@ impl Client {
         Ok(response)
     }
 
-    pub const NEWEBILLMINTOP_EP_V1: &'static str = "/v1/admin/treasury/ebill/mintop";
+    pub const NEWEBILLMINTOP_EP_V1: &str = "/v1/admin/treasury/ebill/mintop";
     pub async fn new_ebill_mint_operation(
         &self,
         qid: uuid::Uuid,
@@ -101,7 +101,7 @@ impl Client {
         Ok(())
     }
 
-    pub const EBILLMINTOPSTATUS_EP_V1: &'static str = "/v1/admin/treasury/ebill/mintop/{qid}";
+    pub const EBILLMINTOPSTATUS_EP_V1: &str = "/v1/admin/treasury/ebill/mintop/{qid}";
     pub async fn ebill_mint_operation_status(
         &self,
         qid: uuid::Uuid,
@@ -121,7 +121,7 @@ impl Client {
         Ok(response)
     }
 
-    pub const LISTEBILLMINTOPS_EP_V1: &'static str = "/v1/admin/treasury/ebill/mintops/{kid}";
+    pub const LISTEBILLMINTOPS_EP_V1: &str = "/v1/admin/treasury/ebill/mintops/{kid}";
     pub async fn list_ebill_mint_operations(&self, kid: cashu::Id) -> Result<Vec<uuid::Uuid>> {
         let url = self
             .base
@@ -130,6 +130,72 @@ impl Client {
         let request = self.cl.get(url);
         let response = request.send().await?;
         let response = response.json::<Vec<uuid::Uuid>>().await?;
+        Ok(response)
+    }
+
+    pub async fn exchange_offline_raw(
+        &self,
+        fingerprints: Vec<wire_keys::ProofFingerprint>,
+        hashes: Vec<bitcoin::hashes::sha256::Hash>,
+        wallet_pk: cashu::PublicKey,
+    ) -> Result<wire_exchange::OfflineExchangeResponse> {
+        let result =
+            common::exchange_offline_raw(&self.cl, &self.base, fingerprints, hashes, wallet_pk)
+                .await?;
+        Ok(result)
+    }
+
+    pub async fn exchange_online(
+        &self,
+        proofs: Vec<cashu::Proof>,
+        exchange_path: Vec<secp256k1::PublicKey>,
+    ) -> Result<Vec<cashu::Proof>> {
+        let result =
+            common::exchange_online_raw(&self.cl, &self.base, proofs, exchange_path).await?;
+        Ok(result.proofs)
+    }
+}
+
+pub(crate) mod common {
+    use super::*;
+
+    pub const EXCHANGEOFFLINE_EP_V1: &str = "/v1/treasury/exchange/offline";
+    pub async fn exchange_offline_raw(
+        cl: &reqwest::Client,
+        base: &reqwest::Url,
+        fingerprints: Vec<wire_keys::ProofFingerprint>,
+        hashes: Vec<bitcoin::hashes::sha256::Hash>,
+        wallet_pk: cashu::PublicKey,
+    ) -> Result<wire_exchange::OfflineExchangeResponse> {
+        let url = base
+            .join(EXCHANGEOFFLINE_EP_V1)
+            .expect("exchange_offline relative path");
+        let msg = wire_exchange::OfflineExchangeRequest {
+            fingerprints,
+            hashes,
+            wallet_pk,
+        };
+        let request = cl.post(url).json(&msg);
+        let response: wire_exchange::OfflineExchangeResponse = request.send().await?.json().await?;
+        Ok(response)
+    }
+
+    pub const EXCHANGEONLINE_EP_V1: &str = "/v1/treasury/exchange/online";
+    pub async fn exchange_online_raw(
+        cl: &reqwest::Client,
+        base: &reqwest::Url,
+        proofs: Vec<cashu::Proof>,
+        exchange_path: Vec<secp256k1::PublicKey>,
+    ) -> Result<wire_exchange::OnlineExchangeResponse> {
+        let url = base
+            .join(EXCHANGEONLINE_EP_V1)
+            .expect("exchange_online relative path");
+        let msg = wire_exchange::OnlineExchangeRequest {
+            proofs,
+            exchange_path,
+        };
+        let request = cl.post(url).json(&msg);
+        let response: wire_exchange::OnlineExchangeResponse = request.send().await?.json().await?;
         Ok(response)
     }
 }
