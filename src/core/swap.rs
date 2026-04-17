@@ -182,22 +182,22 @@ pub mod wallet {
 #[cfg(any(feature = "mint", test))]
 pub mod mint {
     // ----- standard library imports
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     // ----- extra library imports
-    use cashu::{Amount, Id, KeySetInfo, Proof, ProofsMethods};
+    use cashu::{Amount, Id, KeySetInfo, Proof};
     use thiserror::Error;
     // ----- local imports
-    use super::FEE_RATE_PPK_MULTIPLIER;
+    use crate::core::{signature::ProofFingerprint, swap::FEE_RATE_PPK_MULTIPLIER};
 
     // ----- end imports
 
-    type Result<T> = std::result::Result<T, SwapVerificationError>;
+    type Result<T> = std::result::Result<T, VerificationError>;
     #[derive(Debug, Error)]
-    pub enum SwapVerificationError {
-        #[error("invalid input {0}")]
-        InvalidInput(String),
-        #[error("invalid output {0}")]
-        InvalidOutput(String),
+    pub enum VerificationError {
+        #[error("invalid inputs {0}")]
+        InvalidInputs(String),
+        #[error("invalid outputs {0}")]
+        InvalidOutputs(String),
         #[error("keyset {0} not found in keysets")]
         UnknownKeyset(Id),
         #[error("InsufficientFees, required {0}, received {1}")]
@@ -206,78 +206,140 @@ pub mod mint {
         Cdk00(#[from] cashu::nut00::Error),
     }
 
-    pub fn verify_swap(
-        inputs: &Vec<Proof>,
+    trait Input {
+        fn y(&self) -> Result<cashu::PublicKey>;
+        fn amount(&self) -> cashu::Amount;
+        fn kid(&self) -> cashu::Id;
+    }
+    impl Input for cashu::Proof {
+        fn y(&self) -> Result<cashu::PublicKey> {
+            let y = self.y()?;
+            Ok(y)
+        }
+        fn amount(&self) -> cashu::Amount {
+            self.amount
+        }
+        fn kid(&self) -> cashu::Id {
+            self.keyset_id
+        }
+    }
+    impl Input for ProofFingerprint {
+        fn y(&self) -> Result<cashu::PublicKey> {
+            let y = cashu::PublicKey::from(self.y);
+            Ok(y)
+        }
+        fn amount(&self) -> cashu::Amount {
+            self.amount
+        }
+        fn kid(&self) -> cashu::Id {
+            self.keyset_id
+        }
+    }
+
+    fn verify_outputs(
         outputs: &[cashu::BlindedMessage],
         kinfos: &HashMap<Id, KeySetInfo>,
-    ) -> Result<()> {
+    ) -> Result<HashMap<cashu::Id, cashu::Amount>> {
         // * no empty outputs
         if outputs.is_empty() {
-            return Err(SwapVerificationError::InvalidOutput(String::from(
+            return Err(VerificationError::InvalidOutputs(String::from(
                 "no outputs provided",
             )));
         }
-        // * no empty inputs
-        if inputs.is_empty() {
-            return Err(SwapVerificationError::InvalidInput(String::from(
-                "no inputs provided",
+        // * unique blinded_secrets
+        let b_secrets: HashSet<cashu::PublicKey> =
+            outputs.iter().map(|output| output.blinded_secret).collect();
+        if b_secrets.len() != outputs.len() {
+            return Err(VerificationError::InvalidOutputs(String::from(
+                "duplicate blinded secrets",
             )));
         }
-        // * unique blinded_secrets
-        for idx in 0..outputs.len() {
-            let secret = outputs[idx].blinded_secret;
-            let any_equal = outputs[idx + 1..]
-                .iter()
-                .any(|o| o.blinded_secret == secret);
-            if any_equal {
-                return Err(SwapVerificationError::InvalidOutput(String::from(
-                    "duplicate blinded secrets",
-                )));
-            }
-        }
-        // per keyset verification
-        let mut fee_rate_ppk = 0;
-        let input_amounts = inputs.sum_by_keyset();
-        let inputs_kids: Vec<cashu::Id> = input_amounts.keys().copied().collect();
-        // * inputs keysets must be known
-        for kid in inputs_kids {
-            let kinfo = kinfos
-                .get(&kid)
-                .ok_or(SwapVerificationError::UnknownKeyset(kid))?;
-            fee_rate_ppk = std::cmp::max(fee_rate_ppk, kinfo.input_fee_ppk);
-        }
-        let mut output_amounts: HashMap<Id, Amount> = HashMap::new();
+        // amounts by keyset_id
+        let mut amounts: HashMap<Id, Amount> = HashMap::new();
         for output in outputs {
-            let entry = output_amounts
-                .entry(output.keyset_id)
-                .or_insert(Amount::ZERO);
+            let entry = amounts.entry(output.keyset_id).or_insert(Amount::ZERO);
             *entry += output.amount;
         }
-        for (keyset_id, output_amount) in &output_amounts {
+        for (kid, amount) in &amounts {
             // * no zero output
-            if *output_amount == cashu::Amount::ZERO {
-                return Err(SwapVerificationError::InvalidOutput(format!(
-                    "output with keyset {keyset_id} has zero amount"
+            if *amount == cashu::Amount::ZERO {
+                return Err(VerificationError::InvalidOutputs(format!(
+                    "zero output amount for {kid}"
                 )));
             }
             // * outputs keysets must be known
-            if !kinfos.contains_key(keyset_id) {
-                return Err(SwapVerificationError::UnknownKeyset(*keyset_id));
+            if !kinfos.contains_key(kid) {
+                return Err(VerificationError::UnknownKeyset(*kid));
             }
-            // * corresponding input amount
-            if !input_amounts.contains_key(keyset_id) {
-                return Err(SwapVerificationError::InvalidInput(format!(
-                    "no input for keyset {keyset_id}"
+        }
+        Ok(amounts)
+    }
+
+    fn verify_inputs(
+        inputs: &[impl Input],
+        kinfos: &HashMap<Id, KeySetInfo>,
+    ) -> Result<(u64, HashMap<Id, Amount>)> {
+        // * no empty inputs
+        if inputs.is_empty() {
+            return Err(VerificationError::InvalidInputs(String::from(
+                "no inputs provided",
+            )));
+        }
+        // * unique fingerprints
+        let ys: HashSet<cashu::PublicKey> = inputs
+            .iter()
+            .map(|input| input.y())
+            .collect::<Result<_>>()?;
+        if ys.len() != inputs.len() {
+            return Err(VerificationError::InvalidInputs(String::from(
+                "duplicate inputs",
+            )));
+        }
+        // amounts by keyset_id
+        let mut amounts: HashMap<Id, Amount> = HashMap::new();
+        for input in inputs {
+            let entry = amounts.entry(input.kid()).or_insert(Amount::ZERO);
+            *entry += input.amount();
+        }
+        let mut fee_rate_ppk = 0;
+        for (kid, amount) in &amounts {
+            // * no zero input
+            if *amount == cashu::Amount::ZERO {
+                return Err(VerificationError::InvalidInputs(format!(
+                    "zero input amount for {kid}"
                 )));
             }
-            let input_amount = input_amounts
-                .get(keyset_id)
-                .copied()
-                .unwrap_or(Amount::ZERO);
+            // * inputs keysets must be known
+            let kinfo = kinfos
+                .get(kid)
+                .ok_or(VerificationError::UnknownKeyset(*kid))?;
+            fee_rate_ppk = std::cmp::max(fee_rate_ppk, kinfo.input_fee_ppk)
+        }
+        Ok((fee_rate_ppk, amounts))
+    }
+
+    pub fn verify_swap(
+        inputs: &[Proof],
+        outputs: &[cashu::BlindedMessage],
+        kinfos: &HashMap<Id, KeySetInfo>,
+    ) -> Result<()> {
+        // verify outputs
+        let output_amounts = verify_outputs(outputs, kinfos)?;
+        // verify inputs
+        let (fee_rate_ppk, input_amounts) = verify_inputs(inputs, kinfos)?;
+        // per keyset verification
+        for (kid, output_amount) in &output_amounts {
+            // * corresponding input amount
+            if !input_amounts.contains_key(kid) {
+                return Err(VerificationError::InvalidInputs(format!(
+                    "no input for keyset {kid}"
+                )));
+            }
+            let input_amount = input_amounts.get(kid).copied().unwrap_or(Amount::ZERO);
             // * input amount >= output amount
             if input_amount < *output_amount {
-                return Err(SwapVerificationError::InvalidInput(format!(
-                    "input amount {input_amount} for keyset {keyset_id} is less than output amount {output_amount}"
+                return Err(VerificationError::InvalidInputs(format!(
+                    "{kid}: input {input_amount} < output {output_amount}"
                 )));
             }
         }
@@ -290,14 +352,41 @@ pub mod mint {
         let total_output = output_amounts
             .values()
             .fold(Amount::ZERO, |acc, x| acc + *x);
-        let total_input = inputs.total_amount()?;
+        let total_input = input_amounts.values().fold(Amount::ZERO, |acc, x| acc + *x);
         if total_input < total_output + required_fee {
-            return Err(SwapVerificationError::InsufficientFees(
+            return Err(VerificationError::InsufficientFees(
                 required_fee,
                 total_input - total_output,
             ));
         }
+        Ok(())
+    }
 
+    pub fn verify_commit(
+        inputs: &[ProofFingerprint],
+        outputs: &[cashu::BlindedMessage],
+        kinfos: &HashMap<Id, KeySetInfo>,
+    ) -> Result<()> {
+        // verify outputs
+        let output_amounts = verify_outputs(outputs, kinfos)?;
+        // verify inputs
+        let (_, input_amounts) = verify_inputs(inputs, kinfos)?;
+        // per keyset verification
+        for (kid, output_amount) in &output_amounts {
+            // * corresponding input amount
+            if !input_amounts.contains_key(kid) {
+                return Err(VerificationError::InvalidInputs(format!(
+                    "no input for keyset {kid}"
+                )));
+            }
+            let input_amount = input_amounts.get(kid).copied().unwrap_or(Amount::ZERO);
+            // * input amount >= output amount
+            if input_amount < *output_amount {
+                return Err(VerificationError::InvalidInputs(format!(
+                    "{kid}: input {input_amount} < output {output_amount}"
+                )));
+            }
+        }
         Ok(())
     }
 }
@@ -305,7 +394,7 @@ pub mod mint {
 #[cfg(test)]
 mod test {
     use super::{
-        mint::{SwapVerificationError, verify_swap},
+        mint::{VerificationError, verify_swap},
         wallet::{PaymentPlan, SwapPlan, prepare_payment, prepare_swap, verify_payment},
     };
     use crate::core_tests;
@@ -482,7 +571,7 @@ mod test {
         let result = verify_swap(&proofs, &outputs, &kinfos);
         assert!(matches!(
             result,
-            Err(SwapVerificationError::InsufficientFees(..))
+            Err(VerificationError::InsufficientFees(..))
         ));
     }
 }
