@@ -32,12 +32,12 @@ pub enum Error {
     #[error("unimplemented")]
     Todo,
 
-    #[error("signature {0}")]
-    Signature(#[from] BorshMsgSignatureError),
     #[error("cdk::nut20 {0}")]
     Cdk20(#[from] cashu::nut20::Error),
     #[error("internal error {0}")]
     Reqwest(#[from] reqwest::Error),
+    #[error("borsh sign error {0}")]
+    BorshSign(#[from] BorshMsgSignatureError),
 }
 
 impl std::convert::From<core::Error> for Error {
@@ -47,6 +47,7 @@ impl std::convert::From<core::Error> for Error {
             core::Error::InvalidRequest(e) => Error::InvalidRequest(e),
             core::Error::Reqwest(e) => Error::Reqwest(e),
             core::Error::NUT20(e) => Error::Cdk20(e),
+            core::Error::BorshSign(e) => Error::BorshSign(e),
         }
     }
 }
@@ -105,6 +106,22 @@ impl Client {
     // -------------------------------------------------------------------------
     // Core service – swap / burn / restore / check-state endpoints
     // -------------------------------------------------------------------------
+
+    pub const SWAPCOMMIT_EP_V1: &str = core::common::SWAPCOMMIT_EP_V1;
+    pub async fn commit_swap(
+        &self,
+        inputs: Vec<wire_keys::ProofFingerprint>,
+        outputs: Vec<cashu::BlindedMessage>,
+        expiry: u64,
+        wallet_kp: &bitcoin::secp256k1::Keypair,
+        mint_pk: bitcoin::secp256k1::PublicKey,
+    ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
+        let result = core::common::commit_swap(
+            &self.cl, &self.base, inputs, outputs, expiry, wallet_kp, mint_pk,
+        )
+        .await?;
+        Ok(result)
+    }
 
     pub const SWAP_EP_V1: &str = core::common::SWAP_EP_V1;
     pub async fn swap(

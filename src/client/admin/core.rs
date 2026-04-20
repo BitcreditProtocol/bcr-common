@@ -19,6 +19,8 @@ pub enum Error {
     Reqwest(#[from] reqwest::Error),
     #[error("sign error {0}")]
     NUT20(#[from] cashu::nut20::Error),
+    #[error("borsh sign error {0}")]
+    BorshSign(#[from] crate::core::signature::BorshMsgSignatureError),
 }
 
 #[derive(Debug, Clone)]
@@ -222,6 +224,21 @@ impl Client {
         Ok(result)
     }
 
+    pub async fn commit_swap(
+        &self,
+        inputs: Vec<wire_keys::ProofFingerprint>,
+        outputs: Vec<cashu::BlindedMessage>,
+        expiry: u64,
+        wallet_kp: &bitcoin::secp256k1::Keypair,
+        mint_pk: bitcoin::secp256k1::PublicKey,
+    ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
+        let result = common::commit_swap(
+            &self.cl, &self.base, inputs, outputs, expiry, wallet_kp, mint_pk,
+        )
+        .await?;
+        Ok(result)
+    }
+
     pub async fn swap(
         &self,
         inputs: Vec<cashu::Proof>,
@@ -326,5 +343,45 @@ pub(crate) mod common {
         let response = cl.post(url).json(&request).send().await?;
         let signatures: wire_swap::SwapResponse = response.json().await?;
         Ok(signatures.signatures)
+    }
+
+    pub const SWAPCOMMIT_EP_V1: &str = "/v1/core/swap/commit";
+    pub async fn commit_swap(
+        cl: &reqwest::Client,
+        base: &reqwest::Url,
+        inputs: Vec<wire_keys::ProofFingerprint>,
+        outputs: Vec<cashu::BlindedMessage>,
+        expiry: u64,
+        wallet_kp: &bitcoin::secp256k1::Keypair,
+        mint_pk: bitcoin::secp256k1::PublicKey,
+    ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
+        let url = base
+            .join(SWAPCOMMIT_EP_V1)
+            .expect("swap commit relative path");
+        let payload = wire_swap::SwapCommitmentRequestBody {
+            inputs,
+            outputs,
+            expiry,
+        };
+        let (content, signature) =
+            crate::core::signature::serialize_n_schnorr_sign_borsh_msg(&payload, wallet_kp)?;
+        let request = wire_swap::SwapCommitmentRequest {
+            content: content.clone(),
+            wallet_key: wallet_kp.public_key().into(),
+            wallet_signature: signature,
+        };
+        let response = cl.post(url).json(&request).send().await?;
+        let commit: wire_swap::SwapCommitmentResponse = response.json().await?;
+        crate::core::signature::schnorr_verify_b64(
+            &commit.content,
+            &commit.commitment,
+            &mint_pk.x_only_public_key().0,
+        )?;
+        if content != commit.content {
+            return Err(Error::InvalidRequest(String::from(
+                "content mismatch in commitment response",
+            )));
+        }
+        Ok(commit.commitment)
     }
 }
