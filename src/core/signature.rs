@@ -38,9 +38,7 @@ pub fn serialize_n_schnorr_sign_borsh_msg(
     Ok((b64, signature))
 }
 
-pub fn serialize_borsh_msg_b64(
-    msg: &impl BorshSerialize,
-) -> BorshMsgSignatureResult<String> {
+pub fn serialize_borsh_msg_b64(msg: &impl BorshSerialize) -> BorshMsgSignatureResult<String> {
     Ok(BASE64_STANDARD.encode(borsh::to_vec(msg)?))
 }
 
