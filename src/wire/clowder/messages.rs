@@ -120,7 +120,8 @@ pub struct MeltOnchainRequest {
     pub quote: uuid::Uuid,
     pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
     pub amount: bitcoin::Amount,
-    pub proofs: Vec<cashu::Proof>,
+    pub inputs: Vec<cashu::Proof>,
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,13 +129,61 @@ pub struct MeltOnchainResponse {
     pub txid: crate::wire::melt::MeltTx,
 }
 
+///--------------------------- Melt Quote Onchain
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeltQuoteOnchainRequest {
+    pub quote_id: uuid::Uuid,
+    pub inputs: Vec<ProofFingerprint>,
+    pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    pub amount: bitcoin::Amount,
+    pub total: cashu::Amount,
+    pub expiry: u64,
+    pub wallet_key: cashu::PublicKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeltQuoteOnchainResponse {
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+}
+
+///--------------------------- Mint Quote Onchain
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintQuoteOnchainRequest {
+    pub quote_id: uuid::Uuid,
+    pub address: String,
+    pub payment_amount: bitcoin::Amount,
+    pub expiry: u64,
+    pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
+    pub wallet_key: cashu::PublicKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintQuoteOnchainResponse {
+    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+}
+
+///--------------------------- Offline Exchange Sign
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineExchangeSignRequest {
+    pub payload: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineExchangeSignResponse {
+    pub signature: bitcoin::secp256k1::schnorr::Signature,
+}
+
 ///--------------------------- Swap Commitment
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapCommitmentRequest {
-    pub content: String,
+    pub inputs: Vec<ProofFingerprint>,
+    pub outputs: Vec<cashu::BlindedMessage>,
+    pub expiry: u64,
     pub wallet_key: cashu::PublicKey,
-    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
