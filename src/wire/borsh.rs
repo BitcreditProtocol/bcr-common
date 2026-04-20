@@ -408,6 +408,31 @@ pub fn deserialize_btc_amount(reader: &mut impl Read) -> Result<bitcoin::Amount>
     Ok(bitcoin::Amount::from_sat(sats))
 }
 
+pub fn serialize_cashu_amount(amount: &cashu::Amount, writer: &mut impl Write) -> Result<()> {
+    serialize_as_u64(amount, writer)
+}
+
+pub fn deserialize_cashu_amount(reader: &mut impl Read) -> Result<cashu::Amount> {
+    deserialize_from_u64(reader)
+}
+
+pub fn serialize_unchecked_address(
+    addr: &bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    writer: &mut impl Write,
+) -> Result<()> {
+    let s = addr.clone().assume_checked().to_string();
+    borsh::BorshSerialize::serialize(&s, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_unchecked_address(
+    reader: &mut impl Read,
+) -> Result<bitcoin::Address<bitcoin::address::NetworkUnchecked>> {
+    let s: String = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    s.parse()
+        .map_err(|e: bitcoin::address::ParseError| BorshError::new(ErrorKind::InvalidInput, e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -512,6 +537,30 @@ mod tests {
         serialize_btc_amount(&amount, &mut buf).unwrap();
         let deserialized_amount = deserialize_btc_amount(&mut buf.as_slice()).unwrap();
         assert_eq!(amount, deserialized_amount);
+    }
+
+    #[test]
+    fn serialize_deserialize_cashu_amount() {
+        let amount = cashu::Amount::from(987654321u64);
+        let mut buf = Vec::new();
+        serialize_cashu_amount(&amount, &mut buf).unwrap();
+        let deserialized = deserialize_cashu_amount(&mut buf.as_slice()).unwrap();
+        assert_eq!(amount, deserialized);
+    }
+
+    #[test]
+    fn serialize_deserialize_unchecked_address() {
+        let addr: bitcoin::Address<bitcoin::address::NetworkUnchecked> =
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+                .parse()
+                .unwrap();
+        let mut buf = Vec::new();
+        serialize_unchecked_address(&addr, &mut buf).unwrap();
+        let deserialized = deserialize_unchecked_address(&mut buf.as_slice()).unwrap();
+        assert_eq!(
+            addr.clone().assume_checked().to_string(),
+            deserialized.assume_checked().to_string()
+        );
     }
 
     #[test]

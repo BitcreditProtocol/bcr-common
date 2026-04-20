@@ -1,13 +1,15 @@
 // ----- standard library imports
 // ----- extra library imports
+use bitcoin::{Amount, address::NetworkUnchecked};
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
     borsh::{
-        deserialize_from_str, deserialize_vecof_blindedmessage, serialize_as_str,
-        serialize_vecof_blindedmessage,
+        deserialize_btc_amount, deserialize_cashu_amount, deserialize_from_str,
+        deserialize_unchecked_address, serialize_as_str, serialize_btc_amount,
+        serialize_cashu_amount, serialize_unchecked_address,
     },
     common::ProtestStatus,
     keys::ProofFingerprint,
@@ -18,13 +20,20 @@ use crate::wire::{
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
 pub struct MeltQuoteOnchainRequest {
     pub inputs: Vec<ProofFingerprint>,
-    pub address: String,
-    pub amount: u64,
+    /// Bitcoin address the wallet wants the mint to pay
+    #[schema(value_type = String)]
     #[borsh(
-        serialize_with = "serialize_vecof_blindedmessage",
-        deserialize_with = "deserialize_vecof_blindedmessage"
+        serialize_with = "serialize_unchecked_address",
+        deserialize_with = "deserialize_unchecked_address"
     )]
-    pub change: Vec<cashu::BlindedMessage>,
+    pub address: bitcoin::Address<NetworkUnchecked>,
+    /// Bitcoin amount the wallet expects to receive at the address
+    #[schema(value_type = u64)]
+    #[borsh(
+        serialize_with = "serialize_btc_amount",
+        deserialize_with = "deserialize_btc_amount"
+    )]
+    pub amount: Amount,
     #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
@@ -42,13 +51,22 @@ pub struct MeltQuoteOnchainResponseBody {
     )]
     pub quote: uuid::Uuid,
     pub inputs: Vec<ProofFingerprint>,
-    pub address: String,
-    pub amount: u64,
     #[borsh(
-        serialize_with = "serialize_vecof_blindedmessage",
-        deserialize_with = "deserialize_vecof_blindedmessage"
+        serialize_with = "serialize_unchecked_address",
+        deserialize_with = "deserialize_unchecked_address"
     )]
-    pub change: Vec<cashu::BlindedMessage>,
+    pub address: bitcoin::Address<NetworkUnchecked>,
+    #[borsh(
+        serialize_with = "serialize_btc_amount",
+        deserialize_with = "deserialize_btc_amount"
+    )]
+    pub amount: Amount,
+    /// Total cashu amount the wallet must hand to the mint to fulfil the melt (target + fees).
+    #[borsh(
+        serialize_with = "serialize_cashu_amount",
+        deserialize_with = "deserialize_cashu_amount"
+    )]
+    pub total: cashu::Amount,
     /// Unix timestamp when the commitment expires
     pub expiry: u64,
     #[borsh(
@@ -87,8 +105,6 @@ pub struct MeltOnchainRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MeltOnchainResponse {
     pub txid: MeltTx,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub change: Vec<cashu::BlindSignature>,
 }
 
 ///--------------------------- Melt Protest Request
@@ -110,5 +126,4 @@ pub struct MeltProtestRequest {
 pub struct MeltProtestResponse {
     pub status: ProtestStatus,
     pub txid: Option<MeltTx>,
-    pub change: Option<Vec<cashu::BlindSignature>>,
 }

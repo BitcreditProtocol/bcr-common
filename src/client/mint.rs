@@ -327,9 +327,8 @@ impl Client {
     pub async fn onchain_melt_quote(
         &self,
         inputs: Vec<wire_keys::ProofFingerprint>,
-        recipient: bitcoin::Address,
+        recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
         target: bitcoin::Amount,
-        change: Vec<cashu::BlindedMessage>,
         wallet_key: cashu::PublicKey,
         mint_pk: secp256k1::PublicKey,
     ) -> Result<(Uuid, cashu::Amount, DateTime<Utc>)> {
@@ -339,9 +338,8 @@ impl Client {
             .expect("onchain melt quote relative path");
         let msg = wire_melt::MeltQuoteOnchainRequest {
             inputs,
-            address: recipient.to_string(),
-            amount: target.to_sat(),
-            change,
+            address: recipient,
+            amount: target,
             wallet_key,
         };
         let request = self.cl.post(url).json(&msg);
@@ -353,11 +351,10 @@ impl Client {
         )?;
         let body: wire_melt::MeltQuoteOnchainResponseBody =
             signature::deserialize_borsh_msg(&response.content)?;
-        let ctotal = cashu::Amount::from(body.amount);
         let expiration = DateTime::from_timestamp(body.expiry as i64, 0).ok_or(Error::Internal(
             format!("chrono::from_timestamp failed for {}", body.expiry),
         ))?;
-        Ok((body.quote, ctotal, expiration))
+        Ok((body.quote, body.total, expiration))
     }
 
     pub const MINTQUOTE_ONCHAIN_EP_V1: &str = "/v1/treasury/mint/onchain/quote";
