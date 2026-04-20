@@ -113,11 +113,11 @@ impl Client {
         inputs: Vec<wire_keys::ProofFingerprint>,
         outputs: Vec<cashu::BlindedMessage>,
         expiry: u64,
-        wallet_kp: &bitcoin::secp256k1::Keypair,
+        wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
     ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
         let result = core::common::commit_swap(
-            &self.cl, &self.base, inputs, outputs, expiry, wallet_kp, mint_pk,
+            &self.cl, &self.base, inputs, outputs, expiry, wallet_pk, mint_pk,
         )
         .await?;
         Ok(result)
