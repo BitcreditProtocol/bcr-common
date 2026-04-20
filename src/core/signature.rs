@@ -38,6 +38,12 @@ pub fn serialize_n_schnorr_sign_borsh_msg(
     Ok((b64, signature))
 }
 
+pub fn serialize_borsh_msg_b64(
+    msg: &impl BorshSerialize,
+) -> BorshMsgSignatureResult<String> {
+    Ok(BASE64_STANDARD.encode(borsh::to_vec(msg)?))
+}
+
 // deserialization and signature verification is split into two parts
 // sometimes the public key is embedded in the message itself
 pub fn deserialize_borsh_msg<Message: BorshDeserialize>(

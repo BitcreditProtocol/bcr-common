@@ -229,11 +229,11 @@ impl Client {
         inputs: Vec<wire_keys::ProofFingerprint>,
         outputs: Vec<cashu::BlindedMessage>,
         expiry: u64,
-        wallet_kp: &bitcoin::secp256k1::Keypair,
+        wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
     ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
         let result = common::commit_swap(
-            &self.cl, &self.base, inputs, outputs, expiry, wallet_kp, mint_pk,
+            &self.cl, &self.base, inputs, outputs, expiry, wallet_pk, mint_pk,
         )
         .await?;
         Ok(result)
@@ -352,23 +352,17 @@ pub(crate) mod common {
         inputs: Vec<wire_keys::ProofFingerprint>,
         outputs: Vec<cashu::BlindedMessage>,
         expiry: u64,
-        wallet_kp: &bitcoin::secp256k1::Keypair,
+        wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
     ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
         let url = base
             .join(SWAPCOMMIT_EP_V1)
             .expect("swap commit relative path");
-        let payload = wire_swap::SwapCommitmentRequestBody {
+        let request = wire_swap::SwapCommitmentRequest {
             inputs,
             outputs,
             expiry,
-        };
-        let (content, signature) =
-            crate::core::signature::serialize_n_schnorr_sign_borsh_msg(&payload, wallet_kp)?;
-        let request = wire_swap::SwapCommitmentRequest {
-            content: content.clone(),
-            wallet_key: wallet_kp.public_key().into(),
-            wallet_signature: signature,
+            wallet_key: wallet_pk,
         };
         let response = cl.post(url).json(&request).send().await?;
         let commit: wire_swap::SwapCommitmentResponse = response.json().await?;
@@ -377,7 +371,8 @@ pub(crate) mod common {
             &commit.commitment,
             &mint_pk.x_only_public_key().0,
         )?;
-        if content != commit.content {
+        let expected_content = crate::core::signature::serialize_borsh_msg_b64(&request)?;
+        if expected_content != commit.content {
             return Err(Error::InvalidRequest(String::from(
                 "content mismatch in commitment response",
             )));
