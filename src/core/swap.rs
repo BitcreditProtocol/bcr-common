@@ -395,7 +395,7 @@ pub mod mint {
 mod test {
     use super::{
         mint::{VerificationError, verify_swap},
-        wallet::{PaymentPlan, SwapPlan, prepare_payment, prepare_swap, verify_payment},
+        wallet::{PaymentPlan, prepare_payment, verify_payment},
     };
     use crate::core_tests;
     use cashu::Amount;
