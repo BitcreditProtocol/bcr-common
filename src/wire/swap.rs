@@ -50,7 +50,7 @@ pub struct SwapCommitmentRequest {
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub wallet_key: cashu::PublicKey,
+    pub wallet_key: bitcoin::secp256k1::PublicKey,
 }
 
 ///--------------------------- Swap Commitment Response
