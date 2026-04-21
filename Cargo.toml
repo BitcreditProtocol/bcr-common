@@ -9,13 +9,16 @@ default = ["wallet"]
 test-utils = ["rand", "mockall"]
 wallet = ["cashu/wallet", "cdk/wallet", "cdk-common/wallet" ]
 mint = ["cashu/mint", "cdk-common/mint"]
+clwdr-client = ["dep:async-nats", "dep:bytes"]
 
 [dependencies]
+async-nats = {version = "0.42", optional = true}
 async-trait = {version = "0.1"}
 bdk_wallet = {version = "2.1"}
 bip39 = {version = "2.2"}
 bitcoin = {version = "0.32", features = ["serde"]}
 borsh = {version = "1.5", features = ["derive"]}
+bytes = {version = "1", optional = true}
 cashu = {version = "=0.13.1", features = ["swagger"]}
 cdk = {version = "=0.13.1", default-features = false}
 cdk-common = {version = "=0.13.1"}
