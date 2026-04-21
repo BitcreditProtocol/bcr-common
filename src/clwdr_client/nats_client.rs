@@ -30,6 +30,7 @@ impl ClowderNatsClient {
     pub const EIOU_TOPIC: &'static str = "clowder.mint_eiou";
     pub const EBILL_TOPIC: &'static str = "clowder.mint_ebill";
     pub const FOREIGN_ECASH_TOPIC: &'static str = "clowder.mint_foreign_ecash";
+    pub const MINT_QUOTE_ONCHAIN_TOPIC: &'static str = "clowder.mint_quote_onchain";
     pub const FOREIGN_OFFLINE_ECASH_TOPIC: &'static str = "clowder.mint_foreign_offline_ecash";
     // Swaps
     pub const SWAP_TOPIC: &'static str = "clowder.swap";
@@ -39,12 +40,11 @@ impl ClowderNatsClient {
     // Melts
     pub const MELT_ONCHAIN_TOPIC: &'static str = "clowder.melt_onchain";
     pub const MELT_QUOTE_ONCHAIN_TOPIC: &'static str = "clowder.melt_quote_onchain";
-    pub const MINT_QUOTE_ONCHAIN_TOPIC: &'static str = "clowder.mint_quote_onchain";
-    pub const OFFLINE_EXCHANGE_SIGN_TOPIC: &'static str = "clowder.offline_exchange_sign";
     // Misc
     pub const DEACTIVATE_KEYSET_TOPIC: &'static str = "clowder.deactivate_keyset";
     pub const HEARTBEAT_TOPIC: &'static str = "clowder.heartbeat";
     pub const BILLREQUESTTOPAY_TOPIC: &'static str = "clowder.billrequesttopay";
+    pub const OFFLINE_EXCHANGE_SIGN_TOPIC: &'static str = "clowder.offline_exchange_sign";
 
     pub async fn swap_commitment(
         &self,
