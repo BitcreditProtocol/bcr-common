@@ -344,12 +344,14 @@ impl ClowderRestClient {
         "/local/derive_ebill_payment_address";
     pub async fn derive_ebill_payment_address(
         &self,
+        alpha_node_id: bitcoin::secp256k1::PublicKey,
         bill_id: BillId,
         block_id: u64,
         previous_block_hash: bitcoin::hashes::sha256::Hash,
     ) -> Result<DeriveEbillPaymentAddressResponse> {
         let url = self.url(Self::LOCAL_DERIVE_EBILL_PAYMENT_ADDRESS)?;
         let req = DeriveEbillPaymentAddressRequest {
+            alpha_node_id,
             bill_id,
             block_id,
             previous_block_hash,
