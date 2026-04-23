@@ -2,30 +2,73 @@
 // ----- extra library imports
 use thiserror::Error;
 // ----- local imports
-use crate::wire::{keys as wire_keys, swap as wire_swap};
+use crate::{
+    client::admin::jsonrpc,
+    wire::{keys as wire_keys, swap as wire_swap},
+};
 
 // ----- end imports
+
+pub mod admin_ep {
+    pub const NEW_KEYSET_V1: &str = "/v1/admin/keys";
+    pub const SIGN_V1: &str = "/v1/admin/keys/sign";
+    pub const VERIFY_PROOF_V1: &str = "/v1/admin/keys/verify/proof";
+    pub const VERIFY_FINGERPRINT_V1: &str = "/v1/admin/keys/verify/fingerprint";
+    pub const DEACTIVATE_KEYSET_V1: &str = "/v1/admin/keys/deactivate";
+    pub const RECOVER_V1: &str = "/v1/admin/swap/recover";
+    pub const BURN_V1: &str = "/v1/admin/burn";
+}
+
+pub mod web_ep {
+    pub const LIST_KEYSET_INFO_V1: &str = "/v1/keysets";
+    pub const LIST_KEYSET_INFO_V1_EXT: &str = "/v1/core/keysets";
+    pub const KEYS_V1: &str = "/v1/keys/{kid}";
+    pub const KEYS_V1_EXT: &str = "/v1/core/keys/{kid}";
+    pub const KEYSET_INFO_V1: &str = "/v1/keysets/{kid}";
+    pub const KEYSET_INFO_V1_EXT: &str = "/v1/core/keysets/{kid}";
+    pub const CHECK_STATE_V1: &str = "/v1/checkstate";
+    pub const CHECK_STATE_V1_EXT: &str = "/v1/core/checkstate";
+    pub const SWAP_V1: &str = "/v1/swap";
+    pub const SWAP_V1_EXT: &str = "/v1/core/swap";
+    pub const SWAP_COMMIT_V1: &str = "/v1/swap/commit";
+    pub const SWAP_COMMIT_V1_EXT: &str = "/v1/core/swap/commit";
+    pub const RESTORE_V1: &str = "/v1/restore";
+    pub const RESTORE_V1_EXT: &str = "/v1/core/restore";
+}
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("resource not found {0}")]
-    KeysetIdNotFound(cashu::Id),
+    ResourceNotFound(String),
     #[error("invalid request {0}")]
     InvalidRequest(String),
-
+    #[error("internal {0}")]
+    Internal(String),
     #[error("internal error {0}")]
     Reqwest(#[from] reqwest::Error),
+
     #[error("sign error {0}")]
     NUT20(#[from] cashu::nut20::Error),
     #[error("borsh sign error {0}")]
     BorshSign(#[from] crate::core::signature::BorshMsgSignatureError),
 }
 
+impl std::convert::From<jsonrpc::Error> for Error {
+    fn from(value: jsonrpc::Error) -> Self {
+        match value {
+            jsonrpc::Error::ResourceNotFound(msg) => Self::ResourceNotFound(msg),
+            jsonrpc::Error::InvalidRequest(msg) => Self::InvalidRequest(msg),
+            jsonrpc::Error::Internal(msg) => Self::InvalidRequest(msg),
+            jsonrpc::Error::Reqwest(err) => Self::Reqwest(err),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Client {
-    cl: reqwest::Client,
+    cl: jsonrpc::Client,
     base: reqwest::Url,
 }
 
@@ -36,12 +79,11 @@ impl Client {
 
     pub fn new(base: reqwest::Url) -> Self {
         Self {
-            cl: reqwest::Client::new(),
+            cl: jsonrpc::Client::new(),
             base,
         }
     }
 
-    pub const NEW_KEYSET_EP_V1: &str = "/v1/admin/keys";
     pub async fn new_keyset(
         &self,
         expiration: Option<chrono::NaiveDate>,
@@ -49,18 +91,14 @@ impl Client {
     ) -> Result<cdk_common::mint::MintKeySetInfo> {
         let url = self
             .base
-            .join(Self::NEW_KEYSET_EP_V1)
+            .join(admin_ep::NEW_KEYSET_V1)
             .expect("new keys relative path");
-        let request = self.cl.post(url).json(&wire_keys::NewKeysetRequest {
+        let request = wire_keys::NewKeysetRequest {
             unit: crate::client::CURRENCY_UNIT,
             expiration,
             fees_ppk,
-        });
-        let response = request.send().await?;
-        if response.status() == reqwest::StatusCode::BAD_REQUEST {
-            return Err(Error::InvalidRequest(response.text().await?));
-        }
-        let ks = response.json::<cdk_common::mint::MintKeySetInfo>().await?;
+        };
+        let ks = self.cl.post(url, &request).await?;
         Ok(ks)
     }
 
@@ -74,7 +112,9 @@ impl Client {
             min_expiration: Some(expiration - chrono::Duration::days(1)),
             max_expiration: Some(expiration + chrono::Duration::days(1)),
         };
-        let kinfos = common::list_keyset_info(&self.cl, &self.base, filters).await?;
+        let kinfos =
+            common::list_keyset_info(&self.cl, &self.base, web_ep::LIST_KEYSET_INFO_V1, filters)
+                .await?;
         let expiration_tstamp = u64::try_from(
             expiration
                 .and_time(chrono::NaiveTime::MIN)
@@ -91,7 +131,6 @@ impl Client {
         Ok(cashu::KeySetInfo::from(kinfo))
     }
 
-    pub const SIGN_EP_V1: &str = "/v1/admin/keys/sign";
     pub async fn sign(&self, msgs: &[cashu::BlindedMessage]) -> Result<Vec<cashu::BlindSignature>> {
         if msgs.is_empty() {
             return Ok(vec![]);
@@ -105,104 +144,64 @@ impl Client {
                 "multiple kids in blinds",
             )));
         }
-        let kid = unique_kids.into_iter().next().unwrap();
         let url = self
             .base
-            .join(Self::SIGN_EP_V1)
+            .join(admin_ep::SIGN_V1)
             .expect("sign relative path");
-        let request = self.cl.post(url).json(msgs);
-        let response = request.send().await?;
-        if response.status() == reqwest::StatusCode::BAD_REQUEST {
-            return Err(Error::InvalidRequest(response.text().await?));
-        }
-        if response.status() == reqwest::StatusCode::CONFLICT {
-            return Err(Error::InvalidRequest(response.text().await?));
-        }
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::KeysetIdNotFound(kid));
-        }
-        let sigs = response.json::<Vec<cashu::BlindSignature>>().await?;
+        let sigs = self.cl.post(url, msgs).await?;
         Ok(sigs)
     }
 
-    pub const VERIFY_PROOF_EP_V1: &str = "/v1/admin/keys/verify/proof";
     pub async fn verify_proof(&self, proof: &cashu::Proof) -> Result<()> {
         let url = self
             .base
-            .join(Self::VERIFY_PROOF_EP_V1)
+            .join(admin_ep::VERIFY_PROOF_V1)
             .expect("verify relative path");
-        let request = self.cl.post(url).json(proof);
-        let response = request.send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::KeysetIdNotFound(proof.keyset_id));
-        }
-        if response.status() == reqwest::StatusCode::BAD_REQUEST {
-            return Err(Error::InvalidRequest(response.text().await?));
-        }
-        response.error_for_status()?;
+        self.cl.post_no_response(url, proof).await?;
         Ok(())
     }
 
-    pub const VERIFY_FINGERPRINT_EP_V1: &str = "/v1/admin/keys/verify/fingerprint";
     pub async fn verify_fingerprint(&self, fp: &wire_keys::ProofFingerprint) -> Result<()> {
         let url = self
             .base
-            .join(Self::VERIFY_FINGERPRINT_EP_V1)
+            .join(admin_ep::VERIFY_FINGERPRINT_V1)
             .expect("verify relative path");
-        let request = self.cl.post(url).json(fp);
-        let response = request.send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::KeysetIdNotFound(fp.keyset_id));
-        }
-        if response.status() == reqwest::StatusCode::BAD_REQUEST {
-            return Err(Error::InvalidRequest(response.text().await?));
-        }
-        response.error_for_status()?;
+        self.cl.post_no_response(url, fp).await?;
         Ok(())
     }
 
-    pub const DEACTIVATEKEYSET_EP_V1: &str = "/v1/admin/keys/deactivate";
     pub async fn deactivate_keyset(&self, kid: cashu::Id) -> Result<cashu::Id> {
         let url = self
             .base
-            .join(Self::DEACTIVATEKEYSET_EP_V1)
+            .join(admin_ep::DEACTIVATE_KEYSET_V1)
             .expect("deactivate relative path");
         let msg = wire_keys::DeactivateKeysetRequest { kid };
-        let request = self.cl.post(url).json(&msg);
-        let response = request.send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::KeysetIdNotFound(kid));
-        }
-        let response: wire_keys::DeactivateKeysetResponse = response.json().await?;
+        let response: wire_keys::DeactivateKeysetResponse = self.cl.post(url, &msg).await?;
         Ok(response.kid)
     }
 
-    pub const BURN_EP_V1: &str = "/v1/core/burn";
     pub async fn burn(&self, proofs: Vec<cashu::Proof>) -> Result<Vec<cashu::PublicKey>> {
         let url = self
             .base
-            .join(Self::BURN_EP_V1)
+            .join(admin_ep::BURN_V1)
             .expect("burn relative path");
         let request = wire_swap::BurnRequest { proofs };
-        let response = self.cl.post(url).json(&request).send().await?;
-        let burn_resp: wire_swap::BurnResponse = response.json().await?;
+        let burn_resp: wire_swap::BurnResponse = self.cl.post(url, &request).await?;
         Ok(burn_resp.ys)
     }
 
-    pub const RECOVER_EP_V1: &str = "/v1/admin/swap/recover";
     pub async fn recover(&self, proofs: Vec<cashu::Proof>) -> Result<wire_swap::RecoverResponse> {
         let url = self
             .base
-            .join(Self::RECOVER_EP_V1)
+            .join(admin_ep::RECOVER_V1)
             .expect("recover relative path");
         let msg = wire_swap::RecoverRequest { proofs };
-        let request = self.cl.post(url).json(&msg);
-        let response = request.send().await?.json().await?;
+        let response = self.cl.post(url, &msg).await?;
         Ok(response)
     }
 
     pub async fn keys(&self, kid: cashu::Id) -> Result<cashu::KeySet> {
-        let result = common::keys(&self.cl, &self.base, kid).await?;
+        let result = common::keys(&self.cl, &self.base, web_ep::KEYS_V1, kid).await?;
         Ok(result)
     }
 
@@ -210,17 +209,19 @@ impl Client {
         &self,
         filters: wire_keys::KeysetInfoFilters,
     ) -> Result<Vec<cashu::KeySetInfo>> {
-        let result = common::list_keyset_info(&self.cl, &self.base, filters).await?;
+        let result =
+            common::list_keyset_info(&self.cl, &self.base, web_ep::LIST_KEYSET_INFO_V1, filters)
+                .await?;
         Ok(result)
     }
 
     pub async fn keyset_info(&self, kid: cashu::Id) -> Result<cashu::KeySetInfo> {
-        let result = common::keyset_info(&self.cl, &self.base, kid).await?;
+        let result = common::keyset_info(&self.cl, &self.base, web_ep::KEYSET_INFO_V1, kid).await?;
         Ok(result)
     }
 
     pub async fn check_state(&self, ys: Vec<cashu::PublicKey>) -> Result<Vec<cashu::ProofState>> {
-        let result = common::check_state(&self.cl, &self.base, ys).await?;
+        let result = common::check_state(&self.cl, &self.base, web_ep::CHECK_STATE_V1, ys).await?;
         Ok(result)
     }
 
@@ -233,7 +234,14 @@ impl Client {
         mint_pk: bitcoin::secp256k1::PublicKey,
     ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
         let result = common::commit_swap(
-            &self.cl, &self.base, inputs, outputs, expiry, wallet_pk, mint_pk,
+            &self.cl,
+            &self.base,
+            web_ep::SWAP_COMMIT_V1,
+            inputs,
+            outputs,
+            expiry,
+            wallet_pk,
+            mint_pk,
         )
         .await?;
         Ok(result)
@@ -245,7 +253,15 @@ impl Client {
         outputs: Vec<cashu::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
     ) -> Result<Vec<cashu::BlindSignature>> {
-        let result = common::swap(&self.cl, &self.base, inputs, outputs, commitment).await?;
+        let result = common::swap(
+            &self.cl,
+            &self.base,
+            web_ep::SWAP_V1,
+            inputs,
+            outputs,
+            commitment,
+        )
+        .await?;
         Ok(result)
     }
 }
@@ -253,130 +269,124 @@ impl Client {
 pub(crate) mod common {
     use super::*;
 
-    pub const LISTKEYSETINFO_EP_V1: &str = "/v1/core/keysets";
+    #[inline]
     pub async fn list_keyset_info(
-        cl: &reqwest::Client,
+        cl: &jsonrpc::Client,
         base: &reqwest::Url,
+        ep: &'static str,
         filters: wire_keys::KeysetInfoFilters,
     ) -> Result<Vec<cashu::KeySetInfo>> {
-        let url = base
-            .join(LISTKEYSETINFO_EP_V1)
-            .expect("keyset relative path");
-        let mut request = cl.get(url);
+        let url = base.join(ep).expect("keyset relative path");
+        let mut queries: Vec<(&'static str, String)> = vec![];
         if let Some(unit) = filters.unit {
-            request = request.query(&[("unit", unit.to_string())]);
+            queries.push(("unit", unit.to_string()));
         }
         if let Some(date) = filters.min_expiration {
-            request = request.query(&[("min_expiration", date.to_string())]);
+            queries.push(("min_expiration", date.to_string()));
         }
         if let Some(date) = filters.max_expiration {
-            request = request.query(&[("max_expiration", date.to_string())]);
+            queries.push(("max_expiration", date.to_string()));
         }
-        let response = request.send().await?;
-        let ks = response.json::<cashu::KeysetResponse>().await?;
-        Ok(ks.keysets)
+        let response: cashu::KeysetResponse = cl.get(url, &queries).await?;
+        Ok(response.keysets)
     }
 
-    pub const KEYS_EP_V1: &str = "/v1/core/keys/{kid}";
+    #[inline]
     pub async fn keys(
-        cl: &reqwest::Client,
+        cl: &jsonrpc::Client,
         base: &reqwest::Url,
+        ep: &'static str,
         kid: cashu::Id,
     ) -> Result<cashu::KeySet> {
+        assert!(ep.contains("{kid}"));
         let url = base
-            .join(&KEYS_EP_V1.replace("{kid}", &kid.to_string()))
+            .join(&ep.replace("{kid}", &kid.to_string()))
             .expect("keys relative path");
-        let response = cl.get(url).send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::KeysetIdNotFound(kid));
-        }
-        let ks = response.json::<cashu::KeysResponse>().await?.keysets;
-        ks.into_iter().next().ok_or(Error::KeysetIdNotFound(kid))
+        let response: cashu::KeysResponse = cl.get(url, &[]).await?;
+        response
+            .keysets
+            .into_iter()
+            .next()
+            .ok_or(Error::ResourceNotFound(kid.to_string()))
     }
 
-    pub const KEYSETINFO_EP_V1: &str = "/v1/core/keysets/{kid}";
+    #[inline]
     pub async fn keyset_info(
-        cl: &reqwest::Client,
+        cl: &jsonrpc::Client,
         base: &reqwest::Url,
+        ep: &'static str,
         kid: cashu::Id,
     ) -> Result<cashu::KeySetInfo> {
+        assert!(ep.contains("{kid}"));
         let url = base
-            .join(&KEYSETINFO_EP_V1.replace("{kid}", &kid.to_string()))
+            .join(&ep.replace("{kid}", &kid.to_string()))
             .expect("keyset relative path");
-        let response = cl.get(url).send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::KeysetIdNotFound(kid));
-        }
-        let ks = response.json::<cashu::KeySetInfo>().await?;
-        Ok(ks)
+        let response: cashu::KeySetInfo = cl.get(url, &[]).await?;
+        Ok(response)
     }
 
-    pub const CHECKSTATE_EP_V1: &str = "/v1/core/checkstate";
+    #[inline]
     pub async fn check_state(
-        cl: &reqwest::Client,
+        cl: &jsonrpc::Client,
         base: &reqwest::Url,
+        ep: &'static str,
         ys: Vec<cashu::PublicKey>,
     ) -> Result<Vec<cashu::ProofState>> {
-        let url = base
-            .join(CHECKSTATE_EP_V1)
-            .expect("checkstate relative path");
+        let url = base.join(ep).expect("checkstate relative path");
         let request = cashu::CheckStateRequest { ys };
-        let response = cl.post(url).json(&request).send().await?;
-        let state_resp: cashu::CheckStateResponse = response.json().await?;
-        Ok(state_resp.states)
+        let response: cashu::CheckStateResponse = cl.post(url, &request).await?;
+        Ok(response.states)
     }
 
-    pub const SWAP_EP_V1: &str = "/v1/core/swap";
+    #[inline]
     pub async fn swap(
-        cl: &reqwest::Client,
+        cl: &jsonrpc::Client,
         base: &reqwest::Url,
+        ep: &'static str,
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
     ) -> Result<Vec<cashu::BlindSignature>> {
-        let url = base.join(SWAP_EP_V1).expect("swap relative path");
+        let url = base.join(ep).expect("swap relative path");
         let request = wire_swap::SwapRequest {
             inputs,
             outputs,
             commitment,
         };
-        let response = cl.post(url).json(&request).send().await?;
-        let signatures: wire_swap::SwapResponse = response.json().await?;
-        Ok(signatures.signatures)
+        let response: wire_swap::SwapResponse = cl.post(url, &request).await?;
+        Ok(response.signatures)
     }
 
-    pub const SWAPCOMMIT_EP_V1: &str = "/v1/core/swap/commit";
+    #[inline]
     pub async fn commit_swap(
-        cl: &reqwest::Client,
+        cl: &jsonrpc::Client,
         base: &reqwest::Url,
+        ep: &'static str,
         inputs: Vec<wire_keys::ProofFingerprint>,
         outputs: Vec<cashu::BlindedMessage>,
         expiry: u64,
         wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
     ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
-        let url = base
-            .join(SWAPCOMMIT_EP_V1)
-            .expect("swap commit relative path");
+        let url = base.join(ep).expect("swap commit relative path");
         let request = wire_swap::SwapCommitmentRequest {
             inputs,
             outputs,
             expiry,
             wallet_key: wallet_pk,
         };
-        let response = cl.post(url).json(&request).send().await?;
-        let commit: wire_swap::SwapCommitmentResponse = response.json().await?;
+        let response: wire_swap::SwapCommitmentResponse = cl.post(url, &request).await?;
         crate::core::signature::schnorr_verify_b64(
-            &commit.content,
-            &commit.commitment,
+            &response.content,
+            &response.commitment,
             &mint_pk.x_only_public_key().0,
         )?;
         let expected_content = crate::core::signature::serialize_borsh_msg_b64(&request)?;
-        if expected_content != commit.content {
+        if expected_content != response.content {
             return Err(Error::InvalidRequest(String::from(
                 "content mismatch in commitment response",
             )));
         }
-        Ok(commit.commitment)
+        Ok(response.commitment)
     }
 }

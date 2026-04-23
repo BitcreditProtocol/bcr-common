@@ -1,7 +1,13 @@
-use serde::{Deserialize, Serialize};
+// ----- standard library imports
 use std::collections::BTreeMap;
-
+// ----- extra library imports
+use bitcoin::secp256k1::PublicKey;
+use cashu::{Amount, BlindSignature, Id, KeySet, Proof, PublicKey as CashuPublicKey};
+use serde::{Deserialize, Serialize};
+// ----- local imports
 use crate::wire::keys::ProofFingerprint;
+
+// ----- end imports
 
 ///--------------------------- Keyset Creation
 
@@ -213,4 +219,79 @@ pub struct HeartbeatResponse {}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeartbeatRequest {
     pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintSwapRequest {
+    pub proofs: Vec<Proof>,
+    pub signatures: Vec<BlindSignature>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntermintOriginResponse {
+    pub node_id: PublicKey,
+    pub mint_url: reqwest::Url,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProofsRequest {
+    pub proofs: Vec<Proof>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FingerprintRequest {
+    pub proofs: Vec<ProofFingerprint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProofsResponse {
+    pub proofs: Vec<Proof>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntermintValidProofs {
+    pub valid_proofs: Vec<Proof>,
+    pub amount: Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidFingerprints {
+    pub valid_proofs: Vec<ProofFingerprint>,
+    pub amount: Amount,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckStateRequest {
+    pub ys: Vec<CashuPublicKey>,
+    pub ids: Vec<Id>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeysetRequest {
+    pub keyset: KeySet,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuccessResponse {
+    pub success: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LastOfflineResponse {
+    pub timestamp: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AmountResponse {
+    pub amount: Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintUrlRequest {
+    pub mint_url: reqwest::Url,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MintUrlResponse {
+    pub mint_url: reqwest::Url,
 }
