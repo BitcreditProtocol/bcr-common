@@ -231,6 +231,8 @@ pub struct VerifyEbillMintPaymentRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DeriveEbillPaymentAddressRequest {
     #[schema(value_type = String)]
+    pub alpha_node_id: bitcoin::secp256k1::PublicKey,
+    #[schema(value_type = String)]
     pub bill_id: BillId,
     pub block_id: u64,
     #[schema(value_type = String)]
