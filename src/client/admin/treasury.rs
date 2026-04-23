@@ -5,40 +5,80 @@ use thiserror::Error;
 // ----- local imports
 use crate::{
     cashu,
+    client::admin::jsonrpc,
     core::BillId,
     wire::{exchange as wire_exchange, keys as wire_keys, treasury as wire_treasury},
 };
 
 // ----- end imports
 
+pub mod admin_ep {
+    pub const EBILL_MINTOP_STATUS_V1: &str = "/v1/admin/ebill/mintop/{qid}";
+    pub const LIST_EBILL_MINTOPS_V1: &str = "/v1/admin/ebill/mintops/{kid}";
+    pub const NEW_EBILL_MINTOP_V1: &str = "/v1/admin/ebill/mintop";
+    pub const REQUEST_TO_PAY_EBILL_V1: &str = "/v1/admin/request_to_pay_ebill";
+    pub const TRY_HTLC_SWAP_V1: &str = "/v1/admin/try_htlc_swap";
+}
+
+pub mod web_ep {
+    pub const EBILLMINT_V1: &str = "/v1/mint/ebill";
+    pub const EBILLMINT_V1_EXT: &str = "/v1/treasury/mint/ebill";
+    pub const EXCHANGE_OFFLINE_V1: &str = "/v1/exchange/offline";
+    pub const EXCHANGE_OFFLINE_V1_EXT: &str = "/v1/treasury/exchange/offline";
+    pub const EXCHANGE_ONLINE_V1: &str = "/v1/exchange/online";
+    pub const EXCHANGE_ONLINE_V1_EXT: &str = "/v1/treasury/exchange/online";
+    pub const MELTQUOTE_ONCHAIN_V1: &str = "/v1/melt/onchain/quote";
+    pub const MELTQUOTE_ONCHAIN_V1_EXT: &str = "/v1/treasury/melt/onchain/quote";
+    pub const MELT_ONCHAIN_V1: &str = "/v1/melt/onchain";
+    pub const MELT_ONCHAIN_V1_EXT: &str = "/v1/treasury/melt/onchain";
+    pub const MINTQUOTE_ONCHAIN_V1: &str = "/v1/mint/onchain/quote";
+    pub const MINTQUOTE_ONCHAIN_V1_EXT: &str = "/v1/treasury/mint/onchain/quote";
+    pub const MINT_ONCHAIN_V1: &str = "/v1/mint/onchain";
+    pub const MINT_ONCHAIN_V1_EXT: &str = "/v1/treasury/mint/onchain";
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("mint operation not found {0}")]
-    MintOpNotFound(uuid::Uuid),
-
+    #[error("resource not found {0}")]
+    ResourceNotFound(String),
+    #[error("invalid request {0}")]
+    InvalidRequest(String),
+    #[error("internal {0}")]
+    Internal(String),
     #[error("internal error {0}")]
     Reqwest(#[from] reqwest::Error),
+
     #[error("sign error {0}")]
     NUT20(#[from] cashu::nut20::Error),
 }
 
+impl std::convert::From<jsonrpc::Error> for Error {
+    fn from(value: jsonrpc::Error) -> Self {
+        match value {
+            jsonrpc::Error::ResourceNotFound(msg) => Self::ResourceNotFound(msg),
+            jsonrpc::Error::InvalidRequest(msg) => Self::InvalidRequest(msg),
+            jsonrpc::Error::Internal(msg) => Self::Internal(msg),
+            jsonrpc::Error::Reqwest(err) => Self::Reqwest(err),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Client {
-    cl: reqwest::Client,
+    cl: jsonrpc::Client,
     base: reqwest::Url,
 }
 
 impl Client {
     pub fn new(base: reqwest::Url) -> Self {
         Self {
-            cl: reqwest::Client::new(),
+            cl: jsonrpc::Client::new(),
             base,
         }
     }
 
-    pub const REQTOPAY_EP_V1: &str = "/v1/admin/treasury/request_to_pay_ebill";
     pub async fn request_to_pay_ebill(
         &self,
         ebill_id: BillId,
@@ -52,27 +92,23 @@ impl Client {
         };
         let url = self
             .base
-            .join(Self::REQTOPAY_EP_V1)
+            .join(admin_ep::REQUEST_TO_PAY_EBILL_V1)
             .expect("request_to_pay_ebill relative path");
-        let request = self.cl.post(url).json(&request);
         let response: wire_treasury::RequestToPayFromEBillResponse =
-            request.send().await?.json().await?;
+            self.cl.post(url, &request).await?;
         Ok(response)
     }
 
-    pub const TRYHTLC_EP_V1: &str = "/v1/admin/treasury/try_htlc_swap";
     pub async fn try_htlc(&self, preimage: String) -> Result<cashu::Amount> {
         let url = self
             .base
-            .join(Self::TRYHTLC_EP_V1)
+            .join(admin_ep::TRY_HTLC_SWAP_V1)
             .expect("try_htlc relative path");
         let msg = wire_exchange::HtlcSwapAttemptRequest { preimage };
-        let request = self.cl.post(url).json(&msg);
-        let response = request.send().await?.json().await?;
+        let response = self.cl.post(url, &msg).await?;
         Ok(response)
     }
 
-    pub const NEWEBILLMINTOP_EP_V1: &str = "/v1/admin/treasury/ebill/mintop";
     pub async fn new_ebill_mint_operation(
         &self,
         qid: uuid::Uuid,
@@ -83,7 +119,7 @@ impl Client {
     ) -> Result<()> {
         let url = self
             .base
-            .join(Self::NEWEBILLMINTOP_EP_V1)
+            .join(admin_ep::NEW_EBILL_MINTOP_V1)
             .expect("ebill mint operation relative path");
         let msg = wire_treasury::NewMintOperationRequest {
             quote_id: qid,
@@ -92,44 +128,30 @@ impl Client {
             target,
             bill_id,
         };
-        let request = self.cl.post(url).json(&msg);
-        let _ = request
-            .send()
-            .await?
-            .json::<wire_treasury::NewMintOperationResponse>()
-            .await?;
+        let _: wire_treasury::NewMintOperationResponse = self.cl.post(url, &msg).await?;
         Ok(())
     }
 
-    pub const EBILLMINTOPSTATUS_EP_V1: &str = "/v1/admin/treasury/ebill/mintop/{qid}";
     pub async fn ebill_mint_operation_status(
         &self,
         qid: uuid::Uuid,
     ) -> Result<wire_treasury::MintOperationStatus> {
+        assert!(admin_ep::EBILL_MINTOP_STATUS_V1.contains("{qid}"));
         let url = self
             .base
-            .join(&Self::EBILLMINTOPSTATUS_EP_V1.replace("{qid}", &qid.to_string()))
+            .join(&admin_ep::EBILL_MINTOP_STATUS_V1.replace("{qid}", &qid.to_string()))
             .expect("ebill mint operation status relative path");
-        let request = self.cl.get(url);
-        let response = request.send().await?;
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(Error::MintOpNotFound(qid));
-        }
-        let response = response
-            .json::<wire_treasury::MintOperationStatus>()
-            .await?;
+        let response = self.cl.get(url, &[]).await?;
         Ok(response)
     }
 
-    pub const LISTEBILLMINTOPS_EP_V1: &str = "/v1/admin/treasury/ebill/mintops/{kid}";
     pub async fn list_ebill_mint_operations(&self, kid: cashu::Id) -> Result<Vec<uuid::Uuid>> {
+        assert!(admin_ep::LIST_EBILL_MINTOPS_V1.contains("{kid}"));
         let url = self
             .base
-            .join(&Self::LISTEBILLMINTOPS_EP_V1.replace("{kid}", &kid.to_string()))
+            .join(&admin_ep::LIST_EBILL_MINTOPS_V1.replace("{kid}", &kid.to_string()))
             .expect("list ebill mint operations relative path");
-        let request = self.cl.get(url);
-        let response = request.send().await?;
-        let response = response.json::<Vec<uuid::Uuid>>().await?;
+        let response = self.cl.get(url, &[]).await?;
         Ok(response)
     }
 
@@ -139,9 +161,15 @@ impl Client {
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
-        let result =
-            common::exchange_offline_raw(&self.cl, &self.base, fingerprints, hashes, wallet_pk)
-                .await?;
+        let result = common::exchange_offline_raw(
+            &self.cl,
+            &self.base,
+            web_ep::EXCHANGE_OFFLINE_V1,
+            fingerprints,
+            hashes,
+            wallet_pk,
+        )
+        .await?;
         Ok(result)
     }
 
@@ -150,8 +178,14 @@ impl Client {
         proofs: Vec<cashu::Proof>,
         exchange_path: Vec<secp256k1::PublicKey>,
     ) -> Result<Vec<cashu::Proof>> {
-        let result =
-            common::exchange_online_raw(&self.cl, &self.base, proofs, exchange_path).await?;
+        let result = common::exchange_online_raw(
+            &self.cl,
+            &self.base,
+            web_ep::EXCHANGE_ONLINE_V1,
+            proofs,
+            exchange_path,
+        )
+        .await?;
         Ok(result.proofs)
     }
 }
@@ -159,43 +193,37 @@ impl Client {
 pub(crate) mod common {
     use super::*;
 
-    pub const EXCHANGEOFFLINE_EP_V1: &str = "/v1/treasury/exchange/offline";
     pub async fn exchange_offline_raw(
-        cl: &reqwest::Client,
+        cl: &jsonrpc::Client,
         base: &reqwest::Url,
+        ep: &'static str,
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
-        let url = base
-            .join(EXCHANGEOFFLINE_EP_V1)
-            .expect("exchange_offline relative path");
+        let url = base.join(ep).expect("exchange_offline relative path");
         let msg = wire_exchange::OfflineExchangeRequest {
             fingerprints,
             hashes,
             wallet_pk,
         };
-        let request = cl.post(url).json(&msg);
-        let response: wire_exchange::OfflineExchangeResponse = request.send().await?.json().await?;
+        let response: wire_exchange::OfflineExchangeResponse = cl.post(url, &msg).await?;
         Ok(response)
     }
 
-    pub const EXCHANGEONLINE_EP_V1: &str = "/v1/treasury/exchange/online";
     pub async fn exchange_online_raw(
-        cl: &reqwest::Client,
+        cl: &jsonrpc::Client,
         base: &reqwest::Url,
+        ep: &'static str,
         proofs: Vec<cashu::Proof>,
         exchange_path: Vec<secp256k1::PublicKey>,
     ) -> Result<wire_exchange::OnlineExchangeResponse> {
-        let url = base
-            .join(EXCHANGEONLINE_EP_V1)
-            .expect("exchange_online relative path");
+        let url = base.join(ep).expect("exchange_online relative path");
         let msg = wire_exchange::OnlineExchangeRequest {
             proofs,
             exchange_path,
         };
-        let request = cl.post(url).json(&msg);
-        let response: wire_exchange::OnlineExchangeResponse = request.send().await?.json().await?;
+        let response: wire_exchange::OnlineExchangeResponse = cl.post(url, &msg).await?;
         Ok(response)
     }
 }
