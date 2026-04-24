@@ -472,7 +472,7 @@ impl Client {
         Ok(response)
     }
 
-    pub const FOREIGN_KEYSETS_EP_V1: &str = "/v1/clowder/foreign/keysets/{alpha_id}";
+    pub const FOREIGN_KEYSETS_EP_V1: &str = "/v1/clowder/foreign/{alpha_id}/active_keysets";
     pub async fn get_active_keysets(
         &self,
         alpha_id: secp256k1::PublicKey,
@@ -489,14 +489,14 @@ impl Client {
         Ok(response)
     }
 
-    pub const LOCAL_PATH_EP_V1: &str = "/v1/clowder/local/path";
+    pub const FOREIGN_PATH_EP_V1: &str = "/v1/clowder/foreign/path";
     pub async fn post_path(
         &self,
         origin_mint_url: reqwest::Url,
     ) -> Result<wire_clowder::ConnectedMintsResponse> {
         let url = self
             .base
-            .join(Self::LOCAL_PATH_EP_V1)
+            .join(Self::FOREIGN_PATH_EP_V1)
             .expect("path relative path");
         let request = wire_clowder::PathRequest {
             origin_mint_url: origin_mint_url.clone(),
