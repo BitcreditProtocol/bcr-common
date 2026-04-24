@@ -354,7 +354,7 @@ impl Client {
     ) -> Result<Vec<cashu::BlindSignature>> {
         let url = self
             .base
-            .join(treasury::web_ep::EBILLMINT_V1)
+            .join(treasury::web_ep::EBILLMINT_V1_EXT)
             .expect("ebill mint relative path");
         let mut msg = cashu::MintRequest {
             quote: qid,
