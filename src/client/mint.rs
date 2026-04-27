@@ -502,14 +502,13 @@ impl Client {
         &self,
         origin_mint_url: reqwest::Url,
     ) -> Result<wire_clowder::ConnectedMintsResponse> {
-        let url = self
-            .base
-            .join(clowder::web_ep::FOREIGN_PATH_V1_EXT)
-            .expect("path relative path");
-        let request = wire_clowder::PathRequest {
-            origin_mint_url: origin_mint_url.clone(),
-        };
-        let response: wire_clowder::ConnectedMintsResponse = self.cl.post(url, &request).await?;
+        let response = clowder::common::post_path(
+            &self.cl,
+            &self.base,
+            web_ep::FOREIGN_PATH_V1_EXT,
+            origin_mint_url,
+        )
+        .await?;
         Ok(response)
     }
 
