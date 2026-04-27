@@ -30,7 +30,6 @@ pub mod admin_ep {
     pub const FOREIGN_MINT_ONCHAIN_SIGNATURES_V1: &str =
         "/foreign/mint_signatures/{pubkey}/{quote_id}";
     pub const FOREIGN_MINT_ONCHAIN_V1: &str = "/foreign/mint/onchain";
-    pub const FOREIGN_PATH_V1: &str = "/foreign/path";
     pub const FOREIGN_PROOFS_ORIGIN_V1: &str = "/foreign/proofs_origin";
     pub const FOREIGN_PROTEST_MELT_V1: &str = "/foreign/protest_melt";
     pub const FOREIGN_PROTEST_MINT_V1: &str = "/foreign/protest_mint";
@@ -195,21 +194,6 @@ impl Client {
                     proofs: proofs.to_vec(),
                 },
             )
-            .await?;
-        Ok(response)
-    }
-
-    pub async fn post_path(
-        &self,
-        origin_mint_url: reqwest::Url,
-    ) -> Result<wire_clowder::ConnectedMintsResponse> {
-        let url = self
-            .base
-            .join(admin_ep::FOREIGN_PATH_V1)
-            .expect("foreign path relative path");
-        let response = self
-            .cl
-            .post(url, &wire_clowder::PathRequest { origin_mint_url })
             .await?;
         Ok(response)
     }
@@ -718,6 +702,20 @@ impl Client {
         .await?;
         Ok(response)
     }
+
+    pub async fn post_path(
+        &self,
+        origin_mint_url: reqwest::Url,
+    ) -> Result<wire_clowder::ConnectedMintsResponse> {
+        let response = common::post_path(
+            &self.cl,
+            &self.base,
+            web_ep::FOREIGN_PATH_V1,
+            origin_mint_url,
+        )
+        .await?;
+        Ok(response)
+    }
 }
 
 pub(crate) mod common {
@@ -837,6 +835,19 @@ pub(crate) mod common {
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
         let url = base.join(ep).expect("offline exchange relative path");
         let response: wire_exchange::OfflineExchangeResponse = cl.post(url, &request).await?;
+        Ok(response)
+    }
+
+    pub async fn post_path(
+        cl: &jsonrpc::Client,
+        base: &reqwest::Url,
+        ep: &'static str,
+        origin_mint_url: reqwest::Url,
+    ) -> Result<wire_clowder::ConnectedMintsResponse> {
+        let url = base.join(ep).expect("foreign path relative path");
+        let response = cl
+            .post(url, &wire_clowder::PathRequest { origin_mint_url })
+            .await?;
         Ok(response)
     }
 }
