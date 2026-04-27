@@ -1,4 +1,6 @@
-const FEE_RATE_PPK_MULTIPLIER: u64 = 1000;
+// WARNING: we are using cashu::KeySetInfo struct where fee rate is indicated as parts per 1000,
+// i.e. ppk, but we want to calculate fees with more precision, i.e. parts per 10000, ppk*10.
+const FEE_RATE_PPK_MULTIPLIER: u64 = 10000;
 
 #[cfg(any(feature = "wallet", test))]
 pub mod wallet {
@@ -74,17 +76,20 @@ pub mod wallet {
             );
             let new_total = inputs_total + p.amount;
             if new_total == target + new_fee {
+                // we got the exact amount needed, stop here
                 inputs.push(p);
                 return Ok(PaymentPlan::Ready {
                     inputs,
                     estimated_fee: new_fee,
                 });
             } else if new_total < target + new_fee {
+                // not yet there, keep adding inputs
                 inputs_total = new_total;
                 inputs_size = new_inputs_size;
                 payment_fee_rate_ppk = new_fee_rate_ppk;
                 inputs.push(p);
-            } else {
+            } else if split.is_none() {
+                // target exceeded, yet this proof is good for potential split
                 split = Some(p);
             }
         }
@@ -154,12 +159,16 @@ pub mod wallet {
         let mut sum_by_id: HashMap<Id, Amount> = HashMap::new();
         let mut total_inputs_size = 0;
         for input in inputs {
+            if !kinfos.contains_key(&input.keyset_id) {
+                return Err(Error::UnknownKeyset(input.keyset_id));
+            }
             let entry = sum_by_id.entry(input.keyset_id).or_insert(Amount::ZERO);
             *entry += input.amount;
             total_inputs_size += input.secret.as_bytes().len() as u64;
         }
         let max_fee_rate_ppk = sum_by_id
             .keys()
+            // unwrap is ok, we already checked this
             .map(|kid| kinfos.get(kid).unwrap().input_fee_ppk)
             .max()
             .unwrap_or(0);
@@ -573,5 +582,31 @@ mod test {
             result,
             Err(VerificationError::InsufficientFees(..))
         ));
+    }
+
+    #[test]
+    fn verify_payment_9kbyte_1sat() {
+        // 9kbyte inputs len is 1 sat in fees
+        let (mut kinfo, keyset) = core_tests::generate_random_ecash_keyset();
+        kinfo.input_fee_ppk = 1;
+        let amounts = vec![Amount::from(1), Amount::from(2)];
+        let mut proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
+        proofs[0].secret =
+            cashu::secret::Secret::new(String::from_utf8(vec![0; 9 * 1024]).unwrap());
+        let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
+        verify_payment(&proofs, Amount::from(2), &kinfos).unwrap();
+    }
+
+    #[test]
+    fn verify_payment_11kbyte_2sat() {
+        // 11kbyte inputs len is 2 sats in fees
+        let (mut kinfo, keyset) = core_tests::generate_random_ecash_keyset();
+        kinfo.input_fee_ppk = 1;
+        let amounts = vec![Amount::from(4)];
+        let mut proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
+        proofs[0].secret =
+            cashu::secret::Secret::new(String::from_utf8(vec![0; 11 * 1024]).unwrap());
+        let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
+        verify_payment(&proofs, Amount::from(2), &kinfos).unwrap();
     }
 }
