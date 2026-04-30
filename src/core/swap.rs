@@ -17,7 +17,6 @@ pub mod wallet {
     pub enum PaymentPlan<'a> {
         Ready {
             inputs: Vec<&'a Proof>,
-            estimated_fee: Amount,
         },
         NeedSplit {
             proof: &'a Proof,
@@ -53,83 +52,93 @@ pub mod wallet {
         // proofs must be sorted by amount in ascending order
         assert!(proofs.is_sorted_by_key(|p| p.amount));
 
-        // TODO: calculated minimum fee more accurately
-        const MINIMUM_FEE: cashu::Amount = cashu::Amount::ONE;
-        const AVG_INPUT_SIZE: usize = 32; // based on cashu::Proof secret size, may vary
         // partition points, left partition: candidate for payment, right partition: candidate for split
-        let gt_p = proofs.partition_point(|p| p.amount <= target + MINIMUM_FEE);
+        let gt_p = proofs.partition_point(|p| p.amount <= target);
         let mut inputs: Vec<&Proof> = vec![];
         let mut inputs_total = Amount::ZERO;
-        let mut inputs_size = 0;
-        let mut payment_fee_rate_ppk = 0;
         // split candidate: we want to split the smallest proof gt remaining_target + fees
         let mut split: Option<&Proof> = None;
         for idx in (0..gt_p).rev() {
             let p = &proofs[idx];
-            let kinfo = kinfos
-                .get(&p.keyset_id)
-                .ok_or(Error::UnknownKeyset(p.keyset_id))?;
-            let new_fee_rate_ppk = std::cmp::max(payment_fee_rate_ppk, kinfo.input_fee_ppk);
-            let new_inputs_size = inputs_size + p.secret.as_bytes().len();
-            let new_fee = Amount::from(
-                (new_fee_rate_ppk * new_inputs_size as u64).div_ceil(FEE_RATE_PPK_MULTIPLIER),
-            );
             let new_total = inputs_total + p.amount;
-            if new_total == target + new_fee {
+            if new_total == target {
                 // we got the exact amount needed, stop here
                 inputs.push(p);
-                return Ok(PaymentPlan::Ready {
-                    inputs,
-                    estimated_fee: new_fee,
-                });
-            } else if new_total < target + new_fee {
+                return Ok(PaymentPlan::Ready { inputs });
+            } else if new_total < target {
                 // not yet there, keep adding inputs
                 inputs_total = new_total;
-                inputs_size = new_inputs_size;
-                payment_fee_rate_ppk = new_fee_rate_ppk;
                 inputs.push(p);
             } else if split.is_none() {
                 // target exceeded, yet this proof is good for potential split
                 split = Some(p);
             }
         }
-        let Some(split_proof) = split.or_else(|| proofs.get(gt_p)) else {
-            let payment_fee = Amount::from(
-                (payment_fee_rate_ppk * inputs_size as u64).div_ceil(FEE_RATE_PPK_MULTIPLIER),
-            );
-            return Err(Error::InsufficientBalance(
-                inputs_total,
-                target + payment_fee,
-            ));
-        };
-        let split_fee_rate_ppk = kinfos
-            .get(&split_proof.keyset_id)
-            .ok_or(Error::UnknownKeyset(split_proof.keyset_id))?
-            .input_fee_ppk;
-        // the payment will contain proofs with fee_rate_ppk == split_fee_rate_ppk
-        payment_fee_rate_ppk = std::cmp::max(payment_fee_rate_ppk, split_fee_rate_ppk);
-        // payment size will contain at least one more simple proof
-        let payment_size = inputs_size + AVG_INPUT_SIZE;
-        let payment_fee = Amount::from(
-            (payment_fee_rate_ppk * payment_size as u64).div_ceil(FEE_RATE_PPK_MULTIPLIER),
-        );
-        let split_fee = Amount::from(
-            (split_fee_rate_ppk * split_proof.secret.as_bytes().len() as u64)
-                .div_ceil(FEE_RATE_PPK_MULTIPLIER),
-        );
-        let split_target = cashu::amount::SplitTarget::Value(target + payment_fee - inputs_total);
-        Ok(PaymentPlan::NeedSplit {
-            proof: split_proof,
-            target: split_target,
-            estimated_fee: payment_fee + split_fee,
-        })
+        let split_target = target - inputs_total;
+        let split_lt = can_proof_reach_target(split, target, kinfos)?;
+        if let CanBeSplit::Yes { proof, split_fees } = split_lt {
+            return Ok(PaymentPlan::NeedSplit {
+                proof,
+                target: cashu::amount::SplitTarget::Value(split_target),
+                estimated_fee: split_fees,
+            });
+        }
+
+        let split_gtp = can_proof_reach_target(proofs.get(gt_p), split_target, kinfos)?;
+        if let CanBeSplit::Yes { proof, split_fees } = split_gtp {
+            return Ok(PaymentPlan::NeedSplit {
+                proof,
+                target: cashu::amount::SplitTarget::Value(split_target),
+                estimated_fee: split_fees,
+            });
+        }
+        let split_max = can_proof_reach_target(proofs.last(), split_target, kinfos)?;
+        match split_max {
+            CanBeSplit::Yes { proof, split_fees } => Ok(PaymentPlan::NeedSplit {
+                proof,
+                target: cashu::amount::SplitTarget::Value(split_target),
+                estimated_fee: split_fees,
+            }),
+            _ => Err(Error::InsufficientBalance(inputs_total, target)),
+        }
     }
 
-    pub fn verify_payment(
-        inputs: &[Proof],
+    enum CanBeSplit<'a> {
+        No,
+        Yes {
+            proof: &'a Proof,
+            split_fees: Amount,
+        },
+    }
+    fn can_proof_reach_target<'a>(
+        proof: Option<&'a Proof>,
         target: Amount,
         kinfos: &HashMap<Id, KeySetInfo>,
-    ) -> Result<()> {
+    ) -> Result<CanBeSplit<'a>> {
+        let Some(p) = proof else {
+            return Ok(CanBeSplit::No);
+        };
+        let kinfo = kinfos
+            .get(&p.keyset_id)
+            .ok_or(Error::UnknownKeyset(p.keyset_id))?;
+        let fee = Amount::from(
+            (kinfo.input_fee_ppk * p.secret.as_bytes().len() as u64)
+                .div_ceil(FEE_RATE_PPK_MULTIPLIER),
+        );
+        if p.amount >= target + fee {
+            Ok(CanBeSplit::Yes {
+                proof: p,
+                split_fees: fee,
+            })
+        } else {
+            Ok(CanBeSplit::No)
+        }
+    }
+
+    pub fn required_fees(
+        inputs: &[Proof],
+        kinfos: &HashMap<Id, KeySetInfo>,
+    ) -> Result<cashu::Amount> {
         let input_kids: HashSet<cashu::Id> = inputs.iter().map(|p| p.keyset_id).collect();
         let mut max_fee_rate_ppk = 0;
         for kid in input_kids {
@@ -145,14 +154,7 @@ pub mod wallet {
             .sum();
         let required_fee =
             Amount::from((max_fee_rate_ppk * total_secret_len).div_ceil(FEE_RATE_PPK_MULTIPLIER));
-        let total_input = inputs.iter().fold(Amount::ZERO, |acc, p| acc + p.amount);
-        if total_input < target + required_fee {
-            return Err(Error::InsufficientBalance(
-                total_input,
-                target + required_fee,
-            ));
-        }
-        Ok(())
+        Ok(required_fee)
     }
 
     pub fn prepare_swap(inputs: &[Proof], kinfos: &HashMap<Id, KeySetInfo>) -> Result<SwapPlan> {
@@ -404,7 +406,7 @@ pub mod mint {
 mod test {
     use super::{
         mint::{VerificationError, verify_swap},
-        wallet::{PaymentPlan, prepare_payment, verify_payment},
+        wallet::{PaymentPlan, prepare_payment, required_fees},
     };
     use crate::core_tests;
     use cashu::Amount;
@@ -419,16 +421,12 @@ mod test {
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         assert!(matches!(result, PaymentPlan::Ready { .. }));
-        let PaymentPlan::Ready {
-            inputs,
-            estimated_fee,
-        } = result
-        else {
+        let PaymentPlan::Ready { inputs } = result else {
             panic!("expected Ready");
         };
         let inputs: Vec<cashu::Proof> = inputs.iter().map(|p| *p).cloned().collect();
-        verify_payment(&inputs, target, &kinfos).unwrap();
-        assert_eq!(estimated_fee, Amount::ZERO);
+        let fees = required_fees(&inputs, &kinfos).unwrap();
+        assert_eq!(fees, Amount::ZERO);
     }
 
     #[test]
@@ -440,16 +438,12 @@ mod test {
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         assert!(matches!(result, super::wallet::PaymentPlan::Ready { .. }));
-        let PaymentPlan::Ready {
-            inputs,
-            estimated_fee,
-        } = result
-        else {
+        let PaymentPlan::Ready { inputs } = result else {
             panic!("expected Ready");
         };
         let inputs: Vec<cashu::Proof> = inputs.iter().map(|p| *p).cloned().collect();
-        verify_payment(&inputs, target, &kinfos).unwrap();
-        assert_eq!(estimated_fee, Amount::ZERO);
+        let fees = required_fees(&inputs, &kinfos).unwrap();
+        assert_eq!(fees, Amount::ZERO);
     }
 
     #[test]
@@ -466,16 +460,12 @@ mod test {
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         assert!(matches!(result, super::wallet::PaymentPlan::Ready { .. }));
-        let PaymentPlan::Ready {
-            inputs,
-            estimated_fee,
-        } = result
-        else {
+        let PaymentPlan::Ready { inputs } = result else {
             panic!("expected Ready");
         };
         let inputs: Vec<cashu::Proof> = inputs.iter().map(|p| *p).cloned().collect();
-        verify_payment(&inputs, target, &kinfos).unwrap();
-        assert_eq!(estimated_fee, Amount::ZERO);
+        let fees = required_fees(&inputs, &kinfos).unwrap();
+        assert_eq!(fees, Amount::ZERO);
     }
 
     #[test]
@@ -487,16 +477,12 @@ mod test {
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         assert!(matches!(result, super::wallet::PaymentPlan::Ready { .. }));
-        let PaymentPlan::Ready {
-            inputs,
-            estimated_fee,
-        } = result
-        else {
+        let PaymentPlan::Ready { inputs } = result else {
             panic!("expected Ready");
         };
         let inputs: Vec<cashu::Proof> = inputs.iter().map(|p| *p).cloned().collect();
-        verify_payment(&inputs, target, &kinfos).unwrap();
-        assert_eq!(estimated_fee, Amount::ZERO);
+        let fees = required_fees(&inputs, &kinfos).unwrap();
+        assert_eq!(fees, Amount::ZERO);
     }
 
     #[test]
@@ -509,16 +495,12 @@ mod test {
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         assert!(matches!(result, super::wallet::PaymentPlan::Ready { .. }));
-        let PaymentPlan::Ready {
-            inputs,
-            estimated_fee,
-        } = result
-        else {
+        let PaymentPlan::Ready { inputs } = result else {
             panic!("expected Ready");
         };
         let inputs: Vec<cashu::Proof> = inputs.iter().map(|p| *p).cloned().collect();
-        verify_payment(&inputs, target, &kinfos).unwrap();
-        assert_eq!(estimated_fee, Amount::ONE);
+        let fees = required_fees(&inputs, &kinfos).unwrap();
+        assert_eq!(fees, Amount::ONE);
     }
 
     #[test]
@@ -594,7 +576,8 @@ mod test {
         proofs[0].secret =
             cashu::secret::Secret::new(String::from_utf8(vec![0; 9 * 1024]).unwrap());
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
-        verify_payment(&proofs, Amount::from(2), &kinfos).unwrap();
+        let fees = required_fees(&proofs, &kinfos).unwrap();
+        assert_eq!(fees, Amount::ONE);
     }
 
     #[test]
@@ -607,6 +590,7 @@ mod test {
         proofs[0].secret =
             cashu::secret::Secret::new(String::from_utf8(vec![0; 11 * 1024]).unwrap());
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
-        verify_payment(&proofs, Amount::from(2), &kinfos).unwrap();
+        let fees = required_fees(&proofs, &kinfos).unwrap();
+        assert_eq!(fees, Amount::from(2));
     }
 }
