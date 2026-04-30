@@ -56,6 +56,8 @@ pub mod web_ep {
     pub const FOREIGN_ACTIVE_KEYSETS_V1_EXT: &str = "/v1/clowder/foreign/{pubkey}/active_keysets";
     pub const FOREIGN_OFFLINE_V1: &str = "/v1/foreign/offline/{pubkey}";
     pub const FOREIGN_OFFLINE_V1_EXT: &str = "/v1/clowder/foreign/offline/{pubkey}";
+    pub const FOREIGN_PATH_V1: &str = "/v1/foreign/path";
+    pub const FOREIGN_PATH_V1_EXT: &str = "/v1/clowder/foreign/path";
     pub const FOREIGN_STATUS_V1: &str = "/v1/foreign/status/{pubkey}";
     pub const FOREIGN_STATUS_V1_EXT: &str = "/v1/clowder/foreign/status/{pubkey}";
     pub const FOREIGN_SUBSTITUTE_V1: &str = "/v1/foreign/substitute/{pubkey}";
@@ -70,8 +72,6 @@ pub mod web_ep {
         "/v1/clowder/local/derive_ebill_payment_address";
     pub const LOCAL_INFO_V1: &str = "/v1/local/info";
     pub const LOCAL_INFO_V1_EXT: &str = "/v1/clowder/local/info";
-    pub const FOREIGN_PATH_V1: &str = "/v1/foreign/path";
-    pub const FOREIGN_PATH_V1_EXT: &str = "/v1/clowder/foreign/path";
     pub const OFFLINE_EXCHANGE_V1: &str = "/v1/exchange/offline";
     pub const OFFLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/offline";
     pub const ONLINE_EXCHANGE_V1: &str = "/v1/exchange/online";
