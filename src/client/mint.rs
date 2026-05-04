@@ -39,8 +39,6 @@ pub enum Error {
     #[error("internal error {0}")]
     Reqwest(#[from] reqwest::Error),
 
-    #[error("not implemented yet")]
-    Todo,
     #[error("cdk::nut20 {0}")]
     Cdk20(#[from] cashu::nut20::Error),
     #[error("borsh sign error {0}")]
@@ -422,20 +420,35 @@ impl Client {
         Ok(response)
     }
 
-    pub async fn onchain_melt(&self, _qid: Uuid, _inputs: Vec<cashu::Proof>) -> Result<()> {
-        let _url = self
+    pub async fn onchain_melt(
+        &self,
+        qid: Uuid,
+        inputs: Vec<cashu::Proof>,
+    ) -> Result<wire_melt::MeltTx> {
+        let url = self
             .base
             .join(treasury::web_ep::MELT_ONCHAIN_V1_EXT)
             .expect("onchain melt relative path");
-        Err(Error::Todo)
+        let msg = wire_melt::MeltOnchainRequest { quote: qid, inputs };
+        let response: wire_melt::MeltOnchainResponse = self.cl.post(url, &msg).await?;
+        Ok(response.txid)
     }
 
-    pub async fn onchain_mint(&self, _qid: Uuid) -> Result<()> {
-        let _url = self
+    pub async fn onchain_mint(
+        &self,
+        qid: Uuid,
+        mint_id: secp256k1::PublicKey,
+    ) -> Result<Vec<cashu::BlindSignature>> {
+        let url = self
             .base
             .join(treasury::web_ep::MINT_ONCHAIN_V1_EXT)
             .expect("onchain mint relative path");
-        Err(Error::Todo)
+        let msg = wire_mint::OnchainMintRequest {
+            quote: qid,
+            alpha_id: mint_id,
+        };
+        let response: cashu::MintResponse = self.cl.post(url, &msg).await?;
+        Ok(response.signatures)
     }
 
     // -------------------------------------------------------------------------
