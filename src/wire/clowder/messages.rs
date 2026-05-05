@@ -5,7 +5,7 @@ use bitcoin::secp256k1::PublicKey;
 use cashu::{Amount, BlindSignature, Id, KeySet, Proof, PublicKey as CashuPublicKey};
 use serde::{Deserialize, Serialize};
 // ----- local imports
-use crate::wire::keys::ProofFingerprint;
+use crate::wire::{attestation::IssuanceAttestation, keys::ProofFingerprint};
 
 // ----- end imports
 
@@ -128,6 +128,7 @@ pub struct MeltOnchainRequest {
     pub amount: bitcoin::Amount,
     pub inputs: Vec<cashu::Proof>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub attestation: IssuanceAttestation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,6 +205,7 @@ pub struct SwapRequest {
     pub proofs: Vec<cashu::Proof>,
     pub blinds: Vec<cashu::BlindedMessage>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub attestation: IssuanceAttestation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
