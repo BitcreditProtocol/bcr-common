@@ -1,6 +1,7 @@
 // ----- standard library imports
 // ----- extra library imports
 // ----- local modules
+pub mod attestation;
 pub mod bill;
 pub mod borsh;
 pub mod clowder;
