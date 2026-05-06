@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
+    attestation::IssuanceAttestation,
     borsh::{
         deserialize_from_str, deserialize_vecof_blindedmessage, serialize_as_str,
         serialize_vecof_blindedmessage,
@@ -68,6 +69,7 @@ pub struct SwapRequest {
     pub outputs: Vec<cashu::BlindedMessage>,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub attestation: IssuanceAttestation,
 }
 
 ///--------------------------- Swap Response
