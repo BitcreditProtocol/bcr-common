@@ -17,5 +17,4 @@ pub use core::test_utils as core_tests;
 pub use wire::test_utils as wire_tests;
 
 pub use cashu;
-pub use cdk;
 pub use cdk_common;
