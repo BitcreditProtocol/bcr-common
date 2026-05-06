@@ -30,8 +30,7 @@ pub struct OfflineResponse {
 ///--------------------------- Connected Mint
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ConnectedMintResponse {
-    #[schema(value_type = String)]
-    pub mint: cashu::MintUrl,
+    pub mint: reqwest::Url,
     pub clowder: reqwest::Url,
     #[schema(value_type = String)]
     pub node_id: secp256k1::PublicKey,
