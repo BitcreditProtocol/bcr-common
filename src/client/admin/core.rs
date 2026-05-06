@@ -252,6 +252,7 @@ impl Client {
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let result = common::swap(
             &self.cl,
@@ -260,6 +261,7 @@ impl Client {
             inputs,
             outputs,
             commitment,
+            attestation,
         )
         .await?;
         Ok(result)
@@ -346,12 +348,14 @@ pub(crate) mod common {
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let url = base.join(ep).expect("swap relative path");
         let request = wire_swap::SwapRequest {
             inputs,
             outputs,
             commitment,
+            attestation,
         };
         let response: wire_swap::SwapResponse = cl.post(url, &request).await?;
         Ok(response.signatures)

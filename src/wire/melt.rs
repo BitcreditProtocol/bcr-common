@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
+    attestation::IssuanceAttestation,
     borsh::{
         deserialize_btc_amount, deserialize_from_str, deserialize_unchecked_address,
         serialize_as_str, serialize_btc_amount, serialize_unchecked_address,
@@ -86,6 +87,7 @@ pub struct MeltOnchainRequest {
     #[schema(value_type = String)]
     pub quote: uuid::Uuid,
     pub inputs: Vec<cashu::Proof>,
+    pub attestation: IssuanceAttestation,
 }
 
 ///--------------------------- Melt Onchain Response

@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::{
     core::BillId,
-    wire::{bill as wire_bill, keys as wire_keys},
+    wire::{attestation::IssuanceAttestation, bill as wire_bill, keys as wire_keys},
 };
 
 // ----- end imports
@@ -365,6 +365,7 @@ pub struct MeltOnchainRequest {
     pub inputs: Vec<cashu::Proof>,
     pub fees: Vec<cashu::BlindSignature>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub attestation: IssuanceAttestation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -440,6 +441,7 @@ pub struct SwapRequest {
     pub proofs: Vec<cashu::Proof>,
     pub blinds: Vec<cashu::BlindedMessage>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub attestation: IssuanceAttestation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
