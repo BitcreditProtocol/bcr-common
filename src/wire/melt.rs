@@ -7,9 +7,8 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
     borsh::{
-        deserialize_btc_amount, deserialize_cashu_amount, deserialize_from_str,
-        deserialize_unchecked_address, serialize_as_str, serialize_btc_amount,
-        serialize_cashu_amount, serialize_unchecked_address,
+        deserialize_btc_amount, deserialize_from_str, deserialize_unchecked_address,
+        serialize_as_str, serialize_btc_amount, serialize_unchecked_address,
     },
     common::ProtestStatus,
     keys::ProofFingerprint,
@@ -27,13 +26,6 @@ pub struct MeltQuoteOnchainRequest {
         deserialize_with = "deserialize_unchecked_address"
     )]
     pub address: bitcoin::Address<NetworkUnchecked>,
-    /// Bitcoin amount the wallet expects to receive at the address
-    #[schema(value_type = u64)]
-    #[borsh(
-        serialize_with = "serialize_btc_amount",
-        deserialize_with = "deserialize_btc_amount"
-    )]
-    pub amount: Amount,
     #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
@@ -56,17 +48,12 @@ pub struct MeltQuoteOnchainResponseBody {
         deserialize_with = "deserialize_unchecked_address"
     )]
     pub address: bitcoin::Address<NetworkUnchecked>,
+    /// the amount the mint will pay for the proofs in the quote
     #[borsh(
         serialize_with = "serialize_btc_amount",
         deserialize_with = "deserialize_btc_amount"
     )]
     pub amount: Amount,
-    /// Total cashu amount the wallet must hand to the mint to fulfil the melt (target + fees).
-    #[borsh(
-        serialize_with = "serialize_cashu_amount",
-        deserialize_with = "deserialize_cashu_amount"
-    )]
-    pub total: cashu::Amount,
     /// Unix timestamp when the commitment expires
     pub expiry: u64,
     #[borsh(

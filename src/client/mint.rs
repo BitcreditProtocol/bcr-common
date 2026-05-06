@@ -369,10 +369,9 @@ impl Client {
         &self,
         inputs: Vec<wire_keys::ProofFingerprint>,
         recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
-        target: bitcoin::Amount,
         wallet_key: cashu::PublicKey,
         mint_pk: secp256k1::PublicKey,
-    ) -> Result<(Uuid, cashu::Amount, DateTime<Utc>)> {
+    ) -> Result<(Uuid, bitcoin::Amount, DateTime<Utc>)> {
         let url = self
             .base
             .join(treasury::web_ep::MELTQUOTE_ONCHAIN_V1_EXT)
@@ -380,7 +379,6 @@ impl Client {
         let msg = wire_melt::MeltQuoteOnchainRequest {
             inputs,
             address: recipient,
-            amount: target,
             wallet_key,
         };
         let response: wire_melt::MeltQuoteOnchainResponse = self.cl.post(url, &msg).await?;
@@ -394,7 +392,7 @@ impl Client {
         let expiration = DateTime::from_timestamp(body.expiry as i64, 0).ok_or(Error::Internal(
             format!("chrono::from_timestamp failed for {}", body.expiry),
         ))?;
-        Ok((body.quote, body.total, expiration))
+        Ok((body.quote, body.amount, expiration))
     }
 
     pub async fn onchain_mint_quote(
