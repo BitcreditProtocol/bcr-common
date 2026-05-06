@@ -7,7 +7,7 @@ license = "MIT"
 [features]
 default = ["wallet"]
 test-utils = ["rand", "mockall"]
-wallet = ["cashu/wallet", "cdk/wallet", "cdk-common/wallet" ]
+wallet = ["cashu/wallet", "cdk-common/wallet" ]
 mint = ["cashu/mint", "cdk-common/mint"]
 clwdr-client = ["dep:async-nats", "dep:bytes"]
 
@@ -20,7 +20,6 @@ bitcoin = {version = "0.32", features = ["serde"]}
 borsh = {version = "1.5", features = ["derive"]}
 bytes = {version = "1", optional = true}
 cashu = {version = "=0.13.1", features = ["swagger"]}
-cdk = {version = "=0.13.1", default-features = false}
 cdk-common = {version = "=0.13.1"}
 chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
