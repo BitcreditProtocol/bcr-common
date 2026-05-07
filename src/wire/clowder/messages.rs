@@ -143,7 +143,6 @@ pub struct MeltQuoteOnchainRequest {
     pub inputs: Vec<ProofFingerprint>,
     pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
     pub amount: bitcoin::Amount,
-    pub total: cashu::Amount,
     pub expiry: u64,
     pub wallet_key: cashu::PublicKey,
 }
