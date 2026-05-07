@@ -8,6 +8,7 @@ use crate::{
     client::admin::jsonrpc,
     core::BillId,
     wire::{
+        attestation as wire_attestation,
         clowder::{self as wire_clowder, messages as clwdr_msgs},
         exchange as wire_exchange, keys as wire_keys,
     },
@@ -76,6 +77,10 @@ pub mod web_ep {
     pub const OFFLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/offline";
     pub const ONLINE_EXCHANGE_V1: &str = "/v1/exchange/online";
     pub const ONLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/online";
+    pub const ATTEST_ISSUANCE_V1: &str = "/v1/attest/issuance";
+    pub const ATTEST_ISSUANCE_V1_EXT: &str = "/v1/attest/issuance";
+    pub const ATTEST_VERIFY_V1: &str = "/v1/attest/verify";
+    pub const ATTEST_VERIFY_V1_EXT: &str = "/v1/attest/verify";
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -714,6 +719,30 @@ impl Client {
             origin_mint_url,
         )
         .await?;
+        Ok(response)
+    }
+
+    pub async fn post_attest_issuance(
+        &self,
+        request: &wire_attestation::IssuanceAttestationRequest,
+    ) -> Result<wire_attestation::IssuanceAttestation> {
+        let url = self
+            .base
+            .join(web_ep::ATTEST_ISSUANCE_V1)
+            .expect("attest issuance relative path");
+        let response = self.cl.post(url, request).await?;
+        Ok(response)
+    }
+
+    pub async fn post_attest_verify(
+        &self,
+        request: &wire_attestation::AttestationVerifyRequest,
+    ) -> Result<wire_attestation::AttestationVerifyResponse> {
+        let url = self
+            .base
+            .join(web_ep::ATTEST_VERIFY_V1)
+            .expect("attest verify relative path");
+        let response = self.cl.post(url, request).await?;
         Ok(response)
     }
 }
