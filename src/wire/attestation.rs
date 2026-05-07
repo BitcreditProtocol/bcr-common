@@ -1,6 +1,7 @@
 // ----- standard library imports
 // ----- extra library imports
 use bitcoin::hashes::{Hash, sha256::Hash as Sha256};
+use bitcoin::secp256k1::{Message, PublicKey, SECP256K1};
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -86,9 +87,110 @@ pub fn canonical_fingerprint(fp: &ProofFingerprint) -> ProofFingerprint {
 /// `y` makes the digest order-independent.
 pub fn fp_digest(fps: &[ProofFingerprint]) -> [u8; 32] {
     let mut canonical: Vec<ProofFingerprint> = fps.iter().map(canonical_fingerprint).collect();
-    canonical.sort_unstable_by(|a, b| a.y.to_bytes().cmp(&b.y.to_bytes()));
+    canonical.sort_unstable_by_key(|a| a.y.to_bytes());
     let bytes = borsh::to_vec(&canonical).expect("borsh serialization of canonical fingerprints");
     Sha256::hash(&bytes).to_byte_array()
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AttestationError {
+    #[error("input has no derivable Y: {0}")]
+    InvalidProof(#[from] cashu::nut00::Error),
+    #[error("fp_digest mismatch")]
+    DigestMismatch,
+    #[error("attestation beta {0} is not part of alpha's cohort")]
+    UnknownBeta(PublicKey),
+    #[error("verify response signals not_found")]
+    VerifyNotFound,
+    #[error("schnorr signature verification failed: {0}")]
+    Signature(#[from] bitcoin::secp256k1::Error),
+}
+
+pub fn project_to_fingerprints(
+    inputs: &[cashu::Proof],
+) -> Result<Vec<ProofFingerprint>, AttestationError> {
+    inputs
+        .iter()
+        .cloned()
+        .map(|p| ProofFingerprint::try_from(p).map_err(AttestationError::from))
+        .collect()
+}
+
+/// `SHA256(DOMAIN_TAG_ATTEST || alpha_id || fp_digest || coords_mac)`.
+pub fn attest_message(alpha_id: &PublicKey, fp_digest: &[u8; 32], coords_mac: &[u8; 32]) -> Sha256 {
+    let mut msg = Vec::with_capacity(DOMAIN_TAG_ATTEST.len() + 33 + 32 + 32);
+    msg.extend_from_slice(DOMAIN_TAG_ATTEST);
+    msg.extend_from_slice(&alpha_id.serialize());
+    msg.extend_from_slice(fp_digest);
+    msg.extend_from_slice(coords_mac);
+    Sha256::hash(&msg)
+}
+
+/// `SHA256(DOMAIN_TAG_VERIFY || alpha_id || fp_digest || found || coords_mac)`.
+pub fn verify_message(
+    alpha_id: &PublicKey,
+    fp_digest: &[u8; 32],
+    found: bool,
+    coords_mac: &[u8; 32],
+) -> Sha256 {
+    let mut msg = Vec::with_capacity(DOMAIN_TAG_VERIFY.len() + 33 + 32 + 1 + 32);
+    msg.extend_from_slice(DOMAIN_TAG_VERIFY);
+    msg.extend_from_slice(&alpha_id.serialize());
+    msg.extend_from_slice(fp_digest);
+    msg.push(found as u8);
+    msg.extend_from_slice(coords_mac);
+    Sha256::hash(&msg)
+}
+
+pub fn verify_attestation_local(
+    alpha_id: &PublicKey,
+    inputs: &[cashu::Proof],
+    attestation: &IssuanceAttestation,
+    is_known_beta: impl FnOnce(&PublicKey) -> bool,
+) -> Result<(), AttestationError> {
+    if !is_known_beta(&attestation.beta_id) {
+        return Err(AttestationError::UnknownBeta(attestation.beta_id));
+    }
+    let fps = project_to_fingerprints(inputs)?;
+    let local = fp_digest(&fps);
+    if local != attestation.fp_digest {
+        return Err(AttestationError::DigestMismatch);
+    }
+    let msg_hash = attest_message(alpha_id, &attestation.fp_digest, &attestation.coords_mac);
+    let secp_msg = Message::from_digest(*msg_hash.as_ref());
+    SECP256K1.verify_schnorr(
+        &attestation.signature,
+        &secp_msg,
+        &attestation.beta_id.x_only_public_key().0,
+    )?;
+    Ok(())
+}
+
+pub fn verify_attestation_response(
+    alpha_id: &PublicKey,
+    beta_id: &PublicKey,
+    attestation: &IssuanceAttestation,
+    response: &AttestationVerifyResponse,
+) -> Result<(), AttestationError> {
+    if response.fp_digest != attestation.fp_digest {
+        return Err(AttestationError::DigestMismatch);
+    }
+    let msg_hash = verify_message(
+        alpha_id,
+        &response.fp_digest,
+        response.found,
+        &response.coords_mac,
+    );
+    let secp_msg = Message::from_digest(*msg_hash.as_ref());
+    SECP256K1.verify_schnorr(
+        &response.response_sig,
+        &secp_msg,
+        &beta_id.x_only_public_key().0,
+    )?;
+    if !response.found {
+        return Err(AttestationError::VerifyNotFound);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -176,5 +278,127 @@ mod tests {
         assert_eq!(fp_digest(&fps), original);
         fps.swap(0, 1);
         assert_eq!(fp_digest(&fps), original);
+    }
+
+    fn sample_inputs() -> Vec<cashu::Proof> {
+        let (_, keyset) = core_tests::generate_random_ecash_keyset();
+        core_tests::generate_random_ecash_proofs(
+            &keyset,
+            &[cashu::Amount::from(1u64), cashu::Amount::from(2u64)],
+        )
+    }
+
+    fn make_attestation(
+        beta: &secp::Keypair,
+        alpha_id: &PublicKey,
+        inputs: &[cashu::Proof],
+    ) -> IssuanceAttestation {
+        let fps = project_to_fingerprints(inputs).unwrap();
+        let digest = fp_digest(&fps);
+        let coords_mac = [9u8; 32];
+        let msg_hash = attest_message(alpha_id, &digest, &coords_mac);
+        let secp_msg = Message::from_digest(*msg_hash.as_ref());
+        let signature = SECP256K1.sign_schnorr(&secp_msg, beta);
+        IssuanceAttestation {
+            beta_id: beta.public_key(),
+            fp_digest: digest,
+            coords_mac,
+            signature,
+        }
+    }
+
+    fn known_beta(beta: PublicKey) -> impl Fn(&PublicKey) -> bool {
+        move |b| b == &beta
+    }
+
+    #[test]
+    fn verify_attestation_local_happy_path() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let inputs = sample_inputs();
+        let att = make_attestation(&beta, &alpha.public_key(), &inputs);
+        verify_attestation_local(
+            &alpha.public_key(),
+            &inputs,
+            &att,
+            known_beta(beta.public_key()),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn verify_attestation_local_tampered_inputs_rejected() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let inputs = sample_inputs();
+        let att = make_attestation(&beta, &alpha.public_key(), &inputs);
+        let other = sample_inputs();
+        let err = verify_attestation_local(
+            &alpha.public_key(),
+            &other,
+            &att,
+            known_beta(beta.public_key()),
+        )
+        .unwrap_err();
+        assert!(matches!(err, AttestationError::DigestMismatch));
+    }
+
+    #[test]
+    fn verify_attestation_local_unknown_beta_rejected() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let inputs = sample_inputs();
+        let att = make_attestation(&beta, &alpha.public_key(), &inputs);
+        let other = secp::Keypair::new_global(&mut rand::thread_rng());
+        let err = verify_attestation_local(
+            &alpha.public_key(),
+            &inputs,
+            &att,
+            known_beta(other.public_key()),
+        )
+        .unwrap_err();
+        assert!(matches!(err, AttestationError::UnknownBeta(_)));
+    }
+
+    #[test]
+    fn verify_attestation_response_round_trip() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let inputs = sample_inputs();
+        let att = make_attestation(&beta, &alpha.public_key(), &inputs);
+        let coords_mac = att.coords_mac;
+        let msg_hash = verify_message(&alpha.public_key(), &att.fp_digest, true, &coords_mac);
+        let secp_msg = Message::from_digest(*msg_hash.as_ref());
+        let response_sig = SECP256K1.sign_schnorr(&secp_msg, &beta);
+        let response = AttestationVerifyResponse {
+            found: true,
+            fp_digest: att.fp_digest,
+            coords_mac,
+            response_sig,
+        };
+        verify_attestation_response(&alpha.public_key(), &beta.public_key(), &att, &response)
+            .unwrap();
+    }
+
+    #[test]
+    fn verify_attestation_response_not_found_rejected() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let inputs = sample_inputs();
+        let att = make_attestation(&beta, &alpha.public_key(), &inputs);
+        let zero = [0u8; 32];
+        let msg_hash = verify_message(&alpha.public_key(), &att.fp_digest, false, &zero);
+        let secp_msg = Message::from_digest(*msg_hash.as_ref());
+        let response_sig = SECP256K1.sign_schnorr(&secp_msg, &beta);
+        let response = AttestationVerifyResponse {
+            found: false,
+            fp_digest: att.fp_digest,
+            coords_mac: zero,
+            response_sig,
+        };
+        let err =
+            verify_attestation_response(&alpha.public_key(), &beta.public_key(), &att, &response)
+                .unwrap_err();
+        assert!(matches!(err, AttestationError::VerifyNotFound));
     }
 }
