@@ -2,37 +2,49 @@
 // ----- extra library imports
 use serde::{Deserialize, Serialize};
 // ----- local imports
-use crate::wire::clowder::messages;
+use crate::wire::clowder as wire_clowder;
 
 // ----- end imports
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MintStream {
-    Swap(messages::SwapRequest, messages::SwapResponse),
-    MintOnchain(messages::MintOnchainRequest, messages::MintOnchainResponse),
-    MintEiou(messages::MintEiouRequest, messages::MintEiouResponse),
-    MintEbill(messages::MintEbillRequest, messages::MintEbillResponse),
+    Swap(wire_clowder::SwapRequest, wire_clowder::SwapResponse),
+    MintOnchain(
+        wire_clowder::MintOnchainRequest,
+        wire_clowder::MintOnchainResponse,
+    ),
+    MintEiou(
+        wire_clowder::MintEiouRequest,
+        wire_clowder::MintEiouResponse,
+    ),
+    MintEbill(
+        wire_clowder::MintEbillRequest,
+        wire_clowder::MintEbillResponse,
+    ),
     MintForeignEcash(
-        messages::MintForeignEcashRequest,
-        messages::MintForeignEcashResponse,
+        wire_clowder::MintForeignEcashRequest,
+        wire_clowder::MintForeignEcashResponse,
     ),
     MintForeignOfflineEcash(
-        messages::MintForeignOfflineEcashRequest,
-        messages::MintForeignOfflineEcashResponse,
+        wire_clowder::MintForeignOfflineEcashRequest,
+        wire_clowder::MintForeignOfflineEcashResponse,
     ),
-    MeltOnchain(messages::MeltOnchainRequest),
-    MeltQuoteOnchain(messages::MeltQuoteOnchainRequest),
-    MintQuoteOnchain(messages::MintQuoteOnchainRequest),
-    OfflineExchangeSign(messages::OfflineExchangeSignRequest),
-    SwapCommitment(messages::SwapCommitmentRequest),
+    MeltOnchain(wire_clowder::MeltOnchainRequest),
+    MeltQuoteOnchain(wire_clowder::MeltQuoteOnchainRequest),
+    MintQuoteOnchain(wire_clowder::MintQuoteOnchainRequest),
+    OfflineExchangeSign(wire_clowder::OfflineExchangeSignRequest),
+    SwapCommitment(wire_clowder::SwapCommitmentRequest),
     CreateKeyset(
-        messages::KeysetCreationRequest,
-        messages::KeysetCreationResponse,
+        wire_clowder::KeysetCreationRequest,
+        wire_clowder::KeysetCreationResponse,
     ),
     BillRequestToPay(
-        messages::RequestToPayEbillRequest,
-        messages::RequestToPayEbillResponse,
+        wire_clowder::RequestToPayEbillRequest,
+        wire_clowder::RequestToPayEbillResponse,
     ),
-    Heartbeat(messages::HeartbeatRequest, messages::HeartbeatResponse),
-    DeactivateKeyset(messages::KeysetDeactivationRequest),
+    Heartbeat(
+        wire_clowder::HeartbeatRequest,
+        wire_clowder::HeartbeatResponse,
+    ),
+    DeactivateKeyset(wire_clowder::KeysetDeactivationRequest),
 }
