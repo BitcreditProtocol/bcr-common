@@ -294,3 +294,15 @@ pub struct MintUrlRequest {
 pub struct MintUrlResponse {
     pub mint_url: reqwest::Url,
 }
+
+///--------------------------- Generic Onchain information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnchainFeesEstimateRequest {
+    /// the target amount to send onchain
+    pub target: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnchainFeesEstimateResponse {
+    pub fees: bitcoin::Amount,
+}

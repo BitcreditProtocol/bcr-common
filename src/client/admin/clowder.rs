@@ -49,6 +49,7 @@ pub mod admin_ep {
     pub const LOCAL_VALIDATE_WALLET_LOCK_V1: &str = "/local/validate/wallet_lock";
     pub const LOCAL_VERIFY_EBILL_PAYMENT_V1: &str = "/local/verify_ebill_payment";
     pub const LOCAL_VERIFY_PAYMENT_V1: &str = "/local/verify_payment";
+    pub const LOCAL_ONCHAIN_FEES_ESTIMATE_V1: &str = "/local/onchain_fees_estimate";
 }
 
 pub mod web_ep {
@@ -715,6 +716,16 @@ impl Client {
         )
         .await?;
         Ok(response)
+    }
+
+    pub async fn onchain_fees_estimate(&self, target: bitcoin::Amount) -> Result<bitcoin::Amount> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_ONCHAIN_FEES_ESTIMATE_V1)
+            .expect("local onchain fees estimate relative path");
+        let request = clwdr_msgs::OnchainFeesEstimateRequest { target };
+        let response: clwdr_msgs::OnchainFeesEstimateResponse = self.cl.post(url, &request).await?;
+        Ok(response.fees)
     }
 }
 
