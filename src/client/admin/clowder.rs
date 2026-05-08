@@ -7,10 +7,7 @@ use crate::{
     cashu::{Id, KeysResponse, KeysetResponse, Proof},
     client::admin::jsonrpc,
     core::BillId,
-    wire::{
-        clowder::{self as wire_clowder, messages as clwdr_msgs},
-        exchange as wire_exchange, keys as wire_keys,
-    },
+    wire::{clowder as wire_clowder, exchange as wire_exchange, keys as wire_keys},
 };
 
 // ----- end imports
@@ -134,7 +131,7 @@ impl Client {
     pub async fn get_mint_url(
         &self,
         node_id: &bitcoin::secp256k1::PublicKey,
-    ) -> Result<clwdr_msgs::MintUrlResponse> {
+    ) -> Result<wire_clowder::MintUrlResponse> {
         assert!(admin_ep::FOREIGN_URL_V1.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_URL_V1.replace("{pubkey}", &node_id.to_string());
         let url = self.base.join(&path).expect("foreign url relative path");
@@ -142,7 +139,7 @@ impl Client {
         Ok(response)
     }
 
-    pub async fn post_sign_proofs(&self, proofs: &[Proof]) -> Result<clwdr_msgs::ProofsResponse> {
+    pub async fn post_sign_proofs(&self, proofs: &[Proof]) -> Result<wire_clowder::ProofsResponse> {
         let url = self
             .base
             .join(admin_ep::LOCAL_SIGN_PROOFS_V1)
@@ -151,7 +148,7 @@ impl Client {
             .cl
             .post(
                 url,
-                &clwdr_msgs::ProofsRequest {
+                &wire_clowder::ProofsRequest {
                     proofs: proofs.to_vec(),
                 },
             )
@@ -162,7 +159,7 @@ impl Client {
     pub async fn post_validate_wallet_lock(
         &self,
         proofs: &[Proof],
-    ) -> Result<clwdr_msgs::SuccessResponse> {
+    ) -> Result<wire_clowder::SuccessResponse> {
         let url = self
             .base
             .join(admin_ep::LOCAL_VALIDATE_WALLET_LOCK_V1)
@@ -171,7 +168,7 @@ impl Client {
             .cl
             .post(
                 url,
-                &clwdr_msgs::ProofsRequest {
+                &wire_clowder::ProofsRequest {
                     proofs: proofs.to_vec(),
                 },
             )
@@ -182,7 +179,7 @@ impl Client {
     pub async fn post_validate_alpha_lock(
         &self,
         proofs: &[Proof],
-    ) -> Result<clwdr_msgs::SuccessResponse> {
+    ) -> Result<wire_clowder::SuccessResponse> {
         let url = self
             .base
             .join(admin_ep::LOCAL_VALIDATE_ALPHA_LOCK_V1)
@@ -191,7 +188,7 @@ impl Client {
             .cl
             .post(
                 url,
-                &clwdr_msgs::ProofsRequest {
+                &wire_clowder::ProofsRequest {
                     proofs: proofs.to_vec(),
                 },
             )
@@ -207,7 +204,7 @@ impl Client {
         proof_ys: Vec<cashu::PublicKey>,
     ) -> Result<cashu::CheckStateResponse> {
         assert!(admin_ep::FOREIGN_CHECKSTATE_V1.contains("{pubkey}"));
-        let req = clwdr_msgs::CheckStateRequest {
+        let req = wire_clowder::CheckStateRequest {
             ys: proof_ys,
             ids: keyset_ids,
         };
@@ -274,13 +271,13 @@ impl Client {
     pub async fn post_determine_substitute_address(
         &self,
         mint_url: reqwest::Url,
-    ) -> Result<clwdr_msgs::MintUrlResponse> {
+    ) -> Result<wire_clowder::MintUrlResponse> {
         let url = self
             .base
             .join(admin_ep::LOCAL_SUBSTITUTE_V1)
             .expect("local substitute relative path");
         self.cl
-            .post(url, &clwdr_msgs::MintUrlRequest { mint_url })
+            .post(url, &wire_clowder::MintUrlRequest { mint_url })
             .await
             .map_err(Into::into)
     }
@@ -298,7 +295,7 @@ impl Client {
         &self,
         pubkey: bitcoin::secp256k1::PublicKey,
         proofs: Vec<Proof>,
-    ) -> Result<clwdr_msgs::IntermintValidProofs> {
+    ) -> Result<wire_clowder::IntermintValidProofs> {
         assert!(admin_ep::FOREIGN_VERIFY_PROOFS_V1.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_VERIFY_PROOFS_V1.replace("{pubkey}", &pubkey.to_string());
         let url = self
@@ -306,7 +303,7 @@ impl Client {
             .join(&path)
             .expect("foreign verify proofs relative path");
         self.cl
-            .post(url, &clwdr_msgs::ProofsRequest { proofs })
+            .post(url, &wire_clowder::ProofsRequest { proofs })
             .await
             .map_err(Into::into)
     }
@@ -315,7 +312,7 @@ impl Client {
         &self,
         pubkey: &bitcoin::secp256k1::PublicKey,
         proofs: Vec<wire_keys::ProofFingerprint>,
-    ) -> Result<clwdr_msgs::ValidFingerprints> {
+    ) -> Result<wire_clowder::ValidFingerprints> {
         assert!(admin_ep::FOREIGN_VERIFY_FINGERPRINTS_V1.contains("{pubkey}"));
         let path =
             admin_ep::FOREIGN_VERIFY_FINGERPRINTS_V1.replace("{pubkey}", &pubkey.to_string());
@@ -325,7 +322,7 @@ impl Client {
             .expect("foreign verify fingerprints relative path");
         let response = self
             .cl
-            .post(url, &clwdr_msgs::FingerprintRequest { proofs })
+            .post(url, &wire_clowder::FingerprintRequest { proofs })
             .await?;
         Ok(response)
     }
@@ -334,7 +331,7 @@ impl Client {
     pub async fn get_last_offline(
         &self,
         pubkey: bitcoin::secp256k1::PublicKey,
-    ) -> Result<clwdr_msgs::LastOfflineResponse> {
+    ) -> Result<wire_clowder::LastOfflineResponse> {
         assert!(admin_ep::FOREIGN_LAST_OFFLINE_V1.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_LAST_OFFLINE_V1.replace("{pubkey}", &pubkey.to_string());
         let url = self
@@ -349,13 +346,13 @@ impl Client {
     pub async fn post_proofs_origin(
         &self,
         proofs: Vec<Proof>,
-    ) -> Result<clwdr_msgs::IntermintOriginResponse> {
+    ) -> Result<wire_clowder::IntermintOriginResponse> {
         let url = self
             .base
             .join(admin_ep::FOREIGN_PROOFS_ORIGIN_V1)
             .expect(" XXX relative path");
         self.cl
-            .post(url, &clwdr_msgs::ProofsRequest { proofs })
+            .post(url, &wire_clowder::ProofsRequest { proofs })
             .await
             .map_err(Into::into)
     }
@@ -363,13 +360,13 @@ impl Client {
     pub async fn post_fingerprints_origin(
         &self,
         proofs: Vec<wire_keys::ProofFingerprint>,
-    ) -> Result<clwdr_msgs::IntermintOriginResponse> {
+    ) -> Result<wire_clowder::IntermintOriginResponse> {
         let url = self
             .base
             .join(admin_ep::FOREIGN_FINGERPRINTS_ORIGIN_V1)
             .expect("foreign fingerprints origin relative path");
         self.cl
-            .post(url, &clwdr_msgs::FingerprintRequest { proofs })
+            .post(url, &wire_clowder::FingerprintRequest { proofs })
             .await
             .map_err(Into::into)
     }
@@ -485,7 +482,7 @@ impl Client {
         &self,
         pubkey: bitcoin::secp256k1::PublicKey,
         keyset_id: &Id,
-    ) -> Result<clwdr_msgs::AmountResponse> {
+    ) -> Result<wire_clowder::AmountResponse> {
         assert!(admin_ep::FOREIGN_KEYSET_MINTS_V1.contains("{pubkey}"));
         assert!(admin_ep::FOREIGN_KEYSET_MINTS_V1.contains("{keyset_id}"));
         let path = admin_ep::FOREIGN_KEYSET_MINTS_V1
@@ -504,7 +501,7 @@ impl Client {
         &self,
         pubkey: bitcoin::secp256k1::PublicKey,
         keyset_id: &Id,
-    ) -> Result<clwdr_msgs::AmountResponse> {
+    ) -> Result<wire_clowder::AmountResponse> {
         assert!(admin_ep::FOREIGN_KEYSET_BURNS_V1.contains("{pubkey}"));
         assert!(admin_ep::FOREIGN_KEYSET_BURNS_V1.contains("{keyset_id}"));
         let path = admin_ep::FOREIGN_KEYSET_BURNS_V1
@@ -723,8 +720,9 @@ impl Client {
             .base
             .join(admin_ep::LOCAL_ONCHAIN_FEES_ESTIMATE_V1)
             .expect("local onchain fees estimate relative path");
-        let request = clwdr_msgs::OnchainFeesEstimateRequest { target };
-        let response: clwdr_msgs::OnchainFeesEstimateResponse = self.cl.post(url, &request).await?;
+        let request = wire_clowder::OnchainFeesEstimateRequest { target };
+        let response: wire_clowder::OnchainFeesEstimateResponse =
+            self.cl.post(url, &request).await?;
         Ok(response.fees)
     }
 }
