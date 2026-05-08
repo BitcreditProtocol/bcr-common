@@ -7,7 +7,7 @@ use bytes::Bytes;
 use super::Url;
 use super::error::Result;
 use super::model::MintStream;
-use crate::wire::clowder::messages;
+use crate::wire::clowder as wire_clowder;
 // ----- end imports
 
 #[derive(Clone)]
@@ -48,8 +48,8 @@ impl ClowderNatsClient {
 
     pub async fn swap_commitment(
         &self,
-        req: messages::SwapCommitmentRequest,
-    ) -> Result<messages::SwapCommitmentResponse> {
+        req: wire_clowder::SwapCommitmentRequest,
+    ) -> Result<wire_clowder::SwapCommitmentResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::SwapCommitment(req), &mut payload)?;
 
@@ -58,15 +58,15 @@ impl ClowderNatsClient {
             .request(Self::SWAP_COMMITMENT_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::SwapCommitmentResponse =
+        let result: wire_clowder::SwapCommitmentResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn melt_quote_onchain(
         &self,
-        req: messages::MeltQuoteOnchainRequest,
-    ) -> Result<messages::MeltQuoteOnchainResponse> {
+        req: wire_clowder::MeltQuoteOnchainRequest,
+    ) -> Result<wire_clowder::MeltQuoteOnchainResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::MeltQuoteOnchain(req), &mut payload)?;
 
@@ -75,15 +75,15 @@ impl ClowderNatsClient {
             .request(Self::MELT_QUOTE_ONCHAIN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::MeltQuoteOnchainResponse =
+        let result: wire_clowder::MeltQuoteOnchainResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn mint_quote_onchain(
         &self,
-        req: messages::MintQuoteOnchainRequest,
-    ) -> Result<messages::MintQuoteOnchainResponse> {
+        req: wire_clowder::MintQuoteOnchainRequest,
+    ) -> Result<wire_clowder::MintQuoteOnchainResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::MintQuoteOnchain(req), &mut payload)?;
 
@@ -92,15 +92,15 @@ impl ClowderNatsClient {
             .request(Self::MINT_QUOTE_ONCHAIN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::MintQuoteOnchainResponse =
+        let result: wire_clowder::MintQuoteOnchainResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn sign_offline_exchange(
         &self,
-        req: messages::OfflineExchangeSignRequest,
-    ) -> Result<messages::OfflineExchangeSignResponse> {
+        req: wire_clowder::OfflineExchangeSignRequest,
+    ) -> Result<wire_clowder::OfflineExchangeSignResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::OfflineExchangeSign(req), &mut payload)?;
 
@@ -109,16 +109,16 @@ impl ClowderNatsClient {
             .request(Self::OFFLINE_EXCHANGE_SIGN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::OfflineExchangeSignResponse =
+        let result: wire_clowder::OfflineExchangeSignResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn mint_swap(
         &self,
-        req: messages::SwapRequest,
-        resp: messages::SwapResponse,
-    ) -> Result<messages::SwapResponse> {
+        req: wire_clowder::SwapRequest,
+        resp: wire_clowder::SwapResponse,
+    ) -> Result<wire_clowder::SwapResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::Swap(req, resp), &mut payload)?;
 
@@ -127,15 +127,15 @@ impl ClowderNatsClient {
             .request(Self::SWAP_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::SwapResponse = ciborium::from_reader(response.payload.as_ref())?;
+        let result: wire_clowder::SwapResponse = ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn mint_onchain(
         &self,
-        req: messages::MintOnchainRequest,
-        resp: messages::MintOnchainResponse,
-    ) -> Result<messages::MintOnchainResponse> {
+        req: wire_clowder::MintOnchainRequest,
+        resp: wire_clowder::MintOnchainResponse,
+    ) -> Result<wire_clowder::MintOnchainResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::MintOnchain(req, resp), &mut payload)?;
 
@@ -144,16 +144,16 @@ impl ClowderNatsClient {
             .request(Self::ONCHAIN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::MintOnchainResponse =
+        let result: wire_clowder::MintOnchainResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn mint_bill(
         &self,
-        req: messages::MintEbillRequest,
-        resp: messages::MintEbillResponse,
-    ) -> Result<messages::MintEbillResponse> {
+        req: wire_clowder::MintEbillRequest,
+        resp: wire_clowder::MintEbillResponse,
+    ) -> Result<wire_clowder::MintEbillResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::MintEbill(req, resp), &mut payload)?;
 
@@ -162,15 +162,16 @@ impl ClowderNatsClient {
             .request(Self::EBILL_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::MintEbillResponse = ciborium::from_reader(response.payload.as_ref())?;
+        let result: wire_clowder::MintEbillResponse =
+            ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn request_to_pay_bill(
         &self,
-        req: messages::RequestToPayEbillRequest,
-        resp: messages::RequestToPayEbillResponse,
-    ) -> Result<messages::RequestToPayEbillResponse> {
+        req: wire_clowder::RequestToPayEbillRequest,
+        resp: wire_clowder::RequestToPayEbillResponse,
+    ) -> Result<wire_clowder::RequestToPayEbillResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::BillRequestToPay(req, resp), &mut payload)?;
 
@@ -179,16 +180,16 @@ impl ClowderNatsClient {
             .request(Self::BILLREQUESTTOPAY_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::RequestToPayEbillResponse =
+        let result: wire_clowder::RequestToPayEbillResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn mint_foreign_ecash(
         &self,
-        req: messages::MintForeignEcashRequest,
-        resp: messages::MintForeignEcashResponse,
-    ) -> Result<messages::MintForeignEcashResponse> {
+        req: wire_clowder::MintForeignEcashRequest,
+        resp: wire_clowder::MintForeignEcashResponse,
+    ) -> Result<wire_clowder::MintForeignEcashResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::MintForeignEcash(req, resp), &mut payload)?;
 
@@ -197,16 +198,16 @@ impl ClowderNatsClient {
             .request(Self::FOREIGN_ECASH_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::MintForeignEcashResponse =
+        let result: wire_clowder::MintForeignEcashResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn mint_offline_foreign_ecash(
         &self,
-        req: messages::MintForeignOfflineEcashRequest,
-        resp: messages::MintForeignOfflineEcashResponse,
-    ) -> Result<messages::MintForeignOfflineEcashResponse> {
+        req: wire_clowder::MintForeignOfflineEcashRequest,
+        resp: wire_clowder::MintForeignOfflineEcashResponse,
+    ) -> Result<wire_clowder::MintForeignOfflineEcashResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(
             &MintStream::MintForeignOfflineEcash(req, resp),
@@ -218,16 +219,16 @@ impl ClowderNatsClient {
             .request(Self::FOREIGN_OFFLINE_ECASH_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::MintForeignOfflineEcashResponse =
+        let result: wire_clowder::MintForeignOfflineEcashResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn mint_eiou(
         &self,
-        req: messages::MintEiouRequest,
-        resp: messages::MintEiouResponse,
-    ) -> Result<messages::MintEiouResponse> {
+        req: wire_clowder::MintEiouRequest,
+        resp: wire_clowder::MintEiouResponse,
+    ) -> Result<wire_clowder::MintEiouResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::MintEiou(req, resp), &mut payload)?;
 
@@ -236,15 +237,16 @@ impl ClowderNatsClient {
             .request(Self::EIOU_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::MintEiouResponse = ciborium::from_reader(response.payload.as_ref())?;
+        let result: wire_clowder::MintEiouResponse =
+            ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn new_keyset(
         &self,
-        req: messages::KeysetCreationRequest,
-        resp: messages::KeysetCreationResponse,
-    ) -> Result<messages::KeysetCreationResponse> {
+        req: wire_clowder::KeysetCreationRequest,
+        resp: wire_clowder::KeysetCreationResponse,
+    ) -> Result<wire_clowder::KeysetCreationResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::CreateKeyset(req, resp), &mut payload)?;
 
@@ -253,15 +255,15 @@ impl ClowderNatsClient {
             .request(Self::KEYSET_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::KeysetCreationResponse =
+        let result: wire_clowder::KeysetCreationResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn melt_onchain(
         &self,
-        req: messages::MeltOnchainRequest,
-    ) -> Result<messages::MeltOnchainResponse> {
+        req: wire_clowder::MeltOnchainRequest,
+    ) -> Result<wire_clowder::MeltOnchainResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::MeltOnchain(req), &mut payload)?;
 
@@ -270,15 +272,15 @@ impl ClowderNatsClient {
             .request(Self::MELT_ONCHAIN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::MeltOnchainResponse =
+        let result: wire_clowder::MeltOnchainResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn deactivate_keyset(
         &self,
-        req: messages::KeysetDeactivationRequest,
-    ) -> Result<messages::KeysetDeactivationResponse> {
+        req: wire_clowder::KeysetDeactivationRequest,
+    ) -> Result<wire_clowder::KeysetDeactivationResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::DeactivateKeyset(req), &mut payload)?;
 
@@ -287,16 +289,16 @@ impl ClowderNatsClient {
             .request(Self::DEACTIVATE_KEYSET_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::KeysetDeactivationResponse =
+        let result: wire_clowder::KeysetDeactivationResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 
     pub async fn heartbeat(
         &self,
-        req: messages::HeartbeatRequest,
-        resp: messages::HeartbeatResponse,
-    ) -> Result<messages::HeartbeatResponse> {
+        req: wire_clowder::HeartbeatRequest,
+        resp: wire_clowder::HeartbeatResponse,
+    ) -> Result<wire_clowder::HeartbeatResponse> {
         let mut payload = Vec::new();
         ciborium::into_writer(&MintStream::Heartbeat(req, resp), &mut payload)?;
 
@@ -305,7 +307,8 @@ impl ClowderNatsClient {
             .request(Self::HEARTBEAT_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: messages::HeartbeatResponse = ciborium::from_reader(response.payload.as_ref())?;
+        let result: wire_clowder::HeartbeatResponse =
+            ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
 }
