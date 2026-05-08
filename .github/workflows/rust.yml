@@ -51,17 +51,14 @@ jobs:
         run: cargo install cargo-deny clippy-sarif sarif-fmt
 
       - name: Check
-        run: cargo check --verbose
+        run: cargo check --verbose --all-features
 
       - name: Check formatting
         run: cargo fmt -- --check
 
       - name: Clippy
         run:
-          cargo clippy
-          --verbose
-          --all-features
-          --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+          cargo clippy --verbose --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
 
       - name: Cargo deny
