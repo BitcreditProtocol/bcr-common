@@ -18,6 +18,8 @@ pub mod admin_ep {
     pub const NEW_EBILL_MINTOP_V1: &str = "/v1/admin/ebill/mintop";
     pub const REQUEST_TO_PAY_EBILL_V1: &str = "/v1/admin/request_to_pay_ebill";
     pub const TRY_HTLC_SWAP_V1: &str = "/v1/admin/try_htlc_swap";
+    pub const FEES_STORE_PROOFS_V1: &str = "/v1/admin/fees/store_proofs";
+    pub const FEES_TOKEN_V1: &str = "/v1/admin/fees/token";
 }
 
 pub mod web_ep {
@@ -187,6 +189,25 @@ impl Client {
         )
         .await?;
         Ok(result.proofs)
+    }
+
+    pub async fn fees_store_proofs(&self, proofs: Vec<cashu::Proof>) -> Result<()> {
+        let url = self
+            .base
+            .join(admin_ep::FEES_STORE_PROOFS_V1)
+            .expect("fees store proofs relative path");
+        let msg = wire_treasury::StoreProofsRequest { proofs };
+        let _: wire_treasury::StoreProofsResponse = self.cl.post(url, &msg).await?;
+        Ok(())
+    }
+
+    pub async fn fees_token(&self) -> Result<wire_treasury::FeesTokenResponse> {
+        let url = self
+            .base
+            .join(admin_ep::FEES_TOKEN_V1)
+            .expect("fees token relative path");
+        let response: wire_treasury::FeesTokenResponse = self.cl.get(url, &[]).await?;
+        Ok(response)
     }
 }
 
