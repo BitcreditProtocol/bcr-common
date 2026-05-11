@@ -43,3 +43,18 @@ pub struct RequestToPayFromEBillRequest {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RequestToPayFromEBillResponse {}
+
+/// --------------------------- collecting fees
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct StoreProofsRequest {
+    pub proofs: Vec<cashu::Proof>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct StoreProofsResponse {}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct FeesTokenResponse {
+    pub token: String,
+    pub total: cashu::Amount,
+}
