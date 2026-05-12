@@ -363,6 +363,7 @@ pub struct MeltOnchainRequest {
     pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
     pub amount: bitcoin::Amount,
     pub inputs: Vec<cashu::Proof>,
+    pub fees: Vec<cashu::BlindSignature>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
@@ -444,6 +445,7 @@ pub struct SwapRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapResponse {
     pub signatures: Vec<cashu::BlindSignature>,
+    pub fees: Vec<cashu::BlindSignature>,
 }
 
 ///--------------------------- Heartbeat
