@@ -4,14 +4,9 @@ use bitcoin::{bip32 as btc32, secp256k1 as secp};
 use cashu::nut02 as cdk02;
 use rand::RngCore;
 // ----- local imports
-use crate::core::{BillId, NodeId};
+use crate::core::{BillId, NodeId, generate_random_keypair};
 
 // ----- end imports
-
-pub fn generate_random_keypair() -> secp::Keypair {
-    let mut rng = rand::thread_rng();
-    secp::Keypair::new(secp::global::SECP256K1, &mut rng)
-}
 
 pub fn random_bill_id() -> BillId {
     let keypair = generate_random_keypair();
