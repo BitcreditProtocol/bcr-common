@@ -1,7 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
 use bitcoin::secp256k1;
-use chrono::{DateTime, Utc};
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
@@ -147,6 +146,7 @@ impl Client {
     // Core service – swap / burn / restore / check-state endpoints
     // -------------------------------------------------------------------------
 
+    /// return (serialized wire_swap::SwapCommitmentRequest, signature)
     pub async fn commit_swap(
         &self,
         inputs: Vec<wire_keys::ProofFingerprint>,
@@ -154,7 +154,7 @@ impl Client {
         expiry: u64,
         wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
-    ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
+    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
         let result = core::common::commit_swap(
             &self.cl,
             &self.base,
@@ -369,13 +369,14 @@ impl Client {
     }
 
     /// target: the amount you expect to receive in recipient
+    /// return: serialized (wire_melt::MeltQuoteOnchainResponseBody, signature)
     pub async fn onchain_melt_quote(
         &self,
         inputs: Vec<wire_keys::ProofFingerprint>,
         recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
         wallet_key: cashu::PublicKey,
         mint_pk: secp256k1::PublicKey,
-    ) -> Result<(Uuid, bitcoin::Amount, DateTime<Utc>)> {
+    ) -> Result<(String, secp256k1::schnorr::Signature)> {
         let url = self
             .base
             .join(treasury::web_ep::MELTQUOTE_ONCHAIN_V1_EXT)
@@ -385,18 +386,12 @@ impl Client {
             address: recipient,
             wallet_key,
         };
-        let response: wire_melt::MeltQuoteOnchainResponse = self.cl.post(url, &msg).await?;
-        signature::schnorr_verify_b64(
-            &response.content,
-            &response.commitment,
-            &mint_pk.x_only_public_key().0,
-        )?;
-        let body: wire_melt::MeltQuoteOnchainResponseBody =
-            signature::deserialize_borsh_msg(&response.content)?;
-        let expiration = DateTime::from_timestamp(body.expiry as i64, 0).ok_or(Error::Internal(
-            format!("chrono::from_timestamp failed for {}", body.expiry),
-        ))?;
-        Ok((body.quote, body.amount, expiration))
+        let wire_melt::MeltQuoteOnchainResponse {
+            content,
+            commitment,
+        } = self.cl.post(url, &msg).await?;
+        signature::schnorr_verify_b64(&content, &commitment, &mint_pk.x_only_public_key().0)?;
+        Ok((content, commitment))
     }
 
     pub async fn onchain_mint_quote(

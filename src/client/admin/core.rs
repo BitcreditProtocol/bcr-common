@@ -232,7 +232,7 @@ impl Client {
         expiry: u64,
         wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
-    ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
+    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
         let result = common::commit_swap(
             &self.cl,
             &self.base,
@@ -267,6 +267,8 @@ impl Client {
 }
 
 pub(crate) mod common {
+    use crate::core::signature::deserialize_borsh_msg;
+
     use super::*;
 
     #[inline]
@@ -367,26 +369,62 @@ pub(crate) mod common {
         expiry: u64,
         wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
-    ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
+    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
         let url = base.join(ep).expect("swap commit relative path");
+        let mut input_ys: Vec<cashu::PublicKey> = inputs.iter().map(|f| f.y).collect();
+        let mut output_bs: Vec<cashu::PublicKey> =
+            outputs.iter().map(|o| o.blinded_secret).collect();
         let request = wire_swap::SwapCommitmentRequest {
             inputs,
             outputs,
             expiry,
             wallet_key: wallet_pk,
         };
-        let response: wire_swap::SwapCommitmentResponse = cl.post(url, &request).await?;
+        let wire_swap::SwapCommitmentResponse {
+            content,
+            commitment,
+        } = cl.post(url, &request).await?;
         crate::core::signature::schnorr_verify_b64(
-            &response.content,
-            &response.commitment,
+            &content,
+            &commitment,
             &mint_pk.x_only_public_key().0,
         )?;
-        let expected_content = crate::core::signature::serialize_borsh_msg_b64(&request)?;
-        if expected_content != response.content {
+        let wire_swap::SwapCommitmentRequest {
+            inputs: received_inputs,
+            outputs: received_outputs,
+            expiry: received_expiry,
+            wallet_key: received_wallet_pk,
+        } = deserialize_borsh_msg(&content)?;
+        if received_expiry != expiry {
             return Err(Error::InvalidRequest(String::from(
-                "content mismatch in commitment response",
+                "commitment expiry does not match request",
             )));
         }
-        Ok(response.commitment)
+        if received_wallet_pk != wallet_pk {
+            return Err(Error::InvalidRequest(String::from(
+                "commitment wallet key does not match request",
+            )));
+        }
+        let mut received_ys: Vec<cashu::PublicKey> =
+            received_inputs.into_iter().map(|f| f.y).collect();
+        received_ys.sort();
+        input_ys.sort();
+        if received_ys != input_ys {
+            return Err(Error::InvalidRequest(String::from(
+                "commitment inputs do not match request",
+            )));
+        }
+        let mut received_bs: Vec<cashu::PublicKey> = received_outputs
+            .into_iter()
+            .map(|o| o.blinded_secret)
+            .collect();
+        received_bs.sort();
+        output_bs.sort();
+        if received_bs != output_bs {
+            return Err(Error::InvalidRequest(String::from(
+                "commitment outputs do not match request",
+            )));
+        }
+        Ok((content, commitment))
     }
 }
