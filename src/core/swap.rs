@@ -188,6 +188,100 @@ pub mod wallet {
         }
         Ok(plan)
     }
+
+    /// we prioritize expired credits first to reduce the circulating supply of such keysets
+    /// second we select among debit keysets
+    /// last we fill the missing amount with credits proofs
+    /// if the target amount cannot be reached, the function returns the closest amount possible
+    /// either slightly below or above the target, depending on the available proofs
+    /// No swap plan is returned
+    pub fn prepare_melt<'a>(
+        proofs: &'a [Proof],
+        kinfos: &HashMap<Id, KeySetInfo>,
+        target: Amount,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<&'a cashu::Proof>> {
+        if target == Amount::ZERO {
+            return Ok(vec![]);
+        }
+        if proofs.is_empty() {
+            return Err(Error::InsufficientBalance(Amount::ZERO, target));
+        }
+        assert!(proofs.is_sorted_by_key(|p| p.amount));
+        let mut pure_debits: Vec<&Proof> = Vec::with_capacity(proofs.len());
+        let mut expire_credits: Vec<&Proof> = Vec::with_capacity(proofs.len());
+        let mut credits: Vec<&Proof> = Vec::with_capacity(proofs.len());
+        let now = now.timestamp() as u64;
+        for p in proofs {
+            let kinfo = kinfos
+                .get(&p.keyset_id)
+                .ok_or(Error::UnknownKeyset(p.keyset_id))?;
+            match kinfo.final_expiry {
+                None => pure_debits.push(p),
+                Some(expiry) if expiry < now => expire_credits.push(p),
+                Some(_) => credits.push(p),
+            }
+        }
+        let mut selection_amount = Amount::ZERO;
+        let mut selection: Vec<&Proof> = Vec::with_capacity(proofs.len());
+        let mut closest: Option<&Proof> = None;
+        for p in expire_credits.iter().rev() {
+            let new_amount = selection_amount + p.amount;
+            if new_amount == target {
+                selection.push(p);
+                return Ok(selection);
+            } else if new_amount < target {
+                selection_amount = new_amount;
+                selection.push(p);
+            } else if let Some(closest_p) = closest {
+                if (new_amount - target) < (selection_amount + closest_p.amount - target) {
+                    closest = Some(p);
+                }
+            } else {
+                closest = Some(p);
+            }
+        }
+        for p in pure_debits.iter().rev() {
+            let new_amount = selection_amount + p.amount;
+            if new_amount == target {
+                selection.push(p);
+                return Ok(selection);
+            } else if new_amount < target {
+                selection_amount = new_amount;
+                selection.push(p);
+            } else if let Some(closest_p) = closest {
+                if (new_amount - target) < (selection_amount + closest_p.amount - target) {
+                    closest = Some(p);
+                }
+            } else {
+                closest = Some(p);
+            }
+        }
+        for p in credits.iter().rev() {
+            let new_amount = selection_amount + p.amount;
+            if new_amount == target {
+                selection.push(p);
+                return Ok(selection);
+            } else if new_amount < target {
+                selection_amount = new_amount;
+                selection.push(p);
+            } else if let Some(closest_p) = closest {
+                if (new_amount - target) < (selection_amount + closest_p.amount - target) {
+                    closest = Some(p);
+                }
+            } else {
+                closest = Some(p);
+            }
+        }
+        // which one is closer?
+        let Some(closest) = closest else {
+            return Ok(selection);
+        };
+        if (target - selection_amount) > (selection_amount + closest.amount - target) {
+            selection.push(closest);
+        }
+        Ok(selection)
+    }
 }
 
 #[cfg(any(feature = "mint", test))]
@@ -406,7 +500,7 @@ pub mod mint {
 mod test {
     use super::{
         mint::{VerificationError, verify_swap},
-        wallet::{PaymentPlan, prepare_payment, required_fees},
+        wallet::{PaymentPlan, prepare_melt, prepare_payment, required_fees},
     };
     use crate::core_tests;
     use cashu::Amount;
@@ -544,6 +638,98 @@ mod test {
         assert_eq!(proof.amount, Amount::from(8));
         assert_eq!(target, cashu::amount::SplitTarget::Value(Amount::from(1)));
         assert_eq!(estimated_fee, Amount::ZERO);
+    }
+
+    #[test]
+    fn prepare_melt_all_expired() {
+        let (mut kinfo_expired, keyset_expired) = core_tests::generate_random_ecash_keyset();
+        let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
+        let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
+        let now = chrono::Utc::now();
+        kinfo_expired.final_expiry =
+            Some((now - chrono::Duration::seconds(3600)).timestamp() as u64);
+        kinfo_credit.final_expiry =
+            Some((now + chrono::Duration::seconds(3600)).timestamp() as u64);
+        let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
+        let proofs_expired = core_tests::generate_random_ecash_proofs(&keyset_expired, &amounts);
+        let proofs_debit = core_tests::generate_random_ecash_proofs(&keyset_debit, &amounts);
+        let proofs_credit = core_tests::generate_random_ecash_proofs(&keyset_credit, &amounts);
+        let kinfos = HashMap::from([
+            (keyset_expired.id, cashu::KeySetInfo::from(kinfo_expired)),
+            (keyset_debit.id, cashu::KeySetInfo::from(kinfo_debit)),
+            (keyset_credit.id, cashu::KeySetInfo::from(kinfo_credit)),
+        ]);
+        let mut proofs =
+            Vec::with_capacity(proofs_expired.len() + proofs_debit.len() + proofs_credit.len());
+        proofs.extend(proofs_expired.into_iter());
+        proofs.extend(proofs_debit.into_iter());
+        proofs.extend(proofs_credit.into_iter());
+        proofs.sort_by_key(|p| p.amount);
+        let result = prepare_melt(&proofs, &kinfos, Amount::from(5), now).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].keyset_id, keyset_expired.id);
+        assert_eq!(result[1].keyset_id, keyset_expired.id);
+    }
+
+    #[test]
+    fn prepare_melt_expired_debit() {
+        let (mut kinfo_expired, keyset_expired) = core_tests::generate_random_ecash_keyset();
+        let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
+        let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
+        let now = chrono::Utc::now();
+        kinfo_expired.final_expiry =
+            Some((now - chrono::Duration::seconds(3600)).timestamp() as u64);
+        kinfo_credit.final_expiry =
+            Some((now + chrono::Duration::seconds(3600)).timestamp() as u64);
+        let amounts = vec![Amount::from(2), Amount::from(4), Amount::from(8)];
+        let proofs_expired = core_tests::generate_random_ecash_proofs(&keyset_expired, &amounts);
+        let proofs_credit = core_tests::generate_random_ecash_proofs(&keyset_credit, &amounts);
+        let amounts = [Amount::from(1), Amount::from(2), Amount::from(4)];
+        let proofs_debit = core_tests::generate_random_ecash_proofs(&keyset_debit, &amounts);
+        let kinfos = HashMap::from([
+            (keyset_expired.id, cashu::KeySetInfo::from(kinfo_expired)),
+            (keyset_debit.id, cashu::KeySetInfo::from(kinfo_debit)),
+            (keyset_credit.id, cashu::KeySetInfo::from(kinfo_credit)),
+        ]);
+        let mut proofs =
+            Vec::with_capacity(proofs_expired.len() + proofs_debit.len() + proofs_credit.len());
+        proofs.extend(proofs_expired.into_iter());
+        proofs.extend(proofs_debit.into_iter());
+        proofs.extend(proofs_credit.into_iter());
+        proofs.sort_by_key(|p| p.amount);
+        let result = prepare_melt(&proofs, &kinfos, Amount::from(5), now).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].keyset_id, keyset_expired.id);
+        assert_eq!(result[1].keyset_id, keyset_debit.id);
+    }
+
+    #[test]
+    fn prepare_melt_not_enough_balance() {
+        let (mut kinfo_expired, keyset_expired) = core_tests::generate_random_ecash_keyset();
+        let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
+        let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
+        let now = chrono::Utc::now();
+        kinfo_expired.final_expiry =
+            Some((now - chrono::Duration::seconds(3600)).timestamp() as u64);
+        kinfo_credit.final_expiry =
+            Some((now + chrono::Duration::seconds(3600)).timestamp() as u64);
+        let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
+        let proofs_expired = core_tests::generate_random_ecash_proofs(&keyset_expired, &amounts);
+        let proofs_credit = core_tests::generate_random_ecash_proofs(&keyset_credit, &amounts);
+        let proofs_debit = core_tests::generate_random_ecash_proofs(&keyset_debit, &amounts);
+        let kinfos = HashMap::from([
+            (keyset_expired.id, cashu::KeySetInfo::from(kinfo_expired)),
+            (keyset_debit.id, cashu::KeySetInfo::from(kinfo_debit)),
+            (keyset_credit.id, cashu::KeySetInfo::from(kinfo_credit)),
+        ]);
+        let mut proofs =
+            Vec::with_capacity(proofs_expired.len() + proofs_debit.len() + proofs_credit.len());
+        proofs.extend(proofs_expired.into_iter());
+        proofs.extend(proofs_debit.into_iter());
+        proofs.extend(proofs_credit.into_iter());
+        proofs.sort_by_key(|p| p.amount);
+        let result = prepare_melt(&proofs, &kinfos, Amount::from(30), now).unwrap();
+        assert_eq!(result.len(), 9);
     }
 
     #[test]
