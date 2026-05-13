@@ -1,5 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
+use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 // ----- local modules
 mod billid;
@@ -39,4 +40,9 @@ fn network_char(network: &bitcoin::Network) -> char {
         bitcoin::Network::Signet => unreachable!(),
         bitcoin::Network::Regtest => NETWORK_REGTEST,
     }
+}
+
+pub fn generate_random_keypair() -> secp::Keypair {
+    let mut rng = rand::thread_rng();
+    secp::Keypair::new(secp::global::SECP256K1, &mut rng)
 }

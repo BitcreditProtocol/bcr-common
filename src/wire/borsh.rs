@@ -436,7 +436,7 @@ pub fn deserialize_unchecked_address(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core_tests;
+    use crate::{core, core_tests};
 
     #[test]
     fn serialize_deserialize_chrono_naivedate() {
@@ -481,7 +481,7 @@ mod tests {
     #[test]
     fn serialize_deserialize_vec_of_strs_cdk_pubkeys() {
         let pks: Vec<_> = std::iter::repeat_with(|| {
-            cashu::PublicKey::from(core_tests::generate_random_keypair().public_key())
+            cashu::PublicKey::from(core::generate_random_keypair().public_key())
         })
         .take(5)
         .collect();

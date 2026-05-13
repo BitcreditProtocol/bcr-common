@@ -3,7 +3,7 @@
 use bitcoin::secp256k1 as secp;
 // ----- local modules
 use crate::{
-    core::test_utils::{generate_random_keypair, node_id_from_pub_key},
+    core::{generate_random_keypair, test_utils::node_id_from_pub_key},
     wire::{bill::BillIdentParticipant, contact::ContactType, identity::PostalAddress},
 };
 
