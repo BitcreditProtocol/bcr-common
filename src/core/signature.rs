@@ -1,5 +1,5 @@
 // ----- standard library imports
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 // ----- extra library imports
 use bitcoin::{
     base64::prelude::*,
@@ -204,6 +204,24 @@ pub fn proofs_to_map(
         map.entry(proof.keyset_id).or_default().push(proof);
     }
     map
+}
+
+pub trait ToFingerPrint {
+    type Error;
+    fn to_fp(&self) -> std::result::Result<secp::PublicKey, Self::Error>;
+}
+impl ToFingerPrint for cashu::Proof {
+    type Error = cashu::nut00::Error;
+    fn to_fp(&self) -> std::result::Result<secp::PublicKey, Self::Error> {
+        let y = self.y()?;
+        Ok(*y)
+    }
+}
+impl ToFingerPrint for ProofFingerprint {
+    type Error = Infallible;
+    fn to_fp(&self) -> std::result::Result<secp::PublicKey, Self::Error> {
+        Ok(self.y)
+    }
 }
 
 #[cfg(test)]
