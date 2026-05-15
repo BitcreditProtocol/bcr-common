@@ -8,9 +8,8 @@ use crate::{
     client::admin::jsonrpc,
     core::BillId,
     wire::{
-        attestation as wire_attestation,
-        clowder as wire_clowder,
-        exchange as wire_exchange, keys as wire_keys,
+        attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
+        keys as wire_keys,
     },
 };
 
