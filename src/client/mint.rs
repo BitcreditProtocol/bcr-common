@@ -18,8 +18,8 @@ use crate::{
         signature::{self, BorshMsgSignatureError},
     },
     wire::{
-        clowder as wire_clowder, exchange as wire_exchange, keys as wire_keys, melt as wire_melt,
-        mint as wire_mint, quotes as wire_quotes,
+        attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
+        keys as wire_keys, melt as wire_melt, mint as wire_mint, quotes as wire_quotes,
     },
 };
 
@@ -174,6 +174,7 @@ impl Client {
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let result = core::common::swap(
             &self.cl,
@@ -182,6 +183,7 @@ impl Client {
             inputs,
             outputs,
             commitment,
+            attestation,
         )
         .await?;
         Ok(result)
@@ -421,12 +423,17 @@ impl Client {
         &self,
         qid: Uuid,
         inputs: Vec<cashu::Proof>,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<wire_melt::MeltTx> {
         let url = self
             .base
             .join(treasury::web_ep::MELT_ONCHAIN_V1_EXT)
             .expect("onchain melt relative path");
-        let msg = wire_melt::MeltOnchainRequest { quote: qid, inputs };
+        let msg = wire_melt::MeltOnchainRequest {
+            quote: qid,
+            inputs,
+            attestation,
+        };
         let response: wire_melt::MeltOnchainResponse = self.cl.post(url, &msg).await?;
         Ok(response.txid)
     }
@@ -554,6 +561,20 @@ impl Client {
             &self.cl,
             &self.base,
             clowder::web_ep::ONLINE_EXCHANGE_V1_EXT,
+            request,
+        )
+        .await?;
+        Ok(response)
+    }
+
+    pub async fn post_attest_issuance(
+        &self,
+        request: &wire_attestation::IssuanceAttestationRequest,
+    ) -> Result<wire_attestation::IssuanceAttestation> {
+        let response = clowder::common::post_attest_issuance(
+            &self.cl,
+            &self.base,
+            clowder::web_ep::ATTEST_ISSUANCE_V1_EXT,
             request,
         )
         .await?;
