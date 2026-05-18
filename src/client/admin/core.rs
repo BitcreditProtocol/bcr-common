@@ -364,6 +364,7 @@ pub(crate) mod common {
     }
 
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     pub async fn commit_swap(
         cl: &jsonrpc::Client,
         base: &reqwest::Url,
