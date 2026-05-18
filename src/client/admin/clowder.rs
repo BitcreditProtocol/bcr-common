@@ -37,6 +37,7 @@ pub mod admin_ep {
     pub const FOREIGN_URL_V1: &str = "/foreign/url/{pubkey}";
     pub const FOREIGN_VERIFY_FINGERPRINTS_V1: &str = "/foreign/verify_fingerprints/{pubkey}";
     pub const FOREIGN_VERIFY_PROOFS_V1: &str = "/foreign/verify_proofs/{pubkey}";
+    pub const ATTEST_VERIFY_V1: &str = "/attest/verify";
     pub const LOCAL_ALPHAS_V1: &str = "/local/alphas";
     pub const LOCAL_CIRCULATING_SUPPLY_V1: &str = "/local/circulating_supply";
     pub const LOCAL_COLLATERAL_V1: &str = "/local/collateral";
@@ -78,9 +79,7 @@ pub mod web_ep {
     pub const ONLINE_EXCHANGE_V1: &str = "/v1/exchange/online";
     pub const ONLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/online";
     pub const ATTEST_ISSUANCE_V1: &str = "/v1/attest/issuance";
-    pub const ATTEST_ISSUANCE_V1_EXT: &str = "/v1/attest/issuance";
-    pub const ATTEST_VERIFY_V1: &str = "/v1/attest/verify";
-    pub const ATTEST_VERIFY_V1_EXT: &str = "/v1/attest/verify";
+    pub const ATTEST_ISSUANCE_V1_EXT: &str = "/v1/clowder/attest/issuance";
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -737,12 +736,8 @@ impl Client {
         &self,
         request: &wire_attestation::IssuanceAttestationRequest,
     ) -> Result<wire_attestation::IssuanceAttestation> {
-        let url = self
-            .base
-            .join(web_ep::ATTEST_ISSUANCE_V1)
-            .expect("attest issuance relative path");
-        let response = self.cl.post(url, request).await?;
-        Ok(response)
+        common::post_attest_issuance(&self.cl, &self.base, web_ep::ATTEST_ISSUANCE_V1, request)
+            .await
     }
 
     pub async fn post_attest_verify(
@@ -751,7 +746,7 @@ impl Client {
     ) -> Result<wire_attestation::AttestationVerifyResponse> {
         let url = self
             .base
-            .join(web_ep::ATTEST_VERIFY_V1)
+            .join(admin_ep::ATTEST_VERIFY_V1)
             .expect("attest verify relative path");
         let response = self.cl.post(url, request).await?;
         Ok(response)
@@ -888,6 +883,17 @@ pub(crate) mod common {
         let response = cl
             .post(url, &wire_clowder::PathRequest { origin_mint_url })
             .await?;
+        Ok(response)
+    }
+
+    pub async fn post_attest_issuance(
+        cl: &jsonrpc::Client,
+        base: &reqwest::Url,
+        ep: &'static str,
+        request: &wire_attestation::IssuanceAttestationRequest,
+    ) -> Result<wire_attestation::IssuanceAttestation> {
+        let url = base.join(ep).expect("attest issuance relative path");
+        let response = cl.post(url, request).await?;
         Ok(response)
     }
 }

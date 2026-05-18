@@ -19,8 +19,8 @@ use crate::{
         signature::{self, BorshMsgSignatureError},
     },
     wire::{
-        clowder as wire_clowder, exchange as wire_exchange, keys as wire_keys, melt as wire_melt,
-        mint as wire_mint, quotes as wire_quotes,
+        attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
+        keys as wire_keys, melt as wire_melt, mint as wire_mint, quotes as wire_quotes,
     },
 };
 
@@ -566,6 +566,20 @@ impl Client {
             &self.cl,
             &self.base,
             clowder::web_ep::ONLINE_EXCHANGE_V1_EXT,
+            request,
+        )
+        .await?;
+        Ok(response)
+    }
+
+    pub async fn post_attest_issuance(
+        &self,
+        request: &wire_attestation::IssuanceAttestationRequest,
+    ) -> Result<wire_attestation::IssuanceAttestation> {
+        let response = clowder::common::post_attest_issuance(
+            &self.cl,
+            &self.base,
+            clowder::web_ep::ATTEST_ISSUANCE_V1_EXT,
             request,
         )
         .await?;
