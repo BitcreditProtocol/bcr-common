@@ -232,7 +232,7 @@ pub enum InfoReply {
         keyset_id: cashu::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
-        fee: String, // serialized crate::wallet::Token
+        fee: cashu::Amount,
     },
 }
 
