@@ -58,3 +58,17 @@ pub struct FeesTokenResponse {
     pub token: String,
     pub total: cashu::Amount,
 }
+
+///--------------------------- denied melt operations
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct DeniedMeltOp {
+    pub id: uuid::Uuid,
+    #[schema(value_type = u64)]
+    pub amount: bitcoin::Amount,
+    pub created: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct DeniedMeltOperations {
+    pub ops: Vec<DeniedMeltOp>,
+}

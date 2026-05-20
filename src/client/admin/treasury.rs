@@ -2,6 +2,7 @@
 // ----- extra library imports
 use bitcoin::{Amount, secp256k1};
 use thiserror::Error;
+use uuid::Uuid;
 // ----- local imports
 use crate::{
     cashu,
@@ -20,6 +21,8 @@ pub mod admin_ep {
     pub const TRY_HTLC_SWAP_V1: &str = "/v1/admin/try_htlc_swap";
     pub const FEES_STORE_PROOFS_V1: &str = "/v1/admin/fees/store_proofs";
     pub const FEES_TOKEN_V1: &str = "/v1/admin/fees/token";
+    pub const DENIED_MELTOPS_V1: &str = "/v1/admin/onchain/melt/denied";
+    pub const DENIED_MELTOP_V1: &str = "/v1/admin/onchain/melt/denied/{qid}";
 }
 
 pub mod web_ep {
@@ -208,6 +211,26 @@ impl Client {
             .expect("fees token relative path");
         let response: wire_treasury::FeesTokenResponse = self.cl.get(url, &[]).await?;
         Ok(response)
+    }
+
+    pub async fn list_denied(&self) -> Result<Vec<wire_treasury::DeniedMeltOp>> {
+        let url = self
+            .base
+            .join(admin_ep::DENIED_MELTOPS_V1)
+            .expect("denied melt operations relative path");
+        let response: wire_treasury::DeniedMeltOperations = self.cl.get(url, &[]).await?;
+        Ok(response.ops)
+    }
+
+    pub async fn delete_denied(&self, id: Uuid) -> Result<()> {
+        assert!(admin_ep::DENIED_MELTOP_V1.contains("{qid}"));
+        let ep = admin_ep::DENIED_MELTOP_V1.replace("{qid}", &id.to_string());
+        let url = self
+            .base
+            .join(&ep)
+            .expect("denied melt operations relative path");
+        self.cl.delete(url, &[]).await?;
+        Ok(())
     }
 }
 
