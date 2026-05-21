@@ -14,15 +14,15 @@ use crate::{
 // ----- end imports
 
 pub mod admin_ep {
-    pub const EBILL_MINTOP_STATUS_V1: &str = "/v1/admin/ebill/mintop/{qid}";
-    pub const LIST_EBILL_MINTOPS_V1: &str = "/v1/admin/ebill/mintops/{kid}";
-    pub const NEW_EBILL_MINTOP_V1: &str = "/v1/admin/ebill/mintop";
-    pub const REQUEST_TO_PAY_EBILL_V1: &str = "/v1/admin/request_to_pay_ebill";
-    pub const TRY_HTLC_SWAP_V1: &str = "/v1/admin/try_htlc_swap";
-    pub const FEES_STORE_PROOFS_V1: &str = "/v1/admin/fees/store_proofs";
-    pub const FEES_TOKEN_V1: &str = "/v1/admin/fees/token";
-    pub const DENIED_MELTOPS_V1: &str = "/v1/admin/onchain/melt/denied";
-    pub const DENIED_MELTOP_V1: &str = "/v1/admin/onchain/melt/denied/{qid}";
+    pub const EBILL_MINTOP_STATUS: &str = "/admin/ebill/mintop/{qid}";
+    pub const LIST_EBILL_MINTOPS: &str = "/admin/ebill/mintops/{kid}";
+    pub const NEW_EBILL_MINTOP: &str = "/admin/ebill/mintop";
+    pub const REQUEST_TO_PAY_EBILL: &str = "/admin/request_to_pay_ebill";
+    pub const TRY_HTLC_SWAP: &str = "/admin/try_htlc_swap";
+    pub const FEES_STORE_PROOFS: &str = "/admin/fees/store_proofs";
+    pub const FEES_TOKEN: &str = "/admin/fees/token";
+    pub const DENIED_MELTOPS: &str = "/admin/onchain/melt/denied";
+    pub const DENIED_MELTOP: &str = "/admin/onchain/melt/denied/{qid}";
 }
 
 pub mod web_ep {
@@ -97,7 +97,7 @@ impl Client {
         };
         let url = self
             .base
-            .join(admin_ep::REQUEST_TO_PAY_EBILL_V1)
+            .join(admin_ep::REQUEST_TO_PAY_EBILL)
             .expect("request_to_pay_ebill relative path");
         let response: wire_treasury::RequestToPayFromEBillResponse =
             self.cl.post(url, &request).await?;
@@ -107,7 +107,7 @@ impl Client {
     pub async fn try_htlc(&self, preimage: String) -> Result<cashu::Amount> {
         let url = self
             .base
-            .join(admin_ep::TRY_HTLC_SWAP_V1)
+            .join(admin_ep::TRY_HTLC_SWAP)
             .expect("try_htlc relative path");
         let msg = wire_exchange::HtlcSwapAttemptRequest { preimage };
         let response = self.cl.post(url, &msg).await?;
@@ -124,7 +124,7 @@ impl Client {
     ) -> Result<()> {
         let url = self
             .base
-            .join(admin_ep::NEW_EBILL_MINTOP_V1)
+            .join(admin_ep::NEW_EBILL_MINTOP)
             .expect("ebill mint operation relative path");
         let msg = wire_treasury::NewMintOperationRequest {
             quote_id: qid,
@@ -141,20 +141,20 @@ impl Client {
         &self,
         qid: uuid::Uuid,
     ) -> Result<wire_treasury::MintOperationStatus> {
-        assert!(admin_ep::EBILL_MINTOP_STATUS_V1.contains("{qid}"));
+        assert!(admin_ep::EBILL_MINTOP_STATUS.contains("{qid}"));
         let url = self
             .base
-            .join(&admin_ep::EBILL_MINTOP_STATUS_V1.replace("{qid}", &qid.to_string()))
+            .join(&admin_ep::EBILL_MINTOP_STATUS.replace("{qid}", &qid.to_string()))
             .expect("ebill mint operation status relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
     }
 
     pub async fn list_ebill_mint_operations(&self, kid: cashu::Id) -> Result<Vec<uuid::Uuid>> {
-        assert!(admin_ep::LIST_EBILL_MINTOPS_V1.contains("{kid}"));
+        assert!(admin_ep::LIST_EBILL_MINTOPS.contains("{kid}"));
         let url = self
             .base
-            .join(&admin_ep::LIST_EBILL_MINTOPS_V1.replace("{kid}", &kid.to_string()))
+            .join(&admin_ep::LIST_EBILL_MINTOPS.replace("{kid}", &kid.to_string()))
             .expect("list ebill mint operations relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
@@ -197,7 +197,7 @@ impl Client {
     pub async fn fees_store_proofs(&self, proofs: Vec<cashu::Proof>) -> Result<()> {
         let url = self
             .base
-            .join(admin_ep::FEES_STORE_PROOFS_V1)
+            .join(admin_ep::FEES_STORE_PROOFS)
             .expect("fees store proofs relative path");
         let msg = wire_treasury::StoreProofsRequest { proofs };
         let _: wire_treasury::StoreProofsResponse = self.cl.post(url, &msg).await?;
@@ -207,7 +207,7 @@ impl Client {
     pub async fn fees_token(&self) -> Result<wire_treasury::FeesTokenResponse> {
         let url = self
             .base
-            .join(admin_ep::FEES_TOKEN_V1)
+            .join(admin_ep::FEES_TOKEN)
             .expect("fees token relative path");
         let response: wire_treasury::FeesTokenResponse = self.cl.get(url, &[]).await?;
         Ok(response)
@@ -216,15 +216,15 @@ impl Client {
     pub async fn list_denied(&self) -> Result<Vec<wire_treasury::DeniedMeltOp>> {
         let url = self
             .base
-            .join(admin_ep::DENIED_MELTOPS_V1)
+            .join(admin_ep::DENIED_MELTOPS)
             .expect("denied melt operations relative path");
         let response: wire_treasury::DeniedMeltOperations = self.cl.get(url, &[]).await?;
         Ok(response.ops)
     }
 
     pub async fn delete_denied(&self, id: Uuid) -> Result<()> {
-        assert!(admin_ep::DENIED_MELTOP_V1.contains("{qid}"));
-        let ep = admin_ep::DENIED_MELTOP_V1.replace("{qid}", &id.to_string());
+        assert!(admin_ep::DENIED_MELTOP.contains("{qid}"));
+        let ep = admin_ep::DENIED_MELTOP.replace("{qid}", &id.to_string());
         let url = self
             .base
             .join(&ep)

@@ -10,13 +10,13 @@ use crate::{
 // ----- end imports
 
 pub mod admin_ep {
-    pub const NEW_KEYSET_V1: &str = "/v1/admin/keys";
-    pub const SIGN_V1: &str = "/v1/admin/keys/sign";
-    pub const VERIFY_PROOF_V1: &str = "/v1/admin/keys/verify/proof";
-    pub const VERIFY_FINGERPRINT_V1: &str = "/v1/admin/keys/verify/fingerprint";
-    pub const DEACTIVATE_KEYSET_V1: &str = "/v1/admin/keys/deactivate";
-    pub const RECOVER_V1: &str = "/v1/admin/swap/recover";
-    pub const BURN_V1: &str = "/v1/admin/burn";
+    pub const NEW_KEYSET: &str = "/admin/keys";
+    pub const SIGN: &str = "/admin/keys/sign";
+    pub const VERIFY_PROOF: &str = "/admin/keys/verify/proof";
+    pub const VERIFY_FINGERPRINT: &str = "/admin/keys/verify/fingerprint";
+    pub const DEACTIVATE_KEYSET: &str = "/admin/keys/deactivate";
+    pub const RECOVER: &str = "/admin/swap/recover";
+    pub const BURN: &str = "/admin/burn";
 }
 
 pub mod web_ep {
@@ -91,7 +91,7 @@ impl Client {
     ) -> Result<cdk_common::mint::MintKeySetInfo> {
         let url = self
             .base
-            .join(admin_ep::NEW_KEYSET_V1)
+            .join(admin_ep::NEW_KEYSET)
             .expect("new keys relative path");
         let request = wire_keys::NewKeysetRequest {
             unit: crate::client::CURRENCY_UNIT,
@@ -144,10 +144,7 @@ impl Client {
                 "multiple kids in blinds",
             )));
         }
-        let url = self
-            .base
-            .join(admin_ep::SIGN_V1)
-            .expect("sign relative path");
+        let url = self.base.join(admin_ep::SIGN).expect("sign relative path");
         let sigs = self.cl.post(url, msgs).await?;
         Ok(sigs)
     }
@@ -155,7 +152,7 @@ impl Client {
     pub async fn verify_proof(&self, proof: &cashu::Proof) -> Result<()> {
         let url = self
             .base
-            .join(admin_ep::VERIFY_PROOF_V1)
+            .join(admin_ep::VERIFY_PROOF)
             .expect("verify relative path");
         self.cl.post_no_response(url, proof).await?;
         Ok(())
@@ -164,7 +161,7 @@ impl Client {
     pub async fn verify_fingerprint(&self, fp: &wire_keys::ProofFingerprint) -> Result<()> {
         let url = self
             .base
-            .join(admin_ep::VERIFY_FINGERPRINT_V1)
+            .join(admin_ep::VERIFY_FINGERPRINT)
             .expect("verify relative path");
         self.cl.post_no_response(url, fp).await?;
         Ok(())
@@ -173,7 +170,7 @@ impl Client {
     pub async fn deactivate_keyset(&self, kid: cashu::Id) -> Result<cashu::Id> {
         let url = self
             .base
-            .join(admin_ep::DEACTIVATE_KEYSET_V1)
+            .join(admin_ep::DEACTIVATE_KEYSET)
             .expect("deactivate relative path");
         let msg = wire_keys::DeactivateKeysetRequest { kid };
         let response: wire_keys::DeactivateKeysetResponse = self.cl.post(url, &msg).await?;
@@ -181,10 +178,7 @@ impl Client {
     }
 
     pub async fn burn(&self, proofs: Vec<cashu::Proof>) -> Result<Vec<cashu::PublicKey>> {
-        let url = self
-            .base
-            .join(admin_ep::BURN_V1)
-            .expect("burn relative path");
+        let url = self.base.join(admin_ep::BURN).expect("burn relative path");
         let request = wire_swap::BurnRequest { proofs };
         let burn_resp: wire_swap::BurnResponse = self.cl.post(url, &request).await?;
         Ok(burn_resp.ys)
@@ -193,7 +187,7 @@ impl Client {
     pub async fn recover(&self, proofs: Vec<cashu::Proof>) -> Result<wire_swap::RecoverResponse> {
         let url = self
             .base
-            .join(admin_ep::RECOVER_V1)
+            .join(admin_ep::RECOVER)
             .expect("recover relative path");
         let msg = wire_swap::RecoverRequest { proofs };
         let response = self.cl.post(url, &msg).await?;
