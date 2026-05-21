@@ -8,9 +8,9 @@ use crate::{client::admin::jsonrpc, wire::quotes as wire_quotes};
 // ----- end imports
 
 pub mod admin_ep {
-    pub const LIST_V1: &str = "/v1/admin/quote";
-    pub const LOOKUP_V1: &str = "/v1/admin/quote/{qid}";
-    pub const UPDATE_V1: &str = "/v1/admin/quote/{qid}";
+    pub const LIST: &str = "/admin/quote";
+    pub const LOOKUP: &str = "/admin/quote/{qid}";
+    pub const UPDATE: &str = "/admin/quote/{qid}";
 }
 
 pub mod web_ep {
@@ -65,10 +65,7 @@ impl Client {
         &self,
         params: wire_quotes::ListParam,
     ) -> Result<wire_quotes::ListReplyLight> {
-        let url = self
-            .base
-            .join(admin_ep::LIST_V1)
-            .expect("list relative path");
+        let url = self.base.join(admin_ep::LIST).expect("list relative path");
         let mut queries: Vec<(&'static str, String)> = vec![];
         let wire_quotes::ListParam {
             bill_maturity_date_from,
@@ -113,10 +110,10 @@ impl Client {
     }
 
     pub async fn deny(&self, qid: Uuid) -> Result<wire_quotes::UpdateQuoteResponse> {
-        assert!(admin_ep::UPDATE_V1.contains("{qid}"));
+        assert!(admin_ep::UPDATE.contains("{qid}"));
         let url = self
             .base
-            .join(&admin_ep::UPDATE_V1.replace("{qid}", &qid.to_string()))
+            .join(&admin_ep::UPDATE.replace("{qid}", &qid.to_string()))
             .expect("deny quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Deny;
         let response = self.cl.patch(url, &body).await?;
@@ -129,10 +126,10 @@ impl Client {
         discounted: bitcoin::Amount,
         ttl: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<wire_quotes::UpdateQuoteResponse> {
-        assert!(admin_ep::UPDATE_V1.contains("{qid}"));
+        assert!(admin_ep::UPDATE.contains("{qid}"));
         let url = self
             .base
-            .join(&admin_ep::UPDATE_V1.replace("{qid}", &qid.to_string()))
+            .join(&admin_ep::UPDATE.replace("{qid}", &qid.to_string()))
             .expect("offer quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Offer { discounted, ttl };
         let response = self.cl.patch(url, &body).await?;
@@ -140,10 +137,10 @@ impl Client {
     }
 
     pub async fn lookup(&self, qid: Uuid) -> Result<wire_quotes::InfoReply> {
-        assert!(admin_ep::LOOKUP_V1.contains("{qid}"));
+        assert!(admin_ep::LOOKUP.contains("{qid}"));
         let url = self
             .base
-            .join(&admin_ep::LOOKUP_V1.replace("{qid}", &qid.to_string()))
+            .join(&admin_ep::LOOKUP.replace("{qid}", &qid.to_string()))
             .expect("admin lookup relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)

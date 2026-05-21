@@ -16,41 +16,41 @@ use crate::{
 // ----- end imports
 
 pub mod admin_ep {
-    pub const FOREIGN_CHECKSTATE_V1: &str = "/foreign/checkstate/{pubkey}";
-    pub const FOREIGN_CIRCULATING_SUPPLY_V1: &str = "/foreign/circulating_supply/{pubkey}";
-    pub const FOREIGN_COLLATERAL_EBILL_V1: &str = "/foreign/collateral_ebill/{pubkey}";
-    pub const FOREIGN_COLLATERAL_EIOU_V1: &str = "/foreign/collateral_eiou/{pubkey}";
-    pub const FOREIGN_COLLATERAL_ONCHAIN_V1: &str = "/foreign/collateral_onchain/{pubkey}";
-    pub const FOREIGN_FINGERPRINTS_ORIGIN_V1: &str = "/foreign/fingerprints_origin";
-    pub const FOREIGN_KEYSET_BURNS_V1: &str = "/foreign/keyset_burns/{pubkey}/{keyset_id}";
-    pub const FOREIGN_KEYSET_MINTS_V1: &str = "/foreign/keyset_mints/{pubkey}/{keyset_id}";
-    pub const FOREIGN_KEYSET_V1: &str = "/foreign/{pubkey}/keyset/{keyset_id}";
-    pub const FOREIGN_KEYS_V1: &str = "/foreign/{pubkey}/keys/{keyset_id}";
-    pub const FOREIGN_LAST_OFFLINE_V1: &str = "/foreign/last_offline/{pubkey}";
-    pub const FOREIGN_MINT_ONCHAIN_SIGNATURES_V1: &str =
-        "/foreign/mint_signatures/{pubkey}/{quote_id}";
-    pub const FOREIGN_MINT_ONCHAIN_V1: &str = "/foreign/mint/onchain";
-    pub const FOREIGN_PROOFS_ORIGIN_V1: &str = "/foreign/proofs_origin";
-    pub const FOREIGN_PROTEST_MELT_V1: &str = "/foreign/protest_melt";
-    pub const FOREIGN_PROTEST_MINT_V1: &str = "/foreign/protest_mint";
-    pub const FOREIGN_PROTEST_SWAP_V1: &str = "/foreign/protest_swap";
-    pub const FOREIGN_URL_V1: &str = "/foreign/url/{pubkey}";
-    pub const FOREIGN_VERIFY_FINGERPRINTS_V1: &str = "/foreign/verify_fingerprints/{pubkey}";
-    pub const FOREIGN_VERIFY_PROOFS_V1: &str = "/foreign/verify_proofs/{pubkey}";
-    pub const ATTEST_VERIFY_V1: &str = "/attest/verify";
-    pub const LOCAL_ALPHAS_V1: &str = "/local/alphas";
-    pub const LOCAL_CIRCULATING_SUPPLY_V1: &str = "/local/circulating_supply";
-    pub const LOCAL_COLLATERAL_V1: &str = "/local/collateral";
-    pub const LOCAL_COMMITMENT_SUBSTITUTE_V1: &str = "/local/commitment/substitute";
-    pub const LOCAL_PERCEIVED_STATE_V1: &str = "/local/perceived_state";
-    pub const LOCAL_REQUEST_ADDRESS_V1: &str = "/local/request_address";
-    pub const LOCAL_SIGN_PROOFS_V1: &str = "/local/sign_proofs";
-    pub const LOCAL_SUBSTITUTE_V1: &str = "/local/substitute";
-    pub const LOCAL_VALIDATE_ALPHA_LOCK_V1: &str = "/local/validate/alpha_lock";
-    pub const LOCAL_VALIDATE_WALLET_LOCK_V1: &str = "/local/validate/wallet_lock";
-    pub const LOCAL_VERIFY_EBILL_PAYMENT_V1: &str = "/local/verify_ebill_payment";
-    pub const LOCAL_VERIFY_PAYMENT_V1: &str = "/local/verify_payment";
-    pub const LOCAL_ONCHAIN_FEES_ESTIMATE_V1: &str = "/local/onchain_fees_estimate";
+    pub const FOREIGN_CHECKSTATE: &str = "/admin/foreign/checkstate/{pubkey}";
+    pub const FOREIGN_CIRCULATING_SUPPLY: &str = "/admin/foreign/circulating_supply/{pubkey}";
+    pub const FOREIGN_COLLATERAL_EBILL: &str = "/admin/foreign/collateral_ebill/{pubkey}";
+    pub const FOREIGN_COLLATERAL_EIOU: &str = "/admin/foreign/collateral_eiou/{pubkey}";
+    pub const FOREIGN_COLLATERAL_ONCHAIN: &str = "/admin/foreign/collateral_onchain/{pubkey}";
+    pub const FOREIGN_FINGERPRINTS_ORIGIN: &str = "/admin/foreign/fingerprints_origin";
+    pub const FOREIGN_KEYSET_BURNS: &str = "/admin/foreign/keyset_burns/{pubkey}/{keyset_id}";
+    pub const FOREIGN_KEYSET_MINTS: &str = "/admin/foreign/keyset_mints/{pubkey}/{keyset_id}";
+    pub const FOREIGN_KEYSET: &str = "/admin/foreign/{pubkey}/keyset/{keyset_id}";
+    pub const FOREIGN_KEYS: &str = "/admin/foreign/{pubkey}/keys/{keyset_id}";
+    pub const FOREIGN_LAST_OFFLINE: &str = "/admin/foreign/last_offline/{pubkey}";
+    pub const FOREIGN_MINT_ONCHAIN_SIGNATURES: &str =
+        "/admin/foreign/mint_signatures/{pubkey}/{quote_id}";
+    pub const FOREIGN_MINT_ONCHAIN: &str = "/admin/foreign/mint/onchain";
+    pub const FOREIGN_PROOFS_ORIGIN: &str = "/admin/foreign/proofs_origin";
+    pub const FOREIGN_PROTEST_MELT: &str = "/admin/foreign/protest_melt";
+    pub const FOREIGN_PROTEST_MINT: &str = "/admin/foreign/protest_mint";
+    pub const FOREIGN_PROTEST_SWAP: &str = "/admin/foreign/protest_swap";
+    pub const FOREIGN_URL: &str = "/admin/foreign/url/{pubkey}";
+    pub const FOREIGN_VERIFY_FINGERPRINTS: &str = "/admin/foreign/verify_fingerprints/{pubkey}";
+    pub const FOREIGN_VERIFY_PROOFS: &str = "/admin/foreign/verify_proofs/{pubkey}";
+    pub const ATTEST_VERIFY: &str = "/admin/attest/verify";
+    pub const LOCAL_ALPHAS: &str = "/admin/local/alphas";
+    pub const LOCAL_CIRCULATING_SUPPLY: &str = "/admin/local/circulating_supply";
+    pub const LOCAL_COLLATERAL: &str = "/admin/local/collateral";
+    pub const LOCAL_COMMITMENT_SUBSTITUTE: &str = "/admin/local/commitment/substitute";
+    pub const LOCAL_PERCEIVED_STATE: &str = "/admin/local/perceived_state";
+    pub const LOCAL_REQUEST_ADDRESS: &str = "/admin/local/request_address";
+    pub const LOCAL_SIGN_PROOFS: &str = "/admin/local/sign_proofs";
+    pub const LOCAL_SUBSTITUTE: &str = "/admin/local/substitute";
+    pub const LOCAL_VALIDATE_ALPHA_LOCK: &str = "/admin/local/validate/alpha_lock";
+    pub const LOCAL_VALIDATE_WALLET_LOCK: &str = "/admin/local/validate/wallet_lock";
+    pub const LOCAL_VERIFY_EBILL_PAYMENT: &str = "/admin/local/verify_ebill_payment";
+    pub const LOCAL_VERIFY_PAYMENT: &str = "/admin/local/verify_payment";
+    pub const LOCAL_ONCHAIN_FEES_ESTIMATE: &str = "/admin/local/onchain_fees_estimate";
 }
 
 pub mod web_ep {
@@ -128,7 +128,7 @@ impl Client {
     pub async fn get_alphas(&self) -> Result<wire_clowder::ConnectedMintsResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_ALPHAS_V1)
+            .join(admin_ep::LOCAL_ALPHAS)
             .expect("local alphas relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
@@ -138,8 +138,8 @@ impl Client {
         &self,
         node_id: &bitcoin::secp256k1::PublicKey,
     ) -> Result<wire_clowder::MintUrlResponse> {
-        assert!(admin_ep::FOREIGN_URL_V1.contains("{pubkey}"));
-        let path = admin_ep::FOREIGN_URL_V1.replace("{pubkey}", &node_id.to_string());
+        assert!(admin_ep::FOREIGN_URL.contains("{pubkey}"));
+        let path = admin_ep::FOREIGN_URL.replace("{pubkey}", &node_id.to_string());
         let url = self.base.join(&path).expect("foreign url relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
@@ -148,7 +148,7 @@ impl Client {
     pub async fn post_sign_proofs(&self, proofs: &[Proof]) -> Result<wire_clowder::ProofsResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_SIGN_PROOFS_V1)
+            .join(admin_ep::LOCAL_SIGN_PROOFS)
             .expect("local sign proofs relative path");
         let response = self
             .cl
@@ -168,7 +168,7 @@ impl Client {
     ) -> Result<wire_clowder::SuccessResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_VALIDATE_WALLET_LOCK_V1)
+            .join(admin_ep::LOCAL_VALIDATE_WALLET_LOCK)
             .expect("local validate wallet lock relative path");
         let response = self
             .cl
@@ -188,7 +188,7 @@ impl Client {
     ) -> Result<wire_clowder::SuccessResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_VALIDATE_ALPHA_LOCK_V1)
+            .join(admin_ep::LOCAL_VALIDATE_ALPHA_LOCK)
             .expect("local validate alpha lock relative path");
         let response = self
             .cl
@@ -209,12 +209,12 @@ impl Client {
         keyset_ids: Vec<Id>,
         proof_ys: Vec<cashu::PublicKey>,
     ) -> Result<cashu::CheckStateResponse> {
-        assert!(admin_ep::FOREIGN_CHECKSTATE_V1.contains("{pubkey}"));
+        assert!(admin_ep::FOREIGN_CHECKSTATE.contains("{pubkey}"));
         let req = wire_clowder::CheckStateRequest {
             ys: proof_ys,
             ids: keyset_ids,
         };
-        let path = admin_ep::FOREIGN_CHECKSTATE_V1.replace("{pubkey}", &pubkey.to_string());
+        let path = admin_ep::FOREIGN_CHECKSTATE.replace("{pubkey}", &pubkey.to_string());
         let url = self
             .base
             .join(&path)
@@ -228,9 +228,9 @@ impl Client {
         alpha_id: &bitcoin::secp256k1::PublicKey,
         keyset_id: &Id,
     ) -> Result<KeysResponse> {
-        assert!(admin_ep::FOREIGN_KEYS_V1.contains("{pubkey}"));
-        assert!(admin_ep::FOREIGN_KEYS_V1.contains("{keyset_id}"));
-        let path = admin_ep::FOREIGN_KEYS_V1
+        assert!(admin_ep::FOREIGN_KEYS.contains("{pubkey}"));
+        assert!(admin_ep::FOREIGN_KEYS.contains("{keyset_id}"));
+        let path = admin_ep::FOREIGN_KEYS
             .replace("{pubkey}", &alpha_id.to_string())
             .replace("{keyset_id}", &keyset_id.to_string());
         let url = self.base.join(&path).expect("foreign keys relative path");
@@ -251,7 +251,7 @@ impl Client {
         };
         let url = self
             .base
-            .join(admin_ep::LOCAL_COMMITMENT_SUBSTITUTE_V1)
+            .join(admin_ep::LOCAL_COMMITMENT_SUBSTITUTE)
             .expect("local commitment substitute relative path");
         let response: wire_clowder::SubstituteExchangeResponse =
             self.cl.post(url, &payload).await?;
@@ -263,9 +263,9 @@ impl Client {
         alpha_id: &bitcoin::secp256k1::PublicKey,
         keyset_id: &Id,
     ) -> Result<KeysetResponse> {
-        assert!(admin_ep::FOREIGN_KEYSET_V1.contains("{pubkey}"));
-        assert!(admin_ep::FOREIGN_KEYSET_V1.contains("{keyset_id}"));
-        let path = admin_ep::FOREIGN_KEYSET_V1
+        assert!(admin_ep::FOREIGN_KEYSET.contains("{pubkey}"));
+        assert!(admin_ep::FOREIGN_KEYSET.contains("{keyset_id}"));
+        let path = admin_ep::FOREIGN_KEYSET
             .replace("{pubkey}", &alpha_id.to_string())
             .replace("{keyset_id}", &keyset_id.to_string());
         let url = self.base.join(&path).expect("foreign keyset relative path");
@@ -280,7 +280,7 @@ impl Client {
     ) -> Result<wire_clowder::MintUrlResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_SUBSTITUTE_V1)
+            .join(admin_ep::LOCAL_SUBSTITUTE)
             .expect("local substitute relative path");
         self.cl
             .post(url, &wire_clowder::MintUrlRequest { mint_url })
@@ -291,7 +291,7 @@ impl Client {
     pub async fn get_mint_perceived_state(&self) -> Result<wire_clowder::PerceivedState> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_PERCEIVED_STATE_V1)
+            .join(admin_ep::LOCAL_PERCEIVED_STATE)
             .expect("local perceived state relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
@@ -302,8 +302,8 @@ impl Client {
         pubkey: bitcoin::secp256k1::PublicKey,
         proofs: Vec<Proof>,
     ) -> Result<wire_clowder::IntermintValidProofs> {
-        assert!(admin_ep::FOREIGN_VERIFY_PROOFS_V1.contains("{pubkey}"));
-        let path = admin_ep::FOREIGN_VERIFY_PROOFS_V1.replace("{pubkey}", &pubkey.to_string());
+        assert!(admin_ep::FOREIGN_VERIFY_PROOFS.contains("{pubkey}"));
+        let path = admin_ep::FOREIGN_VERIFY_PROOFS.replace("{pubkey}", &pubkey.to_string());
         let url = self
             .base
             .join(&path)
@@ -319,9 +319,8 @@ impl Client {
         pubkey: &bitcoin::secp256k1::PublicKey,
         proofs: Vec<wire_keys::ProofFingerprint>,
     ) -> Result<wire_clowder::ValidFingerprints> {
-        assert!(admin_ep::FOREIGN_VERIFY_FINGERPRINTS_V1.contains("{pubkey}"));
-        let path =
-            admin_ep::FOREIGN_VERIFY_FINGERPRINTS_V1.replace("{pubkey}", &pubkey.to_string());
+        assert!(admin_ep::FOREIGN_VERIFY_FINGERPRINTS.contains("{pubkey}"));
+        let path = admin_ep::FOREIGN_VERIFY_FINGERPRINTS.replace("{pubkey}", &pubkey.to_string());
         let url = self
             .base
             .join(&path)
@@ -338,8 +337,8 @@ impl Client {
         &self,
         pubkey: bitcoin::secp256k1::PublicKey,
     ) -> Result<wire_clowder::LastOfflineResponse> {
-        assert!(admin_ep::FOREIGN_LAST_OFFLINE_V1.contains("{pubkey}"));
-        let path = admin_ep::FOREIGN_LAST_OFFLINE_V1.replace("{pubkey}", &pubkey.to_string());
+        assert!(admin_ep::FOREIGN_LAST_OFFLINE.contains("{pubkey}"));
+        let path = admin_ep::FOREIGN_LAST_OFFLINE.replace("{pubkey}", &pubkey.to_string());
         let url = self
             .base
             .join(&path)
@@ -355,7 +354,7 @@ impl Client {
     ) -> Result<wire_clowder::IntermintOriginResponse> {
         let url = self
             .base
-            .join(admin_ep::FOREIGN_PROOFS_ORIGIN_V1)
+            .join(admin_ep::FOREIGN_PROOFS_ORIGIN)
             .expect(" XXX relative path");
         self.cl
             .post(url, &wire_clowder::ProofsRequest { proofs })
@@ -369,7 +368,7 @@ impl Client {
     ) -> Result<wire_clowder::IntermintOriginResponse> {
         let url = self
             .base
-            .join(admin_ep::FOREIGN_FINGERPRINTS_ORIGIN_V1)
+            .join(admin_ep::FOREIGN_FINGERPRINTS_ORIGIN)
             .expect("foreign fingerprints origin relative path");
         self.cl
             .post(url, &wire_clowder::FingerprintRequest { proofs })
@@ -384,7 +383,7 @@ impl Client {
     ) -> Result<wire_clowder::OnchainAddressResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_REQUEST_ADDRESS_V1)
+            .join(admin_ep::LOCAL_REQUEST_ADDRESS)
             .expect("local request address relative path");
         let req = wire_clowder::OnchainAddressRequest {
             keyset_id,
@@ -402,7 +401,7 @@ impl Client {
     ) -> Result<wire_clowder::VerifyMintPaymentResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_VERIFY_PAYMENT_V1)
+            .join(admin_ep::LOCAL_VERIFY_PAYMENT)
             .expect("local verify payment relative path");
         let req = wire_clowder::VerifyMintPaymentRequest {
             quote_id,
@@ -420,7 +419,7 @@ impl Client {
     ) -> Result<wire_clowder::VerifyMintPaymentResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_VERIFY_EBILL_PAYMENT_V1)
+            .join(admin_ep::LOCAL_VERIFY_EBILL_PAYMENT)
             .expect("local verify ebill payment relative path");
         let req = wire_clowder::VerifyEbillMintPaymentRequest { bill_id };
         let response = self.cl.post(url, &req).await?;
@@ -431,8 +430,8 @@ impl Client {
         &self,
         pubkey: &bitcoin::secp256k1::PublicKey,
     ) -> Result<wire_clowder::BitcoinAmountResponse> {
-        assert!(admin_ep::FOREIGN_COLLATERAL_ONCHAIN_V1.contains("{pubkey}"));
-        let path = admin_ep::FOREIGN_COLLATERAL_ONCHAIN_V1.replace("{pubkey}", &pubkey.to_string());
+        assert!(admin_ep::FOREIGN_COLLATERAL_ONCHAIN.contains("{pubkey}"));
+        let path = admin_ep::FOREIGN_COLLATERAL_ONCHAIN.replace("{pubkey}", &pubkey.to_string());
         let url = self
             .base
             .join(&path)
@@ -445,8 +444,8 @@ impl Client {
         &self,
         pubkey: bitcoin::secp256k1::PublicKey,
     ) -> Result<wire_clowder::EbillAmountResponse> {
-        assert!(admin_ep::FOREIGN_COLLATERAL_EBILL_V1.contains("{pubkey}"));
-        let path = admin_ep::FOREIGN_COLLATERAL_EBILL_V1.replace("{pubkey}", &pubkey.to_string());
+        assert!(admin_ep::FOREIGN_COLLATERAL_EBILL.contains("{pubkey}"));
+        let path = admin_ep::FOREIGN_COLLATERAL_EBILL.replace("{pubkey}", &pubkey.to_string());
         let url = self
             .base
             .join(&path)
@@ -459,8 +458,8 @@ impl Client {
         &self,
         pubkey: &bitcoin::secp256k1::PublicKey,
     ) -> Result<wire_clowder::EiouAmountResponse> {
-        assert!(admin_ep::FOREIGN_COLLATERAL_EIOU_V1.contains("{pubkey}"));
-        let path = admin_ep::FOREIGN_COLLATERAL_EIOU_V1.replace("{pubkey}", &pubkey.to_string());
+        assert!(admin_ep::FOREIGN_COLLATERAL_EIOU.contains("{pubkey}"));
+        let path = admin_ep::FOREIGN_COLLATERAL_EIOU.replace("{pubkey}", &pubkey.to_string());
         let url = self
             .base
             .join(&path)
@@ -473,8 +472,8 @@ impl Client {
         &self,
         pubkey: &bitcoin::secp256k1::PublicKey,
     ) -> Result<wire_clowder::SupplyResponse> {
-        assert!(admin_ep::FOREIGN_CIRCULATING_SUPPLY_V1.contains("{pubkey}"));
-        let path = admin_ep::FOREIGN_CIRCULATING_SUPPLY_V1.replace("{pubkey}", &pubkey.to_string());
+        assert!(admin_ep::FOREIGN_CIRCULATING_SUPPLY.contains("{pubkey}"));
+        let path = admin_ep::FOREIGN_CIRCULATING_SUPPLY.replace("{pubkey}", &pubkey.to_string());
         let url = self
             .base
             .join(&path)
@@ -489,9 +488,9 @@ impl Client {
         pubkey: bitcoin::secp256k1::PublicKey,
         keyset_id: &Id,
     ) -> Result<wire_clowder::AmountResponse> {
-        assert!(admin_ep::FOREIGN_KEYSET_MINTS_V1.contains("{pubkey}"));
-        assert!(admin_ep::FOREIGN_KEYSET_MINTS_V1.contains("{keyset_id}"));
-        let path = admin_ep::FOREIGN_KEYSET_MINTS_V1
+        assert!(admin_ep::FOREIGN_KEYSET_MINTS.contains("{pubkey}"));
+        assert!(admin_ep::FOREIGN_KEYSET_MINTS.contains("{keyset_id}"));
+        let path = admin_ep::FOREIGN_KEYSET_MINTS
             .replace("{pubkey}", &pubkey.to_string())
             .replace("{keyset_id}", &keyset_id.to_string());
         let url = self
@@ -508,9 +507,9 @@ impl Client {
         pubkey: bitcoin::secp256k1::PublicKey,
         keyset_id: &Id,
     ) -> Result<wire_clowder::AmountResponse> {
-        assert!(admin_ep::FOREIGN_KEYSET_BURNS_V1.contains("{pubkey}"));
-        assert!(admin_ep::FOREIGN_KEYSET_BURNS_V1.contains("{keyset_id}"));
-        let path = admin_ep::FOREIGN_KEYSET_BURNS_V1
+        assert!(admin_ep::FOREIGN_KEYSET_BURNS.contains("{pubkey}"));
+        assert!(admin_ep::FOREIGN_KEYSET_BURNS.contains("{keyset_id}"));
+        let path = admin_ep::FOREIGN_KEYSET_BURNS
             .replace("{pubkey}", &pubkey.to_string())
             .replace("{keyset_id}", &keyset_id.to_string());
         let url = self
@@ -524,7 +523,7 @@ impl Client {
     pub async fn get_mint_collateral(&self) -> Result<wire_clowder::MintCollateralResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_COLLATERAL_V1)
+            .join(admin_ep::LOCAL_COLLATERAL)
             .expect("local collateral relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
@@ -535,7 +534,7 @@ impl Client {
     ) -> Result<wire_clowder::MintCirculatingSupplyResponse> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_CIRCULATING_SUPPLY_V1)
+            .join(admin_ep::LOCAL_CIRCULATING_SUPPLY)
             .expect("local circulating supply relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
@@ -546,9 +545,9 @@ impl Client {
         alpha_id: &bitcoin::secp256k1::PublicKey,
         quote_id: &uuid::Uuid,
     ) -> Result<Option<Vec<crate::cashu::nuts::BlindSignature>>> {
-        assert!(admin_ep::FOREIGN_MINT_ONCHAIN_SIGNATURES_V1.contains("{pubkey}"));
-        assert!(admin_ep::FOREIGN_MINT_ONCHAIN_SIGNATURES_V1.contains("{quote_id}"));
-        let path = admin_ep::FOREIGN_MINT_ONCHAIN_SIGNATURES_V1
+        assert!(admin_ep::FOREIGN_MINT_ONCHAIN_SIGNATURES.contains("{pubkey}"));
+        assert!(admin_ep::FOREIGN_MINT_ONCHAIN_SIGNATURES.contains("{quote_id}"));
+        let path = admin_ep::FOREIGN_MINT_ONCHAIN_SIGNATURES
             .replace("{pubkey}", &alpha_id.to_string())
             .replace("{quote_id}", &quote_id.to_string());
         let url = self
@@ -565,7 +564,7 @@ impl Client {
     ) -> Result<crate::wire::mint::MintResponse> {
         let url = self
             .base
-            .join(admin_ep::FOREIGN_MINT_ONCHAIN_V1)
+            .join(admin_ep::FOREIGN_MINT_ONCHAIN)
             .expect("foreign mint onchain relative path");
         let response = self.cl.post(url, request).await?;
         Ok(response)
@@ -577,7 +576,7 @@ impl Client {
     ) -> Result<crate::wire::mint::MintProtestResponse> {
         let url = self
             .base
-            .join(admin_ep::FOREIGN_PROTEST_MINT_V1)
+            .join(admin_ep::FOREIGN_PROTEST_MINT)
             .expect("foreign protest mint relative path");
         let response = self.cl.post(url, &request).await?;
         Ok(response)
@@ -589,7 +588,7 @@ impl Client {
     ) -> Result<crate::wire::swap::SwapProtestResponse> {
         let url = self
             .base
-            .join(admin_ep::FOREIGN_PROTEST_SWAP_V1)
+            .join(admin_ep::FOREIGN_PROTEST_SWAP)
             .expect("foreign protest swap relative path");
         let response = self.cl.post(url, &request).await?;
         Ok(response)
@@ -601,7 +600,7 @@ impl Client {
     ) -> Result<crate::wire::melt::MeltProtestResponse> {
         let url = self
             .base
-            .join(admin_ep::FOREIGN_PROTEST_MELT_V1)
+            .join(admin_ep::FOREIGN_PROTEST_MELT)
             .expect("foreign protest melt relative path");
         let response = self.cl.post(url, &request).await?;
         Ok(response)
@@ -724,7 +723,7 @@ impl Client {
     pub async fn onchain_fees_estimate(&self, target: bitcoin::Amount) -> Result<bitcoin::Amount> {
         let url = self
             .base
-            .join(admin_ep::LOCAL_ONCHAIN_FEES_ESTIMATE_V1)
+            .join(admin_ep::LOCAL_ONCHAIN_FEES_ESTIMATE)
             .expect("local onchain fees estimate relative path");
         let request = wire_clowder::OnchainFeesEstimateRequest { target };
         let response: wire_clowder::OnchainFeesEstimateResponse =
@@ -746,7 +745,7 @@ impl Client {
     ) -> Result<wire_attestation::AttestationVerifyResponse> {
         let url = self
             .base
-            .join(admin_ep::ATTEST_VERIFY_V1)
+            .join(admin_ep::ATTEST_VERIFY)
             .expect("attest verify relative path");
         let response = self.cl.post(url, request).await?;
         Ok(response)
