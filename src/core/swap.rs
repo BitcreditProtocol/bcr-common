@@ -1,6 +1,6 @@
 // WARNING: we are using cashu::KeySetInfo struct where fee rate is indicated as parts per 1000,
 // i.e. ppk, but we want to calculate fees with more precision, i.e. parts per 10000, ppk*10.
-const FEE_RATE_PPK_MULTIPLIER: u64 = 10000;
+pub const FEE_RATE_PPK_MULTIPLIER: u64 = 10000;
 // The maximum amount of inputs we add for one payment
 const MAX_PAYMENT_INPUTS: usize = 32;
 
