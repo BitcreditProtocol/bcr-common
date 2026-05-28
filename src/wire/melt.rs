@@ -72,15 +72,6 @@ pub struct MeltQuoteOnchainResponse {
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
-///--------------------------- Melt Tx
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MeltTx {
-    #[schema(value_type = Option<String>)]
-    pub alpha_txid: Option<bitcoin::Txid>,
-    #[schema(value_type = Option<String>)]
-    pub beta_txid: Option<bitcoin::Txid>,
-}
-
 ///--------------------------- Melt Onchain Request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MeltOnchainRequest {
@@ -93,7 +84,8 @@ pub struct MeltOnchainRequest {
 ///--------------------------- Melt Onchain Response
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MeltOnchainResponse {
-    pub txid: MeltTx,
+    #[schema(value_type = String)]
+    pub txid: bitcoin::Txid,
 }
 
 ///--------------------------- Melt Protest Request
@@ -114,5 +106,6 @@ pub struct MeltProtestRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MeltProtestResponse {
     pub status: ProtestStatus,
-    pub txid: Option<MeltTx>,
+    #[schema(value_type = Option<String>)]
+    pub txid: Option<bitcoin::Txid>,
 }

@@ -424,7 +424,7 @@ impl Client {
         qid: Uuid,
         inputs: Vec<cashu::Proof>,
         attestation: crate::wire::attestation::IssuanceAttestation,
-    ) -> Result<wire_melt::MeltTx> {
+    ) -> Result<bitcoin::Txid> {
         let url = self
             .base
             .join(treasury::web_ep::MELT_ONCHAIN_V1_EXT)

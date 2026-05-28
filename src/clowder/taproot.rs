@@ -4,7 +4,7 @@ use crate::core::BillId;
 use bitcoin::XOnlyPublicKey;
 use bitcoin::hashes::{Hash, HashEngine, sha256};
 use bitcoin::key::TapTweak;
-use bitcoin::opcodes::all::{OP_CHECKSIG, OP_CHECKSIGVERIFY, OP_CSV};
+use bitcoin::opcodes::all::OP_CHECKSIG;
 use bitcoin::script::Builder as ScriptBuilder;
 use bitcoin::secp256k1::{Parity, PublicKey};
 use bitcoin::taproot::{ControlBlock, LeafVersion, TapLeafHash, TaprootBuilder, TaprootSpendInfo};
@@ -134,21 +134,10 @@ pub fn build_beta_script(frost_agg_key: &XOnlyPublicKey) -> ScriptBuf {
         .into_script()
 }
 
-pub fn build_alpha_script(alpha_key: &XOnlyPublicKey, timelock_blocks: u32) -> ScriptBuf {
-    ScriptBuilder::new()
-        .push_x_only_key(alpha_key)
-        .push_opcode(OP_CHECKSIGVERIFY)
-        .push_int(timelock_blocks as i64)
-        .push_opcode(OP_CSV)
-        .into_script()
-}
-
 pub struct TapTreeInfo {
     pub tap_info: TaprootSpendInfo,
     pub beta_script: ScriptBuf,
-    pub alpha_script: ScriptBuf,
     pub beta_leaf_hash: TapLeafHash,
-    pub alpha_leaf_hash: TapLeafHash,
 }
 
 impl TapTreeInfo {
@@ -161,11 +150,6 @@ impl TapTreeInfo {
             .control_block(&(self.beta_script.clone(), LeafVersion::TapScript))
     }
 
-    pub fn alpha_control_block(&self) -> Option<ControlBlock> {
-        self.tap_info
-            .control_block(&(self.alpha_script.clone(), LeafVersion::TapScript))
-    }
-
     pub fn address(&self, network: Network) -> Address {
         let tweaked =
             bitcoin::key::UntweakedPublicKey::from(self.output_key()).dangerous_assume_tweaked();
@@ -175,80 +159,51 @@ impl TapTreeInfo {
 
 pub fn build_tap_tree(
     frost_agg_key: &XOnlyPublicKey,
-    alpha_key: &XOnlyPublicKey,
-    timelock_blocks: u32,
     internal_key: &XOnlyPublicKey,
 ) -> Result<TapTreeInfo> {
     let beta_script = build_beta_script(frost_agg_key);
-    let alpha_script = build_alpha_script(alpha_key, timelock_blocks);
-
     let beta_leaf_hash = TapLeafHash::from_script(&beta_script, LeafVersion::TapScript);
-    let alpha_leaf_hash = TapLeafHash::from_script(&alpha_script, LeafVersion::TapScript);
 
     let tap_info = TaprootBuilder::new()
-        .add_leaf(1, beta_script.clone())?
-        .add_leaf(1, alpha_script.clone())?
+        .add_leaf(0, beta_script.clone())?
         .finalize(bitcoin::secp256k1::SECP256K1, *internal_key)
         .map_err(|_| Error::IncompleteTaprootTree)?;
 
     Ok(TapTreeInfo {
         tap_info,
         beta_script,
-        alpha_script,
         beta_leaf_hash,
-        alpha_leaf_hash,
     })
 }
 
-pub fn build_base_tap_tree(
-    frost_agg_key: &XOnlyPublicKey,
-    alpha_key: &XOnlyPublicKey,
-    timelock_blocks: u32,
-) -> Result<TapTreeInfo> {
-    build_tap_tree(frost_agg_key, alpha_key, timelock_blocks, &nums_point())
+pub fn build_base_tap_tree(frost_agg_key: &XOnlyPublicKey) -> Result<TapTreeInfo> {
+    build_tap_tree(frost_agg_key, &nums_point())
 }
 
 pub fn build_tap_tree_for_tweak(
     frost_agg_key: &XOnlyPublicKey,
-    alpha_key: &XOnlyPublicKey,
-    timelock_blocks: u32,
     tweak: &[u8; 32],
 ) -> Result<TapTreeInfo> {
     let nums = derive_nums(tweak)?;
-    build_tap_tree(frost_agg_key, alpha_key, timelock_blocks, &nums)
+    build_tap_tree(frost_agg_key, &nums)
 }
 
 pub fn derive_receive_address(
     frost_agg_key: &XOnlyPublicKey,
-    alpha_key: &XOnlyPublicKey,
-    timelock_blocks: u32,
     uuid: &Uuid,
     network: Network,
 ) -> Result<Address> {
     let tweak = derive_receive_tweak(frost_agg_key, uuid);
-    Ok(
-        build_tap_tree_for_tweak(frost_agg_key, alpha_key, timelock_blocks, &tweak)?
-            .address(network),
-    )
+    Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
 }
 
-pub fn derive_change_address(
-    frost_agg_key: &XOnlyPublicKey,
-    alpha_key: &XOnlyPublicKey,
-    timelock_blocks: u32,
-    network: Network,
-) -> Result<Address> {
+pub fn derive_change_address(frost_agg_key: &XOnlyPublicKey, network: Network) -> Result<Address> {
     let tweak = derive_change_tweak(frost_agg_key);
-    Ok(
-        build_tap_tree_for_tweak(frost_agg_key, alpha_key, timelock_blocks, &tweak)?
-            .address(network),
-    )
+    Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
 }
 
 pub fn derive_ebill_mint_req_to_pay_address(
     frost_agg_key: &XOnlyPublicKey,
-    alpha_key: &XOnlyPublicKey,
-    timelock_blocks: u32,
     bill_id: &BillId,
     block_id: u64,
     previous_block_hash: &[u8; 32],
@@ -256,10 +211,7 @@ pub fn derive_ebill_mint_req_to_pay_address(
 ) -> Result<Address> {
     let tweak =
         derive_ebill_mint_req_to_pay_tweak(frost_agg_key, bill_id, block_id, previous_block_hash);
-    Ok(
-        build_tap_tree_for_tweak(frost_agg_key, alpha_key, timelock_blocks, &tweak)?
-            .address(network),
-    )
+    Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
 }
 
 #[cfg(test)]
@@ -289,17 +241,12 @@ mod tests {
     fn test_build_tap_tree() {
         let (_, frost_key) =
             SECP256K1.generate_keypair(&mut bitcoin::secp256k1::rand::thread_rng());
-        let (_, alpha_key) =
-            SECP256K1.generate_keypair(&mut bitcoin::secp256k1::rand::thread_rng());
         let frost_xonly = frost_key.x_only_public_key().0;
-        let alpha_xonly = alpha_key.x_only_public_key().0;
         let internal = nums_point();
 
-        let info = build_tap_tree(&frost_xonly, &alpha_xonly, 144, &internal).unwrap();
+        let info = build_tap_tree(&frost_xonly, &internal).unwrap();
 
         assert!(info.beta_control_block().is_some());
-        assert!(info.alpha_control_block().is_some());
-        assert_ne!(info.beta_leaf_hash, info.alpha_leaf_hash);
     }
 
     #[test]
@@ -309,16 +256,13 @@ mod tests {
 
         let (_, frost_key) =
             SECP256K1.generate_keypair(&mut bitcoin::secp256k1::rand::thread_rng());
-        let (_, alpha_key) =
-            SECP256K1.generate_keypair(&mut bitcoin::secp256k1::rand::thread_rng());
         let frost_xonly = frost_key.x_only_public_key().0;
-        let alpha_xonly = alpha_key.x_only_public_key().0;
 
         let nums_a = derive_nums(&tweak_a).unwrap();
         let nums_b = derive_nums(&tweak_b).unwrap();
 
-        let tree_a = build_tap_tree(&frost_xonly, &alpha_xonly, 144, &nums_a).unwrap();
-        let tree_b = build_tap_tree(&frost_xonly, &alpha_xonly, 144, &nums_b).unwrap();
+        let tree_a = build_tap_tree(&frost_xonly, &nums_a).unwrap();
+        let tree_b = build_tap_tree(&frost_xonly, &nums_b).unwrap();
 
         assert_ne!(tree_a.output_key(), tree_b.output_key());
     }
@@ -327,16 +271,15 @@ mod tests {
     fn test_address_derivation() {
         let mut rng = bitcoin::secp256k1::rand::thread_rng();
         let frost = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
-        let alpha = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
         let net = Network::Regtest;
 
-        let r1 = derive_receive_address(&frost, &alpha, 144, &Uuid::from_u128(1), net).unwrap();
-        let r2 = derive_receive_address(&frost, &alpha, 144, &Uuid::from_u128(2), net).unwrap();
-        let c1 = derive_change_address(&frost, &alpha, 144, net).unwrap();
-        let c2 = derive_change_address(&frost, &alpha, 144, net).unwrap();
+        let r1 = derive_receive_address(&frost, &Uuid::from_u128(1), net).unwrap();
+        let r2 = derive_receive_address(&frost, &Uuid::from_u128(2), net).unwrap();
+        let c1 = derive_change_address(&frost, net).unwrap();
+        let c2 = derive_change_address(&frost, net).unwrap();
 
         let frost2 = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
-        let r3 = derive_receive_address(&frost2, &alpha, 144, &Uuid::from_u128(1), net).unwrap();
+        let r3 = derive_receive_address(&frost2, &Uuid::from_u128(1), net).unwrap();
 
         assert_ne!(r1, r2);
         assert_ne!(r1, c1);
@@ -350,7 +293,6 @@ mod tests {
         let mut rng = bitcoin::secp256k1::rand::thread_rng();
         let frost = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
         let frost2 = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
-        let alpha = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
         let net = Network::Regtest;
         let bill_id_1 = BillId::new(
             PublicKey::from_str(
@@ -369,76 +311,27 @@ mod tests {
         let prev_block_hash_1 = sha256::Hash::hash("blockhash1".as_bytes()).to_byte_array();
         let prev_block_hash_2 = sha256::Hash::hash("blockhash2".as_bytes()).to_byte_array();
 
-        let r1 = derive_ebill_mint_req_to_pay_address(
-            &frost,
-            &alpha,
-            144,
-            &bill_id_1,
-            3,
-            &prev_block_hash_1,
-            net,
-        )
-        .unwrap();
-        let r2 = derive_ebill_mint_req_to_pay_address(
-            &frost,
-            &alpha,
-            144,
-            &bill_id_1,
-            4,
-            &prev_block_hash_1,
-            net,
-        )
-        .unwrap();
-        let r3 = derive_ebill_mint_req_to_pay_address(
-            &frost,
-            &alpha,
-            144,
-            &bill_id_2,
-            3,
-            &prev_block_hash_2,
-            net,
-        )
-        .unwrap();
-        let r4 = derive_ebill_mint_req_to_pay_address(
-            &frost,
-            &alpha,
-            144,
-            &bill_id_2,
-            3,
-            &prev_block_hash_2,
-            net,
-        )
-        .unwrap();
-        let r5 = derive_ebill_mint_req_to_pay_address(
-            &frost2,
-            &alpha,
-            144,
-            &bill_id_2,
-            3,
-            &prev_block_hash_2,
-            net,
-        )
-        .unwrap();
-        let r6 = derive_ebill_mint_req_to_pay_address(
-            &frost,
-            &alpha,
-            144,
-            &bill_id_1,
-            3,
-            &prev_block_hash_2,
-            net,
-        )
-        .unwrap();
-        let r7 = derive_ebill_mint_req_to_pay_address(
-            &frost,
-            &alpha,
-            144,
-            &bill_id_2,
-            3,
-            &prev_block_hash_1,
-            net,
-        )
-        .unwrap();
+        let r1 =
+            derive_ebill_mint_req_to_pay_address(&frost, &bill_id_1, 3, &prev_block_hash_1, net)
+                .unwrap();
+        let r2 =
+            derive_ebill_mint_req_to_pay_address(&frost, &bill_id_1, 4, &prev_block_hash_1, net)
+                .unwrap();
+        let r3 =
+            derive_ebill_mint_req_to_pay_address(&frost, &bill_id_2, 3, &prev_block_hash_2, net)
+                .unwrap();
+        let r4 =
+            derive_ebill_mint_req_to_pay_address(&frost, &bill_id_2, 3, &prev_block_hash_2, net)
+                .unwrap();
+        let r5 =
+            derive_ebill_mint_req_to_pay_address(&frost2, &bill_id_2, 3, &prev_block_hash_2, net)
+                .unwrap();
+        let r6 =
+            derive_ebill_mint_req_to_pay_address(&frost, &bill_id_1, 3, &prev_block_hash_2, net)
+                .unwrap();
+        let r7 =
+            derive_ebill_mint_req_to_pay_address(&frost, &bill_id_2, 3, &prev_block_hash_1, net)
+                .unwrap();
 
         assert_ne!(r1, r2); // block id differs
         assert_ne!(r1, r3);
