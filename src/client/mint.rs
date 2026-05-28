@@ -20,6 +20,7 @@ use crate::{
     wire::{
         attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
         keys as wire_keys, melt as wire_melt, mint as wire_mint, quotes as wire_quotes,
+        swap as wire_swap,
     },
 };
 
@@ -167,6 +168,30 @@ impl Client {
         )
         .await?;
         Ok(result)
+    }
+
+    // content is serialized wire_swap::SignedSwapRequestContent
+    pub async fn signed_swap(
+        &self,
+        content: String,
+        signature: bitcoin::secp256k1::schnorr::Signature,
+        mint_id: bitcoin::secp256k1::PublicKey,
+        commitment: bitcoin::secp256k1::schnorr::Signature,
+        attestation: crate::wire::attestation::IssuanceAttestation,
+    ) -> Result<Vec<cashu::BlindSignature>> {
+        let url = self
+            .base
+            .join(core::web_ep::SIGNED_SWAP_V1_EXT)
+            .expect("signed swap relative path");
+        let msg = wire_swap::SignedSwapRequest {
+            content,
+            signature,
+            mint_id,
+            commitment,
+            attestation,
+        };
+        let response: wire_swap::SwapResponse = self.cl.post(url, &msg).await?;
+        Ok(response.signatures)
     }
 
     pub async fn swap(
