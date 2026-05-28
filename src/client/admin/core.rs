@@ -28,6 +28,8 @@ pub mod web_ep {
     pub const KEYSET_INFO_V1_EXT: &str = "/v1/core/keysets/{kid}";
     pub const CHECK_STATE_V1: &str = "/v1/checkstate";
     pub const CHECK_STATE_V1_EXT: &str = "/v1/core/checkstate";
+    pub const SIGNED_SWAP_V1: &str = "/v1/swap/signed";
+    pub const SIGNED_SWAP_V1_EXT: &str = "/v1/core/swap/signed";
     pub const SWAP_V1: &str = "/v1/swap";
     pub const SWAP_V1_EXT: &str = "/v1/core/swap";
     pub const SWAP_COMMIT_V1: &str = "/v1/swap/commit";
