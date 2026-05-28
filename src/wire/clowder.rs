@@ -370,7 +370,7 @@ pub struct MeltOnchainRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltOnchainResponse {
-    pub txid: crate::wire::melt::MeltTx,
+    pub txid: bitcoin::Txid,
 }
 
 ///--------------------------- Melt Quote Onchain
