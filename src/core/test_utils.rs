@@ -33,6 +33,7 @@ pub fn generate_random_ecash_keyset() -> (cdk_common::mint::MintKeySetInfo, cash
         &amounts,
         cashu::CurrencyUnit::Sat,
         path.clone(),
+        0,
         None,
         cdk02::KeySetVersion::Version00,
     );
@@ -46,7 +47,7 @@ pub fn generate_random_ecash_keyset() -> (cdk_common::mint::MintKeySetInfo, cash
         derivation_path_index: None,
         derivation_path: path,
         input_fee_ppk: 0,
-        max_order: 10,
+        issuer_version: None,
     };
     (info, set)
 }

@@ -1,5 +1,5 @@
 // ----- standard library imports
-use std::{collections::HashMap, convert::Infallible};
+use std::{collections::HashMap, convert::Infallible, str::FromStr};
 // ----- extra library imports
 use bitcoin::{
     base64::prelude::*,
@@ -170,6 +170,81 @@ pub fn verify_ecash_proof(
     Ok(())
 }
 
+// Verify an HTLC proof from the offline intermint exchange, where the preimage is the
+// original alpha proof's secret string rather than a fixed-size 32-byte hex value. This
+// mirrors the pre-0.16 cashu HTLC verification, hashing the raw preimage bytes. Online and
+// generic HTLCs use cashu's `verify_htlc`.
+pub fn verify_offline_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResult<()> {
+    let secret: cdk10::Secret = (&proof.secret)
+        .try_into()
+        .map_err(|_| cdk14::Error::IncorrectSecretKind)?;
+
+    let htlc_witness = match &proof.witness {
+        Some(cashu::Witness::HTLCWitness(witness)) => witness,
+        _ => return Err(cdk14::Error::IncorrectSecretKind.into()),
+    };
+
+    let conditions: Option<cashu::Conditions> = secret
+        .secret_data()
+        .tags()
+        .and_then(|tags| tags.clone().try_into().ok());
+
+    if let Some(conditions) = conditions {
+        if let Some(locktime) = conditions.locktime {
+            if locktime < cashu::util::unix_time() && conditions.refund_keys.is_none() {
+                return Ok(());
+            }
+            if let Some(refund_keys) = conditions.refund_keys {
+                let signatures = parse_signatures(htlc_witness.signatures.as_deref())?;
+                if valid_signatures(proof.secret.as_bytes(), &refund_keys, &signatures) >= 1 {
+                    return Ok(());
+                }
+            }
+        }
+        if let Some(pubkeys) = conditions.pubkeys {
+            let required = conditions.num_sigs.unwrap_or(1);
+            let signatures = parse_signatures(htlc_witness.signatures.as_deref())?;
+            if valid_signatures(proof.secret.as_bytes(), &pubkeys, &signatures) < required {
+                return Err(cdk14::Error::InvalidSignature.into());
+            }
+        }
+    }
+
+    if secret.kind() != cashu::nuts::Kind::HTLC {
+        return Err(cdk14::Error::IncorrectSecretKind.into());
+    }
+
+    let hash_lock =
+        Sha256::from_str(secret.secret_data().data()).map_err(|_| cdk14::Error::InvalidHash)?;
+    let preimage_hash = Sha256::hash(htlc_witness.preimage.as_bytes());
+    if hash_lock != preimage_hash {
+        return Err(cdk14::Error::Preimage.into());
+    }
+    Ok(())
+}
+
+fn parse_signatures(
+    signatures: Option<&[String]>,
+) -> ECashSignatureResult<Vec<secp::schnorr::Signature>> {
+    signatures
+        .ok_or(cdk14::Error::SignaturesNotProvided)?
+        .iter()
+        .map(|s| secp::schnorr::Signature::from_str(s))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(Into::into)
+}
+
+fn valid_signatures(
+    msg: &[u8],
+    pubkeys: &[cashu::PublicKey],
+    signatures: &[secp::schnorr::Signature],
+) -> u64 {
+    pubkeys
+        .iter()
+        .filter(|pubkey| signatures.iter().any(|sig| pubkey.verify(msg, sig).is_ok()))
+        .count() as u64
+}
+
 pub struct ProofFingerprint {
     pub keyset_id: cashu::Id,
     pub amount: cashu::Amount,
@@ -271,5 +346,69 @@ mod tests {
             ..valid_fp
         };
         assert!(verify_ecash_fingerprint(&keyset, &invalid_fp).is_err());
+    }
+
+    fn offline_htlc_proof(
+        wallet: &cashu::SecretKey,
+        preimage: &str,
+    ) -> cashu::Proof {
+        use crate::core::test_utils::generate_random_ecash_keyset;
+
+        let (_, keyset) = generate_random_ecash_keyset();
+        let hash_lock = Sha256::hash(preimage.as_bytes());
+        let locktime = cashu::util::unix_time() + 3600;
+        let conditions = cashu::Conditions::new(
+            Some(locktime),
+            Some(vec![wallet.public_key()]),
+            None,
+            Some(1),
+            None,
+            None,
+        )
+        .expect("conditions");
+        let spending =
+            cashu::SpendingConditions::new_htlc_hash(&hash_lock.to_string(), Some(conditions))
+                .expect("htlc conditions");
+        let secret: cashu::secret::Secret = spending.try_into().expect("secret");
+
+        let mut proof =
+            cashu::Proof::new(cashu::Amount::from(1u64), keyset.id, secret, wallet.public_key());
+        let signature = wallet.sign(&proof.secret.to_bytes()).expect("sign");
+        proof.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+            preimage: preimage.to_string(),
+            signatures: Some(vec![signature.to_string()]),
+        }));
+        proof
+    }
+
+    #[test]
+    fn test_verify_offline_exchange_htlc() {
+        let kp = secp::Keypair::new_global(&mut rand::thread_rng());
+        let wallet: cashu::SecretKey = kp.secret_key().into();
+        // preimage is an arbitrary-length secret string, not 32-byte hex
+        let preimage = "this is not a fixed size hex preimage";
+
+        // valid offline HTLC proof
+        let proof = offline_htlc_proof(&wallet, preimage);
+        verify_offline_exchange_htlc(&proof).expect("valid offline htlc");
+
+        // wrong preimage -> hash lock mismatch
+        let mut wrong_preimage = proof.clone();
+        wrong_preimage.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+            preimage: "a different preimage".to_string(),
+            signatures: proof.witness.as_ref().and_then(|w| w.signatures()),
+        }));
+        assert!(verify_offline_exchange_htlc(&wrong_preimage).is_err());
+
+        // wrong signature (signed by a different key) -> signature check fails
+        let other = secp::Keypair::new_global(&mut rand::thread_rng());
+        let other_key: cashu::SecretKey = other.secret_key().into();
+        let bad_sig = other_key.sign(&proof.secret.to_bytes()).expect("sign");
+        let mut wrong_sig = proof.clone();
+        wrong_sig.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+            preimage: preimage.to_string(),
+            signatures: Some(vec![bad_sig.to_string()]),
+        }));
+        assert!(verify_offline_exchange_htlc(&wrong_sig).is_err());
     }
 }
