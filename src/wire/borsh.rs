@@ -471,8 +471,10 @@ mod tests {
     #[test]
     fn serialize_deserialize_vec_of_jsons_cdk_proofs() {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
-        let amounts: Vec<cashu::Amount> =
-            [512u64, 256, 128, 64, 32, 8].into_iter().map(cashu::Amount::from).collect();
+        let amounts: Vec<cashu::Amount> = [512u64, 256, 128, 64, 32, 8]
+            .into_iter()
+            .map(cashu::Amount::from)
+            .collect();
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
         let mut buf = Vec::new();
         serialize_vec_of_jsons(&proofs, &mut buf).unwrap();
@@ -568,8 +570,10 @@ mod tests {
     #[test]
     fn serialize_deserialize_blinded_messages_and_signatures() {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
-        let amounts: Vec<cashu::Amount> =
-            [512u64, 256, 128, 64, 32, 8].into_iter().map(cashu::Amount::from).collect();
+        let amounts: Vec<cashu::Amount> = [512u64, 256, 128, 64, 32, 8]
+            .into_iter()
+            .map(cashu::Amount::from)
+            .collect();
 
         // BlindedMessages
         let msgs: Vec<cashu::BlindedMessage> = amounts

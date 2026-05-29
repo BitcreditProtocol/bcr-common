@@ -171,8 +171,7 @@ pub fn verify_ecash_proof(
 }
 
 // Verify an HTLC proof from the offline intermint exchange, where the preimage is the
-// original alpha proof's secret string rather than a fixed-size 32-byte hex value. This
-// mirrors the pre-0.16 cashu HTLC verification, hashing the raw preimage bytes. Online and
+// original alpha proof's secret string rather than a fixed-size 32-byte hex value. Online and
 // generic HTLCs use cashu's `verify_htlc`.
 pub fn verify_offline_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResult<()> {
     let secret: cdk10::Secret = (&proof.secret)
@@ -348,10 +347,7 @@ mod tests {
         assert!(verify_ecash_fingerprint(&keyset, &invalid_fp).is_err());
     }
 
-    fn offline_htlc_proof(
-        wallet: &cashu::SecretKey,
-        preimage: &str,
-    ) -> cashu::Proof {
+    fn offline_htlc_proof(wallet: &cashu::SecretKey, preimage: &str) -> cashu::Proof {
         use crate::core::test_utils::generate_random_ecash_keyset;
 
         let (_, keyset) = generate_random_ecash_keyset();
@@ -371,8 +367,12 @@ mod tests {
                 .expect("htlc conditions");
         let secret: cashu::secret::Secret = spending.try_into().expect("secret");
 
-        let mut proof =
-            cashu::Proof::new(cashu::Amount::from(1u64), keyset.id, secret, wallet.public_key());
+        let mut proof = cashu::Proof::new(
+            cashu::Amount::from(1u64),
+            keyset.id,
+            secret,
+            wallet.public_key(),
+        );
         let signature = wallet.sign(&proof.secret.to_bytes()).expect("sign");
         proof.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
             preimage: preimage.to_string(),
@@ -385,14 +385,11 @@ mod tests {
     fn test_verify_offline_exchange_htlc() {
         let kp = secp::Keypair::new_global(&mut rand::thread_rng());
         let wallet: cashu::SecretKey = kp.secret_key().into();
-        // preimage is an arbitrary-length secret string, not 32-byte hex
         let preimage = "this is not a fixed size hex preimage";
 
-        // valid offline HTLC proof
         let proof = offline_htlc_proof(&wallet, preimage);
         verify_offline_exchange_htlc(&proof).expect("valid offline htlc");
 
-        // wrong preimage -> hash lock mismatch
         let mut wrong_preimage = proof.clone();
         wrong_preimage.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
             preimage: "a different preimage".to_string(),
@@ -400,7 +397,6 @@ mod tests {
         }));
         assert!(verify_offline_exchange_htlc(&wrong_preimage).is_err());
 
-        // wrong signature (signed by a different key) -> signature check fails
         let other = secp::Keypair::new_global(&mut rand::thread_rng());
         let other_key: cashu::SecretKey = other.secret_key().into();
         let bad_sig = other_key.sign(&proof.secret.to_bytes()).expect("sign");
