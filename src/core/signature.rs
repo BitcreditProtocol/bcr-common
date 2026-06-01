@@ -77,6 +77,8 @@ pub enum ECashSignatureError {
     NoKeyForAmount(cashu::Amount),
     #[error("cdk::dhke {0}")]
     CdkDHKE(#[from] cashu::dhke::Error),
+    #[error("Nut10 {0}")]
+    Cdk10(#[from] cdk10::Error),
     #[error("Nut11 {0}")]
     Cdk11(#[from] cdk11::Error),
     #[error("cdk::nut12 {0}")]
@@ -158,7 +160,7 @@ pub fn verify_ecash_proof(
                 proof.verify_p2pk()?;
             }
             cashu::nuts::Kind::HTLC => {
-                proof.verify_htlc()?;
+                verify_exchange_htlc(proof)?;
             }
         }
     }
@@ -170,27 +172,77 @@ pub fn verify_ecash_proof(
     Ok(())
 }
 
-// Verify an HTLC proof from the offline intermint exchange, where the preimage is the
-// original alpha proof's secret string rather than a fixed-size 32-byte hex value. Online and
-// generic HTLCs use cashu's `verify_htlc`.
+// Tag stamped into an offline-exchange HTLC secret at issuance so verification routes to the
+// raw-bytes `verify_offline_exchange_htlc` rather than cashu's `verify_htlc`.
+pub const EXCHANGE_TAG: &str = "exchange";
+pub const OFFLINE: &str = "offline";
+
+// Build a cashu secret for an offline-exchange HTLC, tagged `[EXCHANGE_TAG, OFFLINE]`. cashu
+// ignores the custom tag when parsing conditions, so both verifiers still read pubkeys/locktime.
+pub fn offline_htlc_secret(
+    conditions: cashu::SpendingConditions,
+) -> ECashSignatureResult<cashu::secret::Secret> {
+    let nut10: cdk10::Secret = conditions.into();
+    let mut tags = nut10.secret_data().tags().cloned().unwrap_or_default();
+    tags.push(vec![EXCHANGE_TAG.to_string(), OFFLINE.to_string()]);
+    let tagged = cdk10::Secret::new(
+        nut10.kind(),
+        cdk10::SecretData::new(nut10.secret_data().data(), Some(tags)),
+    );
+    Ok(tagged.try_into()?)
+}
+
+// True if the proof's HTLC secret carries the offline-exchange tag.
+pub fn is_offline_exchange_htlc(proof: &cashu::Proof) -> bool {
+    let Ok(secret) = <&cashu::secret::Secret as TryInto<cdk10::Secret>>::try_into(&proof.secret)
+    else {
+        return false;
+    };
+    secret.secret_data().tags().is_some_and(|tags| {
+        tags.iter().any(|t| {
+            t.first().map(String::as_str) == Some(EXCHANGE_TAG)
+                && t.get(1).map(String::as_str) == Some(OFFLINE)
+        })
+    })
+}
+
+// Route HTLC verification by the committed offline-exchange tag: tagged proofs use the
+// raw-bytes verifier, everything else uses cashu's `verify_htlc`.
+pub fn verify_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResult<()> {
+    if is_offline_exchange_htlc(proof) {
+        verify_offline_exchange_htlc(proof)
+    } else {
+        proof.verify_htlc()?;
+        Ok(())
+    }
+}
+
+// Verify an HTLC proof from the offline intermint exchange, where the preimage is the original
+// alpha proof's secret string rather than a fixed-size 32-byte hex value. Reached via
+// `verify_exchange_htlc` for tagged proofs; online and generic HTLCs use cashu's `verify_htlc`.
 pub fn verify_offline_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResult<()> {
-    let secret: cdk10::Secret = (&proof.secret)
+    // Only HTLC spending conditions are valid here; anything else short-circuits.
+    let spending: cashu::SpendingConditions = (&proof.secret)
         .try_into()
         .map_err(|_| cdk14::Error::IncorrectSecretKind)?;
-
-    let htlc_witness = match &proof.witness {
-        Some(cashu::Witness::HTLCWitness(witness)) => witness,
-        _ => return Err(cdk14::Error::IncorrectSecretKind.into()),
+    let cashu::SpendingConditions::HTLCConditions {
+        data: hash_lock,
+        conditions,
+    } = spending
+    else {
+        return Err(cdk14::Error::IncorrectSecretKind.into());
     };
 
-    let conditions: Option<cashu::Conditions> = secret
-        .secret_data()
-        .tags()
-        .and_then(|tags| tags.clone().try_into().ok());
+    let Some(cashu::Witness::HTLCWitness(htlc_witness)) = &proof.witness else {
+        return Err(cdk14::Error::IncorrectSecretKind.into());
+    };
 
     if let Some(conditions) = conditions {
-        if let Some(locktime) = conditions.locktime {
-            if locktime < cashu::util::unix_time() && conditions.refund_keys.is_none() {
+        // Refund keys are only valid once the locktime has passed.
+        if let Some(locktime) = conditions.locktime
+            && locktime < cashu::util::unix_time()
+        {
+            if conditions.refund_keys.is_none() {
                 return Ok(());
             }
             if let Some(refund_keys) = conditions.refund_keys {
@@ -204,17 +256,11 @@ pub fn verify_offline_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResul
             let required = conditions.num_sigs.unwrap_or(1);
             let signatures = parse_signatures(htlc_witness.signatures.as_deref())?;
             if valid_signatures(proof.secret.as_bytes(), &pubkeys, &signatures) < required {
-                return Err(cdk14::Error::InvalidSignature.into());
+                return Err(cdk14::Error::SpendConditionsNotMet.into());
             }
         }
     }
 
-    if secret.kind() != cashu::nuts::Kind::HTLC {
-        return Err(cdk14::Error::IncorrectSecretKind.into());
-    }
-
-    let hash_lock =
-        Sha256::from_str(secret.secret_data().data()).map_err(|_| cdk14::Error::InvalidHash)?;
     let preimage_hash = Sha256::hash(htlc_witness.preimage.as_bytes());
     if hash_lock != preimage_hash {
         return Err(cdk14::Error::Preimage.into());
@@ -406,5 +452,64 @@ mod tests {
             signatures: Some(vec![bad_sig.to_string()]),
         }));
         assert!(verify_offline_exchange_htlc(&wrong_sig).is_err());
+    }
+
+    #[test]
+    fn test_verify_exchange_htlc_routing() {
+        use crate::core::test_utils::generate_random_ecash_keyset;
+
+        let (_, keyset) = generate_random_ecash_keyset();
+        let kp = secp::Keypair::new_global(&mut rand::thread_rng());
+        let wallet: cashu::SecretKey = kp.secret_key().into();
+
+        let conditions = || {
+            cashu::Conditions::new(
+                Some(cashu::util::unix_time() + 3600),
+                Some(vec![wallet.public_key()]),
+                None,
+                Some(1),
+                None,
+                None,
+            )
+            .expect("conditions")
+        };
+        let mk_htlc = |secret: cashu::secret::Secret, preimage: &str| -> cashu::Proof {
+            let mut p = cashu::Proof::new(
+                cashu::Amount::from(1u64),
+                keyset.id,
+                secret,
+                wallet.public_key(),
+            );
+            let sig = wallet.sign(&p.secret.to_bytes()).expect("sign");
+            p.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+                preimage: preimage.to_string(),
+                signatures: Some(vec![sig.to_string()]),
+            }));
+            p
+        };
+
+        // Offline: tagged, plain 64-hex preimage with a raw-bytes lock (the case the
+        // shape heuristic mis-routed). Must route to the raw-bytes verifier and pass.
+        let preimage = "aa".repeat(32);
+        let hash_lock = Sha256::hash(preimage.as_bytes());
+        let spending =
+            cashu::SpendingConditions::new_htlc_hash(&hash_lock.to_string(), Some(conditions()))
+                .expect("htlc");
+        let offline = mk_htlc(
+            offline_htlc_secret(spending).expect("tagged secret"),
+            &preimage,
+        );
+        assert!(is_offline_exchange_htlc(&offline));
+        verify_exchange_htlc(&offline).expect("offline routes to raw-bytes verifier");
+
+        // Generic/online: untagged, 32-byte-hex preimage with a cashu lock.
+        let hex_preimage = "07".repeat(32);
+        let spending =
+            cashu::SpendingConditions::new_htlc(hex_preimage.clone(), Some(conditions()))
+                .expect("htlc");
+        let secret: cashu::secret::Secret = spending.try_into().expect("secret");
+        let online = mk_htlc(secret, &hex_preimage);
+        assert!(!is_offline_exchange_htlc(&online));
+        verify_exchange_htlc(&online).expect("untagged routes to cashu");
     }
 }

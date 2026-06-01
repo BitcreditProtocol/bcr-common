@@ -4,6 +4,7 @@ use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 // ----- local modules
 mod billid;
+pub mod keys;
 mod nodeid;
 pub mod signature;
 #[cfg(any(feature = "wallet", feature = "mint"))]

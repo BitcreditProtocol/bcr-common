@@ -35,7 +35,7 @@ pub fn generate_random_ecash_keyset() -> (cdk_common::mint::MintKeySetInfo, cash
         path.clone(),
         0,
         None,
-        cdk02::KeySetVersion::Version00,
+        cdk02::KeySetVersion::Version01,
     );
     let info = cdk_common::mint::MintKeySetInfo {
         id: set.id,
