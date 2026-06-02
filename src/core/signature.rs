@@ -217,9 +217,9 @@ pub fn verify_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResult<()> {
     }
 }
 
-// Verify an HTLC proof from the offline intermint exchange, where the preimage is the original
-// alpha proof's secret string rather than a fixed-size 32-byte hex value. Reached via
-// `verify_exchange_htlc` for tagged proofs; online and generic HTLCs use cashu's `verify_htlc`.
+// Mint-side verifier for offline-exchange (substitute) HTLC proofs at redemption: the preimage is
+// the alpha proof's secret, hashed as raw bytes. Reached via `verify_exchange_htlc` when the secret
+// carries the offline tag; online/generic HTLCs use cashu's `verify_htlc`.
 pub fn verify_offline_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResult<()> {
     // Only HTLC spending conditions are valid here; anything else short-circuits.
     let spending: cashu::SpendingConditions = (&proof.secret)
