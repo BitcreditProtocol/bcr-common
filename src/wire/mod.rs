@@ -19,6 +19,5 @@ pub mod swap;
 #[cfg(feature = "test-utils")]
 pub mod test_utils;
 pub mod treasury;
-pub mod wallet;
 
 // ----- end imports
