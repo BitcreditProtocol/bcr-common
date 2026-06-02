@@ -115,5 +115,6 @@ pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> cash
         dleq: fp.dleq.clone(),
         witness: fp.witness.clone(),
         secret,
+        p2pk_e: None,
     }
 }

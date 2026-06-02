@@ -1,5 +1,5 @@
 // ----- standard library imports
-use std::{collections::HashMap, convert::Infallible};
+use std::{collections::HashMap, convert::Infallible, str::FromStr};
 // ----- extra library imports
 use bitcoin::{
     base64::prelude::*,
@@ -77,6 +77,8 @@ pub enum ECashSignatureError {
     NoKeyForAmount(cashu::Amount),
     #[error("cdk::dhke {0}")]
     CdkDHKE(#[from] cashu::dhke::Error),
+    #[error("Nut10 {0}")]
+    Cdk10(#[from] cdk10::Error),
     #[error("Nut11 {0}")]
     Cdk11(#[from] cdk11::Error),
     #[error("cdk::nut12 {0}")]
@@ -158,7 +160,7 @@ pub fn verify_ecash_proof(
                 proof.verify_p2pk()?;
             }
             cashu::nuts::Kind::HTLC => {
-                proof.verify_htlc()?;
+                verify_exchange_htlc(proof)?;
             }
         }
     }
@@ -168,6 +170,124 @@ pub fn verify_ecash_proof(
         .ok_or(ECashSignatureError::NoKeyForAmount(proof.amount))?;
     cashu::dhke::verify_message(&keypair.secret_key, proof.c, proof.secret.as_bytes())?;
     Ok(())
+}
+
+// Tag stamped into an offline-exchange HTLC secret at issuance so verification routes to the
+// raw-bytes `verify_offline_exchange_htlc` rather than cashu's `verify_htlc`.
+pub const EXCHANGE_TAG: &str = "exchange";
+pub const OFFLINE: &str = "offline";
+
+// Build a cashu secret for an offline-exchange HTLC, tagged `[EXCHANGE_TAG, OFFLINE]`. cashu
+// ignores the custom tag when parsing conditions, so both verifiers still read pubkeys/locktime.
+pub fn offline_htlc_secret(
+    conditions: cashu::SpendingConditions,
+) -> ECashSignatureResult<cashu::secret::Secret> {
+    let nut10: cdk10::Secret = conditions.into();
+    let mut tags = nut10.secret_data().tags().cloned().unwrap_or_default();
+    tags.push(vec![EXCHANGE_TAG.to_string(), OFFLINE.to_string()]);
+    let tagged = cdk10::Secret::new(
+        nut10.kind(),
+        cdk10::SecretData::new(nut10.secret_data().data(), Some(tags)),
+    );
+    Ok(tagged.try_into()?)
+}
+
+// True if the proof's HTLC secret carries the offline-exchange tag.
+pub fn is_offline_exchange_htlc(proof: &cashu::Proof) -> bool {
+    let Ok(secret) = <&cashu::secret::Secret as TryInto<cdk10::Secret>>::try_into(&proof.secret)
+    else {
+        return false;
+    };
+    secret.secret_data().tags().is_some_and(|tags| {
+        tags.iter().any(|t| {
+            t.first().map(String::as_str) == Some(EXCHANGE_TAG)
+                && t.get(1).map(String::as_str) == Some(OFFLINE)
+        })
+    })
+}
+
+// Route HTLC verification by the committed offline-exchange tag: tagged proofs use the
+// raw-bytes verifier, everything else uses cashu's `verify_htlc`.
+pub fn verify_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResult<()> {
+    if is_offline_exchange_htlc(proof) {
+        verify_offline_exchange_htlc(proof)
+    } else {
+        proof.verify_htlc()?;
+        Ok(())
+    }
+}
+
+// Mint-side verifier for offline-exchange (substitute) HTLC proofs at redemption: the preimage is
+// the alpha proof's secret, hashed as raw bytes. Reached via `verify_exchange_htlc` when the secret
+// carries the offline tag; online/generic HTLCs use cashu's `verify_htlc`.
+pub fn verify_offline_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResult<()> {
+    // Only HTLC spending conditions are valid here; anything else short-circuits.
+    let spending: cashu::SpendingConditions = (&proof.secret)
+        .try_into()
+        .map_err(|_| cdk14::Error::IncorrectSecretKind)?;
+    let cashu::SpendingConditions::HTLCConditions {
+        data: hash_lock,
+        conditions,
+    } = spending
+    else {
+        return Err(cdk14::Error::IncorrectSecretKind.into());
+    };
+
+    let Some(cashu::Witness::HTLCWitness(htlc_witness)) = &proof.witness else {
+        return Err(cdk14::Error::IncorrectSecretKind.into());
+    };
+
+    if let Some(conditions) = conditions {
+        // Refund keys are only valid once the locktime has passed.
+        if let Some(locktime) = conditions.locktime
+            && locktime < cashu::util::unix_time()
+        {
+            if conditions.refund_keys.is_none() {
+                return Ok(());
+            }
+            if let Some(refund_keys) = conditions.refund_keys {
+                let signatures = parse_signatures(htlc_witness.signatures.as_deref())?;
+                if valid_signatures(proof.secret.as_bytes(), &refund_keys, &signatures) >= 1 {
+                    return Ok(());
+                }
+            }
+        }
+        if let Some(pubkeys) = conditions.pubkeys {
+            let required = conditions.num_sigs.unwrap_or(1);
+            let signatures = parse_signatures(htlc_witness.signatures.as_deref())?;
+            if valid_signatures(proof.secret.as_bytes(), &pubkeys, &signatures) < required {
+                return Err(cdk14::Error::SpendConditionsNotMet.into());
+            }
+        }
+    }
+
+    let preimage_hash = Sha256::hash(htlc_witness.preimage.as_bytes());
+    if hash_lock != preimage_hash {
+        return Err(cdk14::Error::Preimage.into());
+    }
+    Ok(())
+}
+
+fn parse_signatures(
+    signatures: Option<&[String]>,
+) -> ECashSignatureResult<Vec<secp::schnorr::Signature>> {
+    signatures
+        .ok_or(cdk14::Error::SignaturesNotProvided)?
+        .iter()
+        .map(|s| secp::schnorr::Signature::from_str(s))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(Into::into)
+}
+
+fn valid_signatures(
+    msg: &[u8],
+    pubkeys: &[cashu::PublicKey],
+    signatures: &[secp::schnorr::Signature],
+) -> u64 {
+    pubkeys
+        .iter()
+        .filter(|pubkey| signatures.iter().any(|sig| pubkey.verify(msg, sig).is_ok()))
+        .count() as u64
 }
 
 pub struct ProofFingerprint {
@@ -271,5 +391,125 @@ mod tests {
             ..valid_fp
         };
         assert!(verify_ecash_fingerprint(&keyset, &invalid_fp).is_err());
+    }
+
+    fn offline_htlc_proof(wallet: &cashu::SecretKey, preimage: &str) -> cashu::Proof {
+        use crate::core::test_utils::generate_random_ecash_keyset;
+
+        let (_, keyset) = generate_random_ecash_keyset();
+        let hash_lock = Sha256::hash(preimage.as_bytes());
+        let locktime = cashu::util::unix_time() + 3600;
+        let conditions = cashu::Conditions::new(
+            Some(locktime),
+            Some(vec![wallet.public_key()]),
+            None,
+            Some(1),
+            None,
+            None,
+        )
+        .expect("conditions");
+        let spending =
+            cashu::SpendingConditions::new_htlc_hash(&hash_lock.to_string(), Some(conditions))
+                .expect("htlc conditions");
+        let secret: cashu::secret::Secret = spending.try_into().expect("secret");
+
+        let mut proof = cashu::Proof::new(
+            cashu::Amount::from(1u64),
+            keyset.id,
+            secret,
+            wallet.public_key(),
+        );
+        let signature = wallet.sign(&proof.secret.to_bytes()).expect("sign");
+        proof.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+            preimage: preimage.to_string(),
+            signatures: Some(vec![signature.to_string()]),
+        }));
+        proof
+    }
+
+    #[test]
+    fn test_verify_offline_exchange_htlc() {
+        let kp = secp::Keypair::new_global(&mut rand::thread_rng());
+        let wallet: cashu::SecretKey = kp.secret_key().into();
+        let preimage = "this is not a fixed size hex preimage";
+
+        let proof = offline_htlc_proof(&wallet, preimage);
+        verify_offline_exchange_htlc(&proof).expect("valid offline htlc");
+
+        let mut wrong_preimage = proof.clone();
+        wrong_preimage.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+            preimage: "a different preimage".to_string(),
+            signatures: proof.witness.as_ref().and_then(|w| w.signatures()),
+        }));
+        assert!(verify_offline_exchange_htlc(&wrong_preimage).is_err());
+
+        let other = secp::Keypair::new_global(&mut rand::thread_rng());
+        let other_key: cashu::SecretKey = other.secret_key().into();
+        let bad_sig = other_key.sign(&proof.secret.to_bytes()).expect("sign");
+        let mut wrong_sig = proof.clone();
+        wrong_sig.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+            preimage: preimage.to_string(),
+            signatures: Some(vec![bad_sig.to_string()]),
+        }));
+        assert!(verify_offline_exchange_htlc(&wrong_sig).is_err());
+    }
+
+    #[test]
+    fn test_verify_exchange_htlc_routing() {
+        use crate::core::test_utils::generate_random_ecash_keyset;
+
+        let (_, keyset) = generate_random_ecash_keyset();
+        let kp = secp::Keypair::new_global(&mut rand::thread_rng());
+        let wallet: cashu::SecretKey = kp.secret_key().into();
+
+        let conditions = || {
+            cashu::Conditions::new(
+                Some(cashu::util::unix_time() + 3600),
+                Some(vec![wallet.public_key()]),
+                None,
+                Some(1),
+                None,
+                None,
+            )
+            .expect("conditions")
+        };
+        let mk_htlc = |secret: cashu::secret::Secret, preimage: &str| -> cashu::Proof {
+            let mut p = cashu::Proof::new(
+                cashu::Amount::from(1u64),
+                keyset.id,
+                secret,
+                wallet.public_key(),
+            );
+            let sig = wallet.sign(&p.secret.to_bytes()).expect("sign");
+            p.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+                preimage: preimage.to_string(),
+                signatures: Some(vec![sig.to_string()]),
+            }));
+            p
+        };
+
+        // Offline: tagged, plain 64-hex preimage with a raw-bytes lock (the case the
+        // shape heuristic mis-routed). Must route to the raw-bytes verifier and pass.
+        let preimage = "aa".repeat(32);
+        let hash_lock = Sha256::hash(preimage.as_bytes());
+        let spending =
+            cashu::SpendingConditions::new_htlc_hash(&hash_lock.to_string(), Some(conditions()))
+                .expect("htlc");
+        let offline = mk_htlc(
+            offline_htlc_secret(spending).expect("tagged secret"),
+            &preimage,
+        );
+        assert!(is_offline_exchange_htlc(&offline));
+        verify_exchange_htlc(&offline).expect("offline routes to raw-bytes verifier");
+
+        // Generic/online: untagged, 32-byte-hex preimage with a cashu lock.
+        let hex_preimage = "07".repeat(32);
+        let spending =
+            cashu::SpendingConditions::new_htlc(hex_preimage.clone(), Some(conditions()))
+                .expect("htlc");
+        let secret: cashu::secret::Secret = spending.try_into().expect("secret");
+        let online = mk_htlc(secret, &hex_preimage);
+        assert!(!is_offline_exchange_htlc(&online));
+        verify_exchange_htlc(&online).expect("untagged routes to cashu");
     }
 }
