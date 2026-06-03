@@ -203,65 +203,62 @@ pub mod wallet {
                 Some(_) => credits.push(p),
             }
         }
-        let mut selection_amount = Amount::ZERO;
         let mut selection: Vec<&Proof> = Vec::with_capacity(proofs.len());
         let mut closest: Option<&Proof> = None;
-        for p in expire_credits.iter().rev() {
-            let new_amount = selection_amount + p.amount;
-            if new_amount == target {
-                selection.push(p);
-                return Ok(selection);
-            } else if new_amount < target {
-                selection_amount = new_amount;
-                selection.push(p);
-            } else if let Some(closest_p) = closest {
-                if (new_amount - target) < (selection_amount + closest_p.amount - target) {
-                    closest = Some(p);
-                }
-            } else {
-                closest = Some(p);
-            }
+        let selection_amount = select_coin_inner(
+            expire_credits.as_slice(),
+            &mut selection,
+            target,
+            &mut closest,
+        );
+        if selection_amount == target {
+            return Ok(selection);
         }
-        for p in pure_debits.iter().rev() {
-            let new_amount = selection_amount + p.amount;
-            if new_amount == target {
-                selection.push(p);
-                return Ok(selection);
-            } else if new_amount < target {
-                selection_amount = new_amount;
-                selection.push(p);
-            } else if let Some(closest_p) = closest {
-                if (new_amount - target) < (selection_amount + closest_p.amount - target) {
-                    closest = Some(p);
-                }
-            } else {
-                closest = Some(p);
-            }
+        let selection_amount =
+            select_coin_inner(pure_debits.as_slice(), &mut selection, target, &mut closest);
+        if selection_amount == target {
+            return Ok(selection);
         }
-        for p in credits.iter().rev() {
-            let new_amount = selection_amount + p.amount;
-            if new_amount == target {
-                selection.push(p);
-                return Ok(selection);
-            } else if new_amount < target {
-                selection_amount = new_amount;
-                selection.push(p);
-            } else if let Some(closest_p) = closest {
-                if (new_amount - target) < (selection_amount + closest_p.amount - target) {
-                    closest = Some(p);
-                }
-            } else {
-                closest = Some(p);
-            }
+        let selection_amount =
+            select_coin_inner(credits.as_slice(), &mut selection, target, &mut closest);
+        if selection_amount == target {
+            return Ok(selection);
         }
         // which one is closer?
         let Some(closest) = closest else {
             return Ok(selection);
         };
-        if (target - selection_amount) > (selection_amount + closest.amount - target) {
+        // we prefer overshooting to target
+        if (target - selection_amount) >= (selection_amount + closest.amount - target) {
             selection.push(closest);
         }
         Ok(selection)
+    }
+
+    fn select_coin_inner<'a>(
+        candidates: &[&'a Proof],
+        selection: &mut Vec<&'a Proof>,
+        target: Amount,
+        closest: &mut Option<&'a Proof>,
+    ) -> Amount {
+        let mut selection_amount = selection.iter().fold(Amount::ZERO, |acc, p| acc + p.amount);
+        for p in candidates.iter().rev() {
+            let new_amount = selection_amount + p.amount;
+            if new_amount == target {
+                selection.push(p);
+                return new_amount;
+            } else if new_amount < target {
+                selection_amount = new_amount;
+                selection.push(p);
+            } else if let Some(closest_p) = closest {
+                if new_amount < selection_amount + closest_p.amount {
+                    closest.replace(p);
+                }
+            } else {
+                closest.replace(p);
+            }
+        }
+        selection_amount
     }
 }
 
@@ -1181,5 +1178,15 @@ mod test {
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
         let fees = required_fees(&proofs, &kinfos).unwrap();
         assert_eq!(fees, Amount::from(2));
+    }
+
+    #[test]
+    fn prepare_melt_close_to_target() {
+        let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
+        let amounts = vec![Amount::from(2), Amount::from(2), Amount::from(4)];
+        let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
+        let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
+        let result = prepare_melt(&proofs, &kinfos, Amount::from(7), chrono::Utc::now()).unwrap();
+        assert_eq!(result.len(), 3);
     }
 }
