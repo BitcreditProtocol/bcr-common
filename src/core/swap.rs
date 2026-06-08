@@ -283,8 +283,8 @@ pub mod mint {
         InvalidOutputs(String),
         #[error("keyset {0} not found in keysets")]
         UnknownKeyset(Id),
-        #[error("InsufficientFees, required {0}, received {1}")]
-        InsufficientFees(Amount, Amount),
+        #[error("InsufficientInputs, inputs {0}, fees {1}, outputs {2}")]
+        InsufficientInputs(Amount, Amount, Amount),
         #[error("cashu::nut00: {0}")]
         Cdk00(#[from] cashu::nut00::Error),
     }
@@ -395,10 +395,16 @@ pub mod mint {
         Ok((fee_rate_ppk, amounts))
     }
 
+    pub enum FeePolicy {
+        Apply,
+        Ignore,
+    }
+
     pub fn verify_swap(
         inputs: &[Proof],
         outputs: &[cashu::BlindedMessage],
         kinfos: &HashMap<Id, KeySetInfo>,
+        fee_policy: FeePolicy,
     ) -> Result<()> {
         // verify outputs
         let output_amounts = verify_outputs(outputs, kinfos)?;
@@ -420,6 +426,10 @@ pub mod mint {
                 )));
             }
         }
+        let fee_rate_ppk = match fee_policy {
+            FeePolicy::Apply => fee_rate_ppk,
+            FeePolicy::Ignore => 0,
+        };
         let total_secret_len: u64 = inputs
             .iter()
             .map(|p| p.secret.as_bytes().len() as u64)
@@ -431,9 +441,10 @@ pub mod mint {
             .fold(Amount::ZERO, |acc, x| acc + *x);
         let total_input = input_amounts.values().fold(Amount::ZERO, |acc, x| acc + *x);
         if total_input < total_output + required_fee {
-            return Err(VerificationError::InsufficientFees(
+            return Err(VerificationError::InsufficientInputs(
+                total_input,
                 required_fee,
-                total_input - total_output,
+                total_output,
             ));
         }
         Ok(())
@@ -471,7 +482,7 @@ pub mod mint {
 #[cfg(test)]
 mod test {
     use super::{
-        mint::{VerificationError, verify_swap},
+        mint::{FeePolicy, VerificationError, verify_swap},
         wallet::{Error as WalletError, PaymentPlan, prepare_melt, prepare_payment, required_fees},
     };
     use crate::core_tests;
@@ -1138,11 +1149,27 @@ mod test {
                 .map(|(b, _, _)| b)
                 .collect();
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
-        let result = verify_swap(&proofs, &outputs, &kinfos);
+        let result = verify_swap(&proofs, &outputs, &kinfos, FeePolicy::Apply);
         assert!(matches!(
             result,
-            Err(VerificationError::InsufficientFees(..))
+            Err(VerificationError::InsufficientInputs(..))
         ));
+    }
+
+    #[test]
+    fn verify_swap_no_fee_ignore_policy() {
+        let (mut kinfo, keyset) = core_tests::generate_random_ecash_keyset();
+        kinfo.input_fee_ppk = 1;
+        let input_amounts = vec![Amount::from(1), Amount::from(2)];
+        let output_amounts = vec![Amount::from(2), Amount::from(1)];
+        let proofs = core_tests::generate_random_ecash_proofs(&keyset, &input_amounts);
+        let outputs: Vec<_> =
+            core_tests::generate_random_ecash_blindedmessages(keyset.id, &output_amounts)
+                .into_iter()
+                .map(|(b, _, _)| b)
+                .collect();
+        let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
+        verify_swap(&proofs, &outputs, &kinfos, FeePolicy::Ignore).unwrap();
     }
 
     // REQUIRED FEES
