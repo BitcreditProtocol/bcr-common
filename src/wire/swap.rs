@@ -90,7 +90,7 @@ pub struct SignedSwapRequest {
 }
 
 ///--------------------------- Swap Request
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SwapRequest {
     pub inputs: Vec<cashu::Proof>,
     pub outputs: Vec<cashu::BlindedMessage>,
