@@ -12,7 +12,7 @@ mint = ["cashu/mint", "cdk-common/mint"]
 clwdr-client = ["dep:async-nats", "dep:bytes"]
 
 [dependencies]
-async-nats = {version = "0.42", optional = true}
+async-nats = {version = "0.49", optional = true}
 bip39 = {version = "2.2"}
 bitcoin = {version = "0.32", features = ["serde"]}
 borsh = {version = "1.5", features = ["derive"]}
