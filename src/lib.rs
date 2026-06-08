@@ -16,5 +16,7 @@ pub use core::test_utils as core_tests;
 #[cfg(feature = "test-utils")]
 pub use wire::test_utils as wire_tests;
 
+#[cfg(feature = "clwdr-client")]
+pub use async_nats;
 pub use cashu;
 pub use cdk_common;
