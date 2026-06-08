@@ -323,12 +323,6 @@ pub mod mint {
         outputs: &[cashu::BlindedMessage],
         kinfos: &HashMap<Id, KeySetInfo>,
     ) -> Result<HashMap<cashu::Id, cashu::Amount>> {
-        // * no empty outputs
-        if outputs.is_empty() {
-            return Err(VerificationError::InvalidOutputs(String::from(
-                "no outputs provided",
-            )));
-        }
         // * unique blinded_secrets
         let b_secrets: HashSet<cashu::PublicKey> =
             outputs.iter().map(|output| output.blinded_secret).collect();
