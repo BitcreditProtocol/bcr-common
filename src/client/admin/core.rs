@@ -228,6 +228,7 @@ impl Client {
         expiry: u64,
         wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
         let result = common::commit_swap(
             &self.cl,
@@ -238,6 +239,7 @@ impl Client {
             expiry,
             wallet_pk,
             mint_pk,
+            attestation,
         )
         .await?;
         Ok(result)
@@ -248,7 +250,6 @@ impl Client {
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
-        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let result = common::swap(
             &self.cl,
@@ -257,7 +258,6 @@ impl Client {
             inputs,
             outputs,
             commitment,
-            attestation,
         )
         .await?;
         Ok(result)
@@ -346,14 +346,12 @@ pub(crate) mod common {
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
-        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let url = base.join(ep).expect("swap relative path");
         let request = wire_swap::SwapRequest {
             inputs,
             outputs,
             commitment,
-            attestation,
         };
         let response: wire_swap::SwapResponse = cl.post(url, &request).await?;
         Ok(response.signatures)
@@ -370,13 +368,17 @@ pub(crate) mod common {
         expiry: u64,
         wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
         let url = base.join(ep).expect("swap commit relative path");
         let mut input_ys: Vec<cashu::PublicKey> = inputs.iter().map(|f| f.y).collect();
         let mut output_bs: Vec<cashu::PublicKey> =
             outputs.iter().map(|o| o.blinded_secret).collect();
         let request = wire_swap::SwapCommitmentRequest {
-            inputs,
+            inputs: crate::wire::attestation::AttestedFingerprints {
+                inputs,
+                attestation,
+            },
             outputs,
             expiry,
             wallet_key: wallet_pk,
@@ -407,7 +409,7 @@ pub(crate) mod common {
             )));
         }
         let mut received_ys: Vec<cashu::PublicKey> =
-            received_inputs.into_iter().map(|f| f.y).collect();
+            received_inputs.inputs.into_iter().map(|f| f.y).collect();
         received_ys.sort();
         input_ys.sort();
         if received_ys != input_ys {

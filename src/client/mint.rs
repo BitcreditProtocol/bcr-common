@@ -155,6 +155,7 @@ impl Client {
         expiry: u64,
         wallet_pk: bitcoin::secp256k1::PublicKey,
         mint_pk: bitcoin::secp256k1::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
         let result = core::common::commit_swap(
             &self.cl,
@@ -165,6 +166,7 @@ impl Client {
             expiry,
             wallet_pk,
             mint_pk,
+            attestation,
         )
         .await?;
         Ok(result)
@@ -177,7 +179,6 @@ impl Client {
         signature: bitcoin::secp256k1::schnorr::Signature,
         mint_id: bitcoin::secp256k1::PublicKey,
         commitment: bitcoin::secp256k1::schnorr::Signature,
-        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let url = self
             .base
@@ -188,7 +189,6 @@ impl Client {
             signature,
             mint_id,
             commitment,
-            attestation,
         };
         let response: wire_swap::SwapResponse = self.cl.post(url, &msg).await?;
         Ok(response.signatures)
@@ -199,7 +199,6 @@ impl Client {
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
-        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let result = core::common::swap(
             &self.cl,
@@ -208,7 +207,6 @@ impl Client {
             inputs,
             outputs,
             commitment,
-            attestation,
         )
         .await?;
         Ok(result)
@@ -336,6 +334,7 @@ impl Client {
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
         let result = treasury::common::exchange_offline_raw(
             &self.cl,
@@ -344,6 +343,7 @@ impl Client {
             fingerprints,
             hashes,
             wallet_pk,
+            attestation,
         )
         .await?;
         Ok(result)
@@ -355,6 +355,7 @@ impl Client {
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
         mint_pk: secp256k1::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<(Vec<cashu::Proof>, secp256k1::schnorr::Signature)> {
         let response = treasury::common::exchange_offline_raw(
             &self.cl,
@@ -363,6 +364,7 @@ impl Client {
             fingerprints,
             hashes,
             wallet_pk,
+            attestation,
         )
         .await?;
         signature::schnorr_verify_b64(
@@ -403,13 +405,17 @@ impl Client {
         recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
         wallet_key: cashu::PublicKey,
         mint_pk: secp256k1::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<(String, secp256k1::schnorr::Signature)> {
         let url = self
             .base
             .join(treasury::web_ep::MELTQUOTE_ONCHAIN_V1_EXT)
             .expect("onchain melt quote relative path");
         let msg = wire_melt::MeltQuoteOnchainRequest {
-            inputs,
+            inputs: crate::wire::attestation::AttestedFingerprints {
+                inputs,
+                attestation,
+            },
             address: recipient,
             wallet_key,
         };
@@ -448,17 +454,12 @@ impl Client {
         &self,
         qid: Uuid,
         inputs: Vec<cashu::Proof>,
-        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<bitcoin::Txid> {
         let url = self
             .base
             .join(treasury::web_ep::MELT_ONCHAIN_V1_EXT)
             .expect("onchain melt relative path");
-        let msg = wire_melt::MeltOnchainRequest {
-            quote: qid,
-            inputs,
-            attestation,
-        };
+        let msg = wire_melt::MeltOnchainRequest { quote: qid, inputs };
         let response: wire_melt::MeltOnchainResponse = self.cl.post(url, &msg).await?;
         Ok(response.txid)
     }

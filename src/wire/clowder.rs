@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::{
     core::BillId,
-    wire::{attestation::IssuanceAttestation, bill as wire_bill, keys as wire_keys},
+    wire::{attestation::AttestedFingerprints, bill as wire_bill, keys as wire_keys},
 };
 
 // ----- end imports
@@ -56,7 +56,7 @@ pub struct ExchangeResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubstituteExchangeRequest {
-    pub proofs: Vec<wire_keys::ProofFingerprint>,
+    pub inputs: AttestedFingerprints,
     pub locks: Vec<Sha256Hash>,
     pub wallet_pubkey: secp256k1::PublicKey,
 }
@@ -332,7 +332,7 @@ pub struct MintForeignEcashResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintForeignOfflineEcashRequest {
-    pub fingerprints: Vec<wire_keys::ProofFingerprint>,
+    pub inputs: AttestedFingerprints,
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
     pub wallet_pk: cashu::PublicKey,
 }
@@ -365,7 +365,6 @@ pub struct MeltOnchainRequest {
     pub inputs: Vec<cashu::Proof>,
     pub fees: Vec<cashu::BlindSignature>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
-    pub attestation: IssuanceAttestation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -378,7 +377,7 @@ pub struct MeltOnchainResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltQuoteOnchainRequest {
     pub quote_id: uuid::Uuid,
-    pub inputs: Vec<wire_keys::ProofFingerprint>,
+    pub inputs: AttestedFingerprints,
     pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
     pub admin_fees: cashu::Amount,
     pub network_fees: bitcoin::Amount,
@@ -424,7 +423,7 @@ pub struct OfflineExchangeSignResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapCommitmentRequest {
-    pub inputs: Vec<wire_keys::ProofFingerprint>,
+    pub inputs: AttestedFingerprints,
     pub outputs: Vec<cashu::BlindedMessage>,
     pub expiry: u64,
     pub wallet_key: cashu::PublicKey,
@@ -442,7 +441,6 @@ pub struct SwapRequest {
     pub proofs: Vec<cashu::Proof>,
     pub blinds: Vec<cashu::BlindedMessage>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
-    pub attestation: IssuanceAttestation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

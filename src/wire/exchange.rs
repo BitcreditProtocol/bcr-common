@@ -4,7 +4,7 @@ use bitcoin::secp256k1;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
-use crate::wire::{borsh as wire_borsh, keys as wire_keys};
+use crate::wire::{attestation::AttestedFingerprints, borsh as wire_borsh};
 
 // ----- end imports
 
@@ -25,7 +25,7 @@ pub struct OnlineExchangeResponse {
 ///--------------------------- Offline ExchangeRequest
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct OfflineExchangeRequest {
-    pub fingerprints: Vec<wire_keys::ProofFingerprint>,
+    pub inputs: AttestedFingerprints,
     #[schema(value_type = Vec<String>)]
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
     pub wallet_pk: cashu::PublicKey,

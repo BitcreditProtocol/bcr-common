@@ -243,9 +243,13 @@ impl Client {
         proofs: Vec<wire_keys::ProofFingerprint>,
         locks: Vec<Sha256>,
         wallet_pubkey: bitcoin::secp256k1::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
         let payload = wire_clowder::SubstituteExchangeRequest {
-            proofs,
+            inputs: crate::wire::attestation::AttestedFingerprints {
+                inputs: proofs,
+                attestation,
+            },
             locks,
             wallet_pubkey,
         };
