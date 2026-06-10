@@ -171,21 +171,6 @@ impl std::convert::From<WitnessEnum> for cashu::Witness {
         }
     }
 }
-pub fn serialize_optionwitness(
-    witness: &Option<cashu::Witness>,
-    writer: &mut impl Write,
-) -> Result<()> {
-    let enumed = witness.as_ref().map(|w| WitnessEnum::from(w.clone()));
-    borsh::BorshSerialize::serialize(&enumed, writer)?;
-    Ok(())
-}
-
-pub fn deserialize_optionwitness(reader: &mut impl Read) -> Result<Option<cashu::Witness>> {
-    let enumed: Option<WitnessEnum> = borsh::BorshDeserialize::deserialize_reader(reader)?;
-    let witness = enumed.map(cashu::Witness::from);
-    Ok(witness)
-}
-
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
 struct Proof {
     amount: u64,
