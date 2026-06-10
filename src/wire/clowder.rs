@@ -56,7 +56,7 @@ pub struct ExchangeResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubstituteExchangeRequest {
-    pub inputs: AttestedFingerprints,
+    pub proofs: Vec<wire_keys::ProofFingerprint>,
     pub locks: Vec<Sha256Hash>,
     pub wallet_pubkey: secp256k1::PublicKey,
 }
@@ -332,7 +332,7 @@ pub struct MintForeignEcashResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintForeignOfflineEcashRequest {
-    pub inputs: AttestedFingerprints,
+    pub fingerprints: Vec<wire_keys::ProofFingerprint>,
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
     pub wallet_pk: cashu::PublicKey,
 }

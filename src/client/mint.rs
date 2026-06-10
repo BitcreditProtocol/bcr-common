@@ -334,7 +334,6 @@ impl Client {
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
-        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
         let result = treasury::common::exchange_offline_raw(
             &self.cl,
@@ -343,7 +342,6 @@ impl Client {
             fingerprints,
             hashes,
             wallet_pk,
-            attestation,
         )
         .await?;
         Ok(result)
@@ -355,7 +353,6 @@ impl Client {
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
         mint_pk: secp256k1::PublicKey,
-        attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<(Vec<cashu::Proof>, secp256k1::schnorr::Signature)> {
         let response = treasury::common::exchange_offline_raw(
             &self.cl,
@@ -364,7 +361,6 @@ impl Client {
             fingerprints,
             hashes,
             wallet_pk,
-            attestation,
         )
         .await?;
         signature::schnorr_verify_b64(

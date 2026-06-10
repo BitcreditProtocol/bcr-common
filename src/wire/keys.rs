@@ -7,8 +7,8 @@ use utoipa::ToSchema;
 use crate::{
     core,
     wire::borsh::{
-        deserialize_from_str, deserialize_optionproofdleq, deserialize_optionwitness,
-        serialize_as_str, serialize_optionproofdleq, serialize_optionwitness,
+        deserialize_from_str, deserialize_optionproofdleq, serialize_as_str,
+        serialize_optionproofdleq,
     },
 };
 
@@ -74,11 +74,6 @@ pub struct ProofFingerprint {
         deserialize_with = "deserialize_optionproofdleq"
     )]
     pub dleq: Option<cashu::ProofDleq>,
-    #[borsh(
-        serialize_with = "serialize_optionwitness",
-        deserialize_with = "deserialize_optionwitness"
-    )]
-    pub witness: Option<cashu::Witness>,
 }
 
 impl std::convert::From<ProofFingerprint> for core::signature::ProofFingerprint {
@@ -102,7 +97,6 @@ impl std::convert::TryFrom<cashu::Proof> for ProofFingerprint {
             y,
             c: proof.c,
             dleq: proof.dleq,
-            witness: proof.witness,
         })
     }
 }
@@ -113,7 +107,7 @@ pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> cash
         amount: cashu::Amount::from(fp.amount),
         c: fp.c,
         dleq: fp.dleq.clone(),
-        witness: fp.witness.clone(),
+        witness: None,
         secret,
         p2pk_e: None,
     }

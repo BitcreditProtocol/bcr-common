@@ -63,12 +63,17 @@ pub struct AttestedFingerprints {
 }
 
 impl AttestedFingerprints {
-    pub fn verify(
+    pub fn authenticate(
         &self,
         alpha_id: &PublicKey,
         is_known_beta: impl FnOnce(&PublicKey) -> bool,
     ) -> Result<(), AttestationError> {
-        verify_attestation_fingerprints(alpha_id, &self.inputs, &self.attestation, is_known_beta)
+        authenticate_attestation_fingerprints(
+            alpha_id,
+            &self.inputs,
+            &self.attestation,
+            is_known_beta,
+        )
     }
 }
 
@@ -98,7 +103,6 @@ pub fn canonical_fingerprint(fp: &ProofFingerprint) -> ProofFingerprint {
         y: fp.y,
         c: fp.c,
         dleq: None,
-        witness: None,
     }
 }
 
@@ -161,7 +165,7 @@ pub fn verify_message(
     Sha256::hash(&msg)
 }
 
-pub fn verify_attestation_fingerprints(
+pub fn authenticate_attestation_fingerprints(
     alpha_id: &PublicKey,
     inputs: &[ProofFingerprint],
     attestation: &IssuanceAttestation,
@@ -183,14 +187,14 @@ pub fn verify_attestation_fingerprints(
     Ok(())
 }
 
-pub fn verify_attestation_local(
+pub fn authenticate_attestation(
     alpha_id: &PublicKey,
     inputs: &[cashu::Proof],
     attestation: &IssuanceAttestation,
     is_known_beta: impl FnOnce(&PublicKey) -> bool,
 ) -> Result<(), AttestationError> {
     let fps = project_to_fingerprints(inputs)?;
-    verify_attestation_fingerprints(alpha_id, &fps, attestation, is_known_beta)
+    authenticate_attestation_fingerprints(alpha_id, &fps, attestation, is_known_beta)
 }
 
 pub fn verify_attestation_response(
@@ -339,12 +343,12 @@ mod tests {
     }
 
     #[test]
-    fn verify_attestation_local_happy_path() {
+    fn authenticate_attestation_happy_path() {
         let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
         let beta = secp::Keypair::new_global(&mut rand::thread_rng());
         let inputs = sample_inputs();
         let att = make_attestation(&beta, &alpha.public_key(), &inputs);
-        verify_attestation_local(
+        authenticate_attestation(
             &alpha.public_key(),
             &inputs,
             &att,
@@ -354,13 +358,13 @@ mod tests {
     }
 
     #[test]
-    fn verify_attestation_local_tampered_inputs_rejected() {
+    fn authenticate_attestation_tampered_inputs_rejected() {
         let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
         let beta = secp::Keypair::new_global(&mut rand::thread_rng());
         let inputs = sample_inputs();
         let att = make_attestation(&beta, &alpha.public_key(), &inputs);
         let other = sample_inputs();
-        let err = verify_attestation_local(
+        let err = authenticate_attestation(
             &alpha.public_key(),
             &other,
             &att,
@@ -371,13 +375,13 @@ mod tests {
     }
 
     #[test]
-    fn verify_attestation_local_unknown_beta_rejected() {
+    fn authenticate_attestation_unknown_beta_rejected() {
         let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
         let beta = secp::Keypair::new_global(&mut rand::thread_rng());
         let inputs = sample_inputs();
         let att = make_attestation(&beta, &alpha.public_key(), &inputs);
         let other = secp::Keypair::new_global(&mut rand::thread_rng());
-        let err = verify_attestation_local(
+        let err = authenticate_attestation(
             &alpha.public_key(),
             &inputs,
             &att,
@@ -464,7 +468,7 @@ mod tests {
         let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
         let beta = secp::Keypair::new_global(&mut rand::thread_rng());
         let af = sample_attested(&alpha, &beta);
-        af.verify(&alpha.public_key(), known_beta(beta.public_key()))
+        af.authenticate(&alpha.public_key(), known_beta(beta.public_key()))
             .unwrap();
     }
 
@@ -475,7 +479,7 @@ mod tests {
         let mut af = sample_attested(&alpha, &beta);
         af.inputs = project_to_fingerprints(&sample_inputs()).unwrap();
         let err = af
-            .verify(&alpha.public_key(), known_beta(beta.public_key()))
+            .authenticate(&alpha.public_key(), known_beta(beta.public_key()))
             .unwrap_err();
         assert!(matches!(err, AttestationError::DigestMismatch));
     }
@@ -487,7 +491,7 @@ mod tests {
         let other = secp::Keypair::new_global(&mut rand::thread_rng());
         let af = sample_attested(&alpha, &beta);
         let err = af
-            .verify(&alpha.public_key(), known_beta(other.public_key()))
+            .authenticate(&alpha.public_key(), known_beta(other.public_key()))
             .unwrap_err();
         assert!(matches!(err, AttestationError::UnknownBeta(_)));
     }
