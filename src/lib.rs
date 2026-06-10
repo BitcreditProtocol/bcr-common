@@ -3,8 +3,6 @@
 // ----- local modules
 pub mod client;
 pub mod clowder;
-#[cfg(feature = "clwdr-client")]
-pub mod clwdr_client;
 pub mod core;
 pub mod wallet;
 pub mod wire;
