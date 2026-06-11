@@ -42,6 +42,12 @@ pub mod web_ep {
     pub const MINT_ONCHAIN_V1_EXT: &str = "/v1/treasury/mint/onchain";
 }
 
+const CACHED_EPS: [(&str, reqwest::Method); 3] = [
+    (web_ep::EBILLMINT_V1, reqwest::Method::POST),
+    (web_ep::MELTQUOTE_ONCHAIN_V1, reqwest::Method::POST),
+    (web_ep::MELT_ONCHAIN_V1, reqwest::Method::POST),
+];
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
@@ -80,6 +86,14 @@ impl Client {
     pub fn new(base: reqwest::Url) -> Self {
         Self {
             cl: jsonrpc::Client::new(),
+            base,
+        }
+    }
+
+    pub fn with_retry(base: reqwest::Url, max_attempts: u32) -> Self {
+        let builder = jsonrpc::retry::build_builder(&base, &CACHED_EPS, max_attempts);
+        Self {
+            cl: jsonrpc::Client::with_retry(builder),
             base,
         }
     }

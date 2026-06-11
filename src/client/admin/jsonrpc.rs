@@ -26,9 +26,38 @@ pub struct Client {
     cl: reqwest::Client,
 }
 
+pub mod retry {
+    pub type CachedEp = (&'static str, reqwest::Method);
+    pub fn build_builder(
+        base: &reqwest::Url,
+        cached_eps: &'static [CachedEp],
+        max_attempts: u32,
+    ) -> reqwest::retry::Builder {
+        let host = base.host().map(|h| h.to_string()).unwrap_or_default();
+        reqwest::retry::for_host(host)
+            .max_retries_per_request(max_attempts)
+            .classify_fn(move |reqrep| {
+                let ep = (reqrep.uri().path(), reqrep.method().clone());
+                if cached_eps.contains(&ep) {
+                    reqrep.retryable()
+                } else {
+                    reqrep.success()
+                }
+            })
+    }
+}
+
 impl Client {
     pub fn new() -> Self {
         let cl = reqwest::Client::new();
+        Client { cl }
+    }
+
+    pub fn with_retry(builder: reqwest::retry::Builder) -> Self {
+        let cl = reqwest::Client::builder()
+            .retry(builder)
+            .build()
+            .expect("failed to build client with retry");
         Client { cl }
     }
 
@@ -135,5 +164,57 @@ impl Client {
 impl Default for Client {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    pub const EP_1: &'static str = "/test";
+    pub const CACHED_EPS: [retry::CachedEp; 1] = [(EP_1, reqwest::Method::GET)];
+
+    #[tokio::test]
+    async fn test_retry_fail() {
+        let mut server = mockito::Server::new_async().await;
+        server
+            .mock("GET", EP_1)
+            .with_status(500)
+            .with_body("internal error")
+            .expect(3)
+            .create_async()
+            .await;
+        let base = Url::parse(&server.url()).unwrap();
+        let url = base.join(EP_1).unwrap();
+        let builder = retry::build_builder(&base, &CACHED_EPS, 3);
+        let client = Client::with_retry(builder);
+        let result: Result<()> = client.get(url, &[]).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_retry_success_after_fail() {
+        let mut server = mockito::Server::new_async().await;
+        server
+            .mock("GET", EP_1)
+            .with_status(500)
+            .with_body("internal error")
+            .expect(2)
+            .create_async()
+            .await;
+        server
+            .mock("GET", EP_1)
+            .with_status(200)
+            .with_body(r#""success""#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = Url::parse(&server.url()).unwrap();
+        let url = base.join(EP_1).unwrap();
+        let builder = retry::build_builder(&base, &CACHED_EPS, 3);
+        let client = Client::with_retry(builder);
+        let result: Result<String> = client.get(url, &[]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "success");
     }
 }

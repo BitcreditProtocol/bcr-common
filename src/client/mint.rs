@@ -92,6 +92,18 @@ impl std::convert::From<clowder::Error> for Error {
     }
 }
 
+const CACHED_EPS: [(&str, reqwest::Method); 6] = [
+    (core::web_ep::SWAP_COMMIT_V1_EXT, reqwest::Method::POST),
+    (core::web_ep::SWAP_V1_EXT, reqwest::Method::POST),
+    (core::web_ep::SIGNED_SWAP_V1_EXT, reqwest::Method::POST),
+    (treasury::web_ep::EBILLMINT_V1_EXT, reqwest::Method::POST),
+    (
+        treasury::web_ep::MELTQUOTE_ONCHAIN_V1_EXT,
+        reqwest::Method::POST,
+    ),
+    (treasury::web_ep::MELT_ONCHAIN_V1_EXT, reqwest::Method::POST),
+];
+
 /// A single public-facing client that covers the publicly available APIs
 /// across the core, quote, and treasury services.
 #[derive(Debug, Clone)]
@@ -104,6 +116,14 @@ impl Client {
     pub fn new(base: reqwest::Url) -> Self {
         Self {
             cl: jsonrpc::Client::new(),
+            base,
+        }
+    }
+
+    pub fn with_retry(base: reqwest::Url, max_attempts: u32) -> Self {
+        let builder = jsonrpc::retry::build_builder(&base, &CACHED_EPS, max_attempts);
+        Self {
+            cl: jsonrpc::Client::with_retry(builder),
             base,
         }
     }

@@ -38,6 +38,12 @@ pub mod web_ep {
     pub const RESTORE_V1_EXT: &str = "/v1/core/restore";
 }
 
+const CACHED_EPS: [(&str, reqwest::Method); 3] = [
+    (web_ep::SWAP_COMMIT_V1, reqwest::Method::POST),
+    (web_ep::SWAP_V1, reqwest::Method::POST),
+    (web_ep::SIGNED_SWAP_V1, reqwest::Method::POST),
+];
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
@@ -82,6 +88,14 @@ impl Client {
     pub fn new(base: reqwest::Url) -> Self {
         Self {
             cl: jsonrpc::Client::new(),
+            base,
+        }
+    }
+
+    pub fn with_retry(base: reqwest::Url, max_attempts: u32) -> Self {
+        let builder = jsonrpc::retry::build_builder(&base, &CACHED_EPS, max_attempts);
+        Self {
+            cl: jsonrpc::Client::with_retry(builder),
             base,
         }
     }
