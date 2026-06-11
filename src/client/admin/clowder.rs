@@ -7,10 +7,7 @@ use crate::{
     cashu::{Id, KeysResponse, KeysetResponse, Proof},
     client::admin::jsonrpc,
     core::BillId,
-    wire::{
-        attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
-        keys as wire_keys,
-    },
+    wire::{attestation as wire_attestation, clowder as wire_clowder, keys as wire_keys},
 };
 
 // ----- end imports
@@ -682,30 +679,6 @@ impl Client {
         Ok(response)
     }
 
-    pub async fn post_online_exchange(
-        &self,
-        request: wire_exchange::OnlineExchangeRequest,
-    ) -> Result<wire_exchange::OnlineExchangeResponse> {
-        let response =
-            common::post_online_exchange(&self.cl, &self.base, web_ep::ONLINE_EXCHANGE_V1, request)
-                .await?;
-        Ok(response)
-    }
-
-    pub async fn post_offline_exchange(
-        &self,
-        request: wire_exchange::OfflineExchangeRequest,
-    ) -> Result<wire_exchange::OfflineExchangeResponse> {
-        let response = common::post_offline_exchange(
-            &self.cl,
-            &self.base,
-            web_ep::OFFLINE_EXCHANGE_V1,
-            request,
-        )
-        .await?;
-        Ok(response)
-    }
-
     pub async fn post_path(
         &self,
         origin_mint_url: reqwest::Url,
@@ -847,28 +820,6 @@ pub(crate) mod common {
             previous_block_hash,
         };
         let response = cl.post(url, &req).await?;
-        Ok(response)
-    }
-
-    pub async fn post_online_exchange(
-        cl: &jsonrpc::Client,
-        base: &reqwest::Url,
-        ep: &'static str,
-        request: wire_exchange::OnlineExchangeRequest,
-    ) -> Result<wire_exchange::OnlineExchangeResponse> {
-        let url = base.join(ep).expect("online exchange relative path");
-        let response: wire_exchange::OnlineExchangeResponse = cl.post(url, &request).await?;
-        Ok(response)
-    }
-
-    pub async fn post_offline_exchange(
-        cl: &jsonrpc::Client,
-        base: &reqwest::Url,
-        ep: &'static str,
-        request: wire_exchange::OfflineExchangeRequest,
-    ) -> Result<wire_exchange::OfflineExchangeResponse> {
-        let url = base.join(ep).expect("offline exchange relative path");
-        let response: wire_exchange::OfflineExchangeResponse = cl.post(url, &request).await?;
         Ok(response)
     }
 
