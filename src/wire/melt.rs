@@ -6,20 +6,19 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
-    attestation::IssuanceAttestation,
+    attestation::AttestedFingerprints,
     borsh::{
         deserialize_btc_amount, deserialize_from_str, deserialize_unchecked_address,
         serialize_as_str, serialize_btc_amount, serialize_unchecked_address,
     },
     common::ProtestStatus,
-    keys::ProofFingerprint,
 };
 // ----- end imports
 
 ///--------------------------- Melt Quote Onchain Request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
 pub struct MeltQuoteOnchainRequest {
-    pub inputs: Vec<ProofFingerprint>,
+    pub inputs: AttestedFingerprints,
     /// Bitcoin address the wallet wants the mint to pay
     #[schema(value_type = String)]
     #[borsh(
@@ -43,7 +42,7 @@ pub struct MeltQuoteOnchainResponseBody {
         deserialize_with = "deserialize_from_str"
     )]
     pub quote: uuid::Uuid,
-    pub inputs: Vec<ProofFingerprint>,
+    pub inputs: AttestedFingerprints,
     #[borsh(
         serialize_with = "serialize_unchecked_address",
         deserialize_with = "deserialize_unchecked_address"
@@ -78,7 +77,6 @@ pub struct MeltOnchainRequest {
     #[schema(value_type = String)]
     pub quote: uuid::Uuid,
     pub inputs: Vec<cashu::Proof>,
-    pub attestation: IssuanceAttestation,
 }
 
 ///--------------------------- Melt Onchain Response

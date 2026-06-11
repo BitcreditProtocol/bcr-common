@@ -5,13 +5,12 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::{
-    attestation::IssuanceAttestation,
+    attestation::AttestedFingerprints,
     borsh::{
         deserialize_from_str, deserialize_vecof_blindedmessage, deserialize_vecof_cdkproof,
         serialize_as_str, serialize_vecof_blindedmessage, serialize_vecof_cdkproof,
     },
     common::ProtestStatus,
-    keys::ProofFingerprint,
 };
 
 // ----- end imports
@@ -39,7 +38,7 @@ pub struct RecoverResponse {}
 ///--------------------------- Swap Commitment Request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
 pub struct SwapCommitmentRequest {
-    pub inputs: Vec<ProofFingerprint>,
+    pub inputs: AttestedFingerprints,
     #[borsh(
         serialize_with = "serialize_vecof_blindedmessage",
         deserialize_with = "deserialize_vecof_blindedmessage"
@@ -86,7 +85,6 @@ pub struct SignedSwapRequest {
     pub signature: bitcoin::secp256k1::schnorr::Signature,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
-    pub attestation: IssuanceAttestation,
 }
 
 ///--------------------------- Swap Request
@@ -96,7 +94,6 @@ pub struct SwapRequest {
     pub outputs: Vec<cashu::BlindedMessage>,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
-    pub attestation: IssuanceAttestation,
 }
 
 ///--------------------------- Swap Response

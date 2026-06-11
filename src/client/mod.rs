@@ -2,6 +2,8 @@
 // ----- extra library imports
 // ----- local modules
 pub mod admin;
+#[cfg(feature = "clwdr-client")]
+pub mod clowder;
 pub mod ebill;
 pub mod mint;
 

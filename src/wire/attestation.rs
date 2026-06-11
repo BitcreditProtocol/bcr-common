@@ -53,6 +53,30 @@ pub struct IssuanceAttestation {
     pub signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
+///--------------------------- Attested Fingerprints (input set + its issuance attestation)
+#[derive(
+    Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize, PartialEq,
+)]
+pub struct AttestedFingerprints {
+    pub inputs: Vec<ProofFingerprint>,
+    pub attestation: IssuanceAttestation,
+}
+
+impl AttestedFingerprints {
+    pub fn authenticate(
+        &self,
+        alpha_id: &PublicKey,
+        is_known_beta: impl FnOnce(&PublicKey) -> bool,
+    ) -> Result<(), AttestationError> {
+        authenticate_attestation_fingerprints(
+            alpha_id,
+            &self.inputs,
+            &self.attestation,
+            is_known_beta,
+        )
+    }
+}
+
 ///--------------------------- Attestation Verify (Alpha -> Beta, POST /v1/attest/verify)
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AttestationVerifyRequest {
@@ -79,7 +103,6 @@ pub fn canonical_fingerprint(fp: &ProofFingerprint) -> ProofFingerprint {
         y: fp.y,
         c: fp.c,
         dleq: None,
-        witness: None,
     }
 }
 
@@ -142,18 +165,16 @@ pub fn verify_message(
     Sha256::hash(&msg)
 }
 
-pub fn verify_attestation_local(
+pub fn authenticate_attestation_fingerprints(
     alpha_id: &PublicKey,
-    inputs: &[cashu::Proof],
+    inputs: &[ProofFingerprint],
     attestation: &IssuanceAttestation,
     is_known_beta: impl FnOnce(&PublicKey) -> bool,
 ) -> Result<(), AttestationError> {
     if !is_known_beta(&attestation.beta_id) {
         return Err(AttestationError::UnknownBeta(attestation.beta_id));
     }
-    let fps = project_to_fingerprints(inputs)?;
-    let local = fp_digest(&fps);
-    if local != attestation.fp_digest {
+    if fp_digest(inputs) != attestation.fp_digest {
         return Err(AttestationError::DigestMismatch);
     }
     let msg_hash = attest_message(alpha_id, &attestation.fp_digest, &attestation.coords_mac);
@@ -164,6 +185,16 @@ pub fn verify_attestation_local(
         &attestation.beta_id.x_only_public_key().0,
     )?;
     Ok(())
+}
+
+pub fn authenticate_attestation(
+    alpha_id: &PublicKey,
+    inputs: &[cashu::Proof],
+    attestation: &IssuanceAttestation,
+    is_known_beta: impl FnOnce(&PublicKey) -> bool,
+) -> Result<(), AttestationError> {
+    let fps = project_to_fingerprints(inputs)?;
+    authenticate_attestation_fingerprints(alpha_id, &fps, attestation, is_known_beta)
 }
 
 pub fn verify_attestation_response(
@@ -312,12 +343,12 @@ mod tests {
     }
 
     #[test]
-    fn verify_attestation_local_happy_path() {
+    fn authenticate_attestation_happy_path() {
         let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
         let beta = secp::Keypair::new_global(&mut rand::thread_rng());
         let inputs = sample_inputs();
         let att = make_attestation(&beta, &alpha.public_key(), &inputs);
-        verify_attestation_local(
+        authenticate_attestation(
             &alpha.public_key(),
             &inputs,
             &att,
@@ -327,13 +358,13 @@ mod tests {
     }
 
     #[test]
-    fn verify_attestation_local_tampered_inputs_rejected() {
+    fn authenticate_attestation_tampered_inputs_rejected() {
         let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
         let beta = secp::Keypair::new_global(&mut rand::thread_rng());
         let inputs = sample_inputs();
         let att = make_attestation(&beta, &alpha.public_key(), &inputs);
         let other = sample_inputs();
-        let err = verify_attestation_local(
+        let err = authenticate_attestation(
             &alpha.public_key(),
             &other,
             &att,
@@ -344,13 +375,13 @@ mod tests {
     }
 
     #[test]
-    fn verify_attestation_local_unknown_beta_rejected() {
+    fn authenticate_attestation_unknown_beta_rejected() {
         let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
         let beta = secp::Keypair::new_global(&mut rand::thread_rng());
         let inputs = sample_inputs();
         let att = make_attestation(&beta, &alpha.public_key(), &inputs);
         let other = secp::Keypair::new_global(&mut rand::thread_rng());
-        let err = verify_attestation_local(
+        let err = authenticate_attestation(
             &alpha.public_key(),
             &inputs,
             &att,
@@ -400,5 +431,68 @@ mod tests {
             verify_attestation_response(&alpha.public_key(), &beta.public_key(), &att, &response)
                 .unwrap_err();
         assert!(matches!(err, AttestationError::VerifyNotFound));
+    }
+
+    fn sample_attested(alpha: &secp::Keypair, beta: &secp::Keypair) -> AttestedFingerprints {
+        let inputs = sample_inputs();
+        let attestation = make_attestation(beta, &alpha.public_key(), &inputs);
+        AttestedFingerprints {
+            inputs: project_to_fingerprints(&inputs).unwrap(),
+            attestation,
+        }
+    }
+
+    #[test]
+    fn attested_fingerprints_borsh_roundtrip() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let af = sample_attested(&alpha, &beta);
+        let bytes = borsh::to_vec(&af).expect("borsh serialize");
+        let back: AttestedFingerprints = borsh::from_slice(&bytes).expect("borsh deserialize");
+        assert_eq!(af.attestation, back.attestation);
+        assert_eq!(af.inputs.len(), back.inputs.len());
+    }
+
+    #[test]
+    fn attested_fingerprints_json_roundtrip() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let af = sample_attested(&alpha, &beta);
+        let json = serde_json::to_string(&af).expect("serialize");
+        let back: AttestedFingerprints = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(af.attestation, back.attestation);
+    }
+
+    #[test]
+    fn attested_fingerprints_verify_happy_path() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let af = sample_attested(&alpha, &beta);
+        af.authenticate(&alpha.public_key(), known_beta(beta.public_key()))
+            .unwrap();
+    }
+
+    #[test]
+    fn attested_fingerprints_verify_digest_mismatch_rejected() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let mut af = sample_attested(&alpha, &beta);
+        af.inputs = project_to_fingerprints(&sample_inputs()).unwrap();
+        let err = af
+            .authenticate(&alpha.public_key(), known_beta(beta.public_key()))
+            .unwrap_err();
+        assert!(matches!(err, AttestationError::DigestMismatch));
+    }
+
+    #[test]
+    fn attested_fingerprints_verify_unknown_beta_rejected() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let other = secp::Keypair::new_global(&mut rand::thread_rng());
+        let af = sample_attested(&alpha, &beta);
+        let err = af
+            .authenticate(&alpha.public_key(), known_beta(other.public_key()))
+            .unwrap_err();
+        assert!(matches!(err, AttestationError::UnknownBeta(_)));
     }
 }
