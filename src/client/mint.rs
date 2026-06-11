@@ -349,24 +349,6 @@ impl Client {
         Ok(response.proofs)
     }
 
-    pub async fn exchange_offline_raw(
-        &self,
-        fingerprints: Vec<wire_keys::ProofFingerprint>,
-        hashes: Vec<bitcoin::hashes::sha256::Hash>,
-        wallet_pk: cashu::PublicKey,
-    ) -> Result<wire_exchange::OfflineExchangeResponse> {
-        let result = treasury::common::exchange_offline_raw(
-            &self.cl,
-            &self.base,
-            treasury::web_ep::EXCHANGE_OFFLINE_V1_EXT,
-            fingerprints,
-            hashes,
-            wallet_pk,
-        )
-        .await?;
-        Ok(result)
-    }
-
     pub async fn exchange_offline(
         &self,
         fingerprints: Vec<wire_keys::ProofFingerprint>,
@@ -595,20 +577,6 @@ impl Client {
         Ok(response)
     }
 
-    pub async fn post_online_exchange(
-        &self,
-        request: wire_exchange::OnlineExchangeRequest,
-    ) -> Result<wire_exchange::OnlineExchangeResponse> {
-        let response = clowder::common::post_online_exchange(
-            &self.cl,
-            &self.base,
-            clowder::web_ep::ONLINE_EXCHANGE_V1_EXT,
-            request,
-        )
-        .await?;
-        Ok(response)
-    }
-
     pub async fn post_attest_issuance(
         &self,
         request: &wire_attestation::IssuanceAttestationRequest,
@@ -617,20 +585,6 @@ impl Client {
             &self.cl,
             &self.base,
             clowder::web_ep::ATTEST_ISSUANCE_V1_EXT,
-            request,
-        )
-        .await?;
-        Ok(response)
-    }
-
-    pub async fn post_offline_exchange(
-        &self,
-        request: wire_exchange::OfflineExchangeRequest,
-    ) -> Result<wire_exchange::OfflineExchangeResponse> {
-        let response = clowder::common::post_offline_exchange(
-            &self.cl,
-            &self.base,
-            clowder::web_ep::OFFLINE_EXCHANGE_V1_EXT,
             request,
         )
         .await?;
