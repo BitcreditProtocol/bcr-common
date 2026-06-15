@@ -29,12 +29,12 @@ pub mod web_ep {
     pub const KEYSET_INFO_V1_EXT: &str = "/v1/core/keysets/{kid}";
     pub const CHECK_STATE_V1: &str = "/v1/checkstate";
     pub const CHECK_STATE_V1_EXT: &str = "/v1/core/checkstate";
-    pub const SIGNED_SWAP_V1: &str = "/v1/swap/signed";
-    pub const SIGNED_SWAP_V1_EXT: &str = "/v1/core/swap/signed";
     pub const SWAP_V1: &str = "/v1/swap";
     pub const SWAP_V1_EXT: &str = "/v1/core/swap";
     pub const SWAP_COMMIT_V1: &str = "/v1/swap/commit";
     pub const SWAP_COMMIT_V1_EXT: &str = "/v1/core/swap/commit";
+    pub const SIGNED_SWAP_COMMIT_V1: &str = "/v1/swap/commit/signed";
+    pub const SIGNED_SWAP_COMMIT_V1_EXT: &str = "/v1/core/swap/commit/signed";
     pub const RESTORE_V1: &str = "/v1/restore";
     pub const RESTORE_V1_EXT: &str = "/v1/core/restore";
 }
@@ -387,7 +387,7 @@ pub(crate) mod common {
     }
 
     #[inline]
-    pub fn prepare_request(
+    pub fn prepare_swap_commitment_request(
         inputs: Vec<wire_keys::ProofFingerprint>,
         outputs: Vec<cashu::BlindedMessage>,
         expiry: u64,
@@ -402,52 +402,54 @@ pub(crate) mod common {
             outputs,
             expiry,
             wallet_key: wallet_pk,
-        };
-        let wire_swap::SwapCommitmentResponse {
-            content,
-            commitment,
-        } = cl.post(url, &request).await?;
+        }
+    }
+
+    #[inline]
+    pub fn verify_commitment(
+        mut request: wire_swap::SwapCommitmentRequest,
+        response: wire_swap::SwapCommitmentResponse,
+        mint_pk: &bitcoin::secp256k1::PublicKey,
+    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
+        // verify signature
         crate::core::signature::schnorr_verify_b64(
-            &content,
-            &commitment,
+            &response.content,
+            &response.commitment,
             &mint_pk.x_only_public_key().0,
         )?;
-        let wire_swap::SwapCommitmentRequest {
-            inputs: received_inputs,
-            outputs: received_outputs,
-            expiry: received_expiry,
-            wallet_key: received_wallet_pk,
-        } = deserialize_borsh_msg(&content)?;
-        if received_expiry != expiry {
+        // unpack payload
+        let mut signed_payload: wire_swap::SwapCommitmentRequest =
+            deserialize_borsh_msg(&response.content)?;
+        // canonicalize inputs and outputs for comparison
+        request.inputs.inputs.sort_by_key(|fp| fp.y);
+        request.outputs.sort_by_key(|o| o.blinded_secret);
+        signed_payload.inputs.inputs.sort_by_key(|fp| fp.y);
+        signed_payload.outputs.sort_by_key(|o| o.blinded_secret);
+        if request != signed_payload {
             return Err(Error::InvalidRequest(String::from(
-                "commitment expiry does not match request",
+                "commitment content does not match request",
             )));
         }
-        if received_wallet_pk != wallet_pk {
-            return Err(Error::InvalidRequest(String::from(
-                "commitment wallet key does not match request",
-            )));
-        }
-        let mut received_ys: Vec<cashu::PublicKey> =
-            received_inputs.inputs.into_iter().map(|f| f.y).collect();
-        received_ys.sort();
-        input_ys.sort();
-        if received_ys != input_ys {
-            return Err(Error::InvalidRequest(String::from(
-                "commitment inputs do not match request",
-            )));
-        }
-        let mut received_bs: Vec<cashu::PublicKey> = received_outputs
-            .into_iter()
-            .map(|o| o.blinded_secret)
-            .collect();
-        received_bs.sort();
-        output_bs.sort();
-        if received_bs != output_bs {
-            return Err(Error::InvalidRequest(String::from(
-                "commitment outputs do not match request",
-            )));
-        }
-        Ok((content, commitment))
+        Ok((response.content.clone(), response.commitment))
+    }
+
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    pub async fn commit_swap(
+        cl: &jsonrpc::Client,
+        base: &reqwest::Url,
+        ep: &'static str,
+        inputs: Vec<wire_keys::ProofFingerprint>,
+        outputs: Vec<cashu::BlindedMessage>,
+        expiry: u64,
+        wallet_pk: bitcoin::secp256k1::PublicKey,
+        mint_pk: bitcoin::secp256k1::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
+    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
+        let url = base.join(ep).expect("swap commit relative path");
+        let request =
+            prepare_swap_commitment_request(inputs, outputs, expiry, wallet_pk, attestation);
+        let response: wire_swap::SwapCommitmentResponse = cl.post(url, &request).await?;
+        verify_commitment(request, response, &mint_pk)
     }
 }

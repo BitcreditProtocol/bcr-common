@@ -192,26 +192,39 @@ impl Client {
         Ok(result)
     }
 
-    // content is serialized wire_swap::SignedSwapRequestContent
-    pub async fn signed_swap(
+    #[cfg(feature = "mint")]
+    pub fn prepare_swap_commitment_request(
+        inputs: Vec<wire_keys::ProofFingerprint>,
+        outputs: Vec<cashu::BlindedMessage>,
+        expiry: u64,
+        wallet_pk: bitcoin::secp256k1::PublicKey,
+        attestation: crate::wire::attestation::IssuanceAttestation,
+    ) -> wire_swap::SwapCommitmentRequest {
+        core::common::prepare_swap_commitment_request(
+            inputs,
+            outputs,
+            expiry,
+            wallet_pk,
+            attestation,
+        )
+    }
+
+    #[cfg(feature = "mint")]
+    pub async fn commit_swap_with_signature(
         &self,
-        content: String,
+        payload: String,
         signature: bitcoin::secp256k1::schnorr::Signature,
-        mint_id: bitcoin::secp256k1::PublicKey,
-        commitment: bitcoin::secp256k1::schnorr::Signature,
-    ) -> Result<Vec<cashu::BlindSignature>> {
+        mint_pk: bitcoin::secp256k1::PublicKey,
+    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
+        let original = signature::deserialize_borsh_msg(&payload)?;
+        let request = wire_swap::SignedSwapCommitmentRequest { payload, signature };
         let url = self
             .base
-            .join(core::web_ep::SIGNED_SWAP_V1_EXT)
-            .expect("signed swap relative path");
-        let msg = wire_swap::SignedSwapRequest {
-            content,
-            signature,
-            mint_id,
-            commitment,
-        };
-        let response: wire_swap::SwapResponse = self.cl.post(url, &msg).await?;
-        Ok(response.signatures)
+            .join(core::web_ep::SIGNED_SWAP_COMMIT_V1_EXT)
+            .expect("signed swap commit relative path");
+        let response: wire_swap::SwapCommitmentResponse = self.cl.post(url, &request).await?;
+        let result = core::common::verify_commitment(original, response, &mint_pk)?;
+        Ok(result)
     }
 
     pub async fn swap(
