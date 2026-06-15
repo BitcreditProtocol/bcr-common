@@ -387,23 +387,14 @@ pub(crate) mod common {
     }
 
     #[inline]
-    #[allow(clippy::too_many_arguments)]
-    pub async fn commit_swap(
-        cl: &jsonrpc::Client,
-        base: &reqwest::Url,
-        ep: &'static str,
+    pub fn prepare_request(
         inputs: Vec<wire_keys::ProofFingerprint>,
         outputs: Vec<cashu::BlindedMessage>,
         expiry: u64,
         wallet_pk: bitcoin::secp256k1::PublicKey,
-        mint_pk: bitcoin::secp256k1::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
-    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
-        let url = base.join(ep).expect("swap commit relative path");
-        let mut input_ys: Vec<cashu::PublicKey> = inputs.iter().map(|f| f.y).collect();
-        let mut output_bs: Vec<cashu::PublicKey> =
-            outputs.iter().map(|o| o.blinded_secret).collect();
-        let request = wire_swap::SwapCommitmentRequest {
+    ) -> wire_swap::SwapCommitmentRequest {
+        wire_swap::SwapCommitmentRequest {
             inputs: crate::wire::attestation::AttestedFingerprints {
                 inputs,
                 attestation,

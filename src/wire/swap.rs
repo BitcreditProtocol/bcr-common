@@ -7,8 +7,8 @@ use utoipa::ToSchema;
 use crate::wire::{
     attestation::AttestedFingerprints,
     borsh::{
-        deserialize_from_str, deserialize_vecof_blindedmessage, deserialize_vecof_cdkproof,
-        serialize_as_str, serialize_vecof_blindedmessage, serialize_vecof_cdkproof,
+        deserialize_from_str, deserialize_vecof_blindedmessage, serialize_as_str,
+        serialize_vecof_blindedmessage,
     },
     common::ProtestStatus,
 };
@@ -42,8 +42,10 @@ pub struct RecoverRequest {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RecoverResponse {}
 
-///--------------------------- Swap Commitment Request
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+///--------------------------- Swap Commitment
+#[derive(
+    Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize,
+)]
 pub struct SwapCommitmentRequest {
     pub inputs: AttestedFingerprints,
     #[borsh(
@@ -60,36 +62,17 @@ pub struct SwapCommitmentRequest {
     pub wallet_key: bitcoin::secp256k1::PublicKey,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SignedSwapCommitmentRequest {
+    // serialized SwapCommitmentRequest
+    pub payload: String,
+    #[schema(value_type = String)]
+    pub signature: bitcoin::secp256k1::schnorr::Signature,
+}
 ///--------------------------- Swap Commitment Response
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SwapCommitmentResponse {
     pub content: String,
-    #[schema(value_type = String)]
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
-}
-
-///--------------------------- Signed Swap Request
-#[derive(Debug, BorshSerialize, BorshDeserialize)]
-pub struct SignedSwapRequestContent {
-    #[borsh(
-        serialize_with = "serialize_vecof_cdkproof",
-        deserialize_with = "deserialize_vecof_cdkproof"
-    )]
-    pub inputs: Vec<cashu::Proof>,
-    #[borsh(
-        serialize_with = "serialize_vecof_blindedmessage",
-        deserialize_with = "deserialize_vecof_blindedmessage"
-    )]
-    pub outputs: Vec<cashu::BlindedMessage>,
-}
-
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct SignedSwapRequest {
-    pub content: String,
-    #[schema(value_type = String)]
-    pub mint_id: bitcoin::secp256k1::PublicKey,
-    #[schema(value_type = String)]
-    pub signature: bitcoin::secp256k1::schnorr::Signature,
     #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
