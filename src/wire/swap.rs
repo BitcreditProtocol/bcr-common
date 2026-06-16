@@ -15,6 +15,13 @@ use crate::wire::{
 
 // ----- end imports
 
+///--------------------------- Reserve tokens
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ReserveRequest {
+    pub ys: Vec<cashu::PublicKey>,
+    pub deadline: chrono::DateTime<chrono::Utc>,
+}
+
 ///--------------------------- Burn tokens
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct BurnRequest {

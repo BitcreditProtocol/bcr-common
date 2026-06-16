@@ -17,6 +17,7 @@ pub mod admin_ep {
     pub const DEACTIVATE_KEYSET: &str = "/admin/keys/deactivate";
     pub const RECOVER: &str = "/admin/swap/recover";
     pub const BURN: &str = "/admin/burn";
+    pub const RESERVE: &str = "/admin/reserve";
 }
 
 pub mod web_ep {
@@ -261,6 +262,20 @@ impl Client {
         )
         .await?;
         Ok(result)
+    }
+
+    pub async fn reserve(
+        &self,
+        ys: Vec<cashu::PublicKey>,
+        deadline: chrono::DateTime<chrono::Utc>,
+    ) -> Result<()> {
+        let url = self
+            .base
+            .join(admin_ep::RESERVE)
+            .expect("reserve relative path");
+        let request = wire_swap::ReserveRequest { ys, deadline };
+        self.cl.post_no_response(url, &request).await?;
+        Ok(())
     }
 }
 
