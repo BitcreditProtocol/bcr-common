@@ -4,6 +4,8 @@ use bitcoin::secp256k1;
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
+#[cfg(feature = "mint")]
+use crate::wire::swap as wire_swap;
 use crate::{
     cashu,
     client::{
@@ -20,7 +22,6 @@ use crate::{
     wire::{
         attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
         keys as wire_keys, melt as wire_melt, mint as wire_mint, quotes as wire_quotes,
-        swap as wire_swap,
     },
 };
 
@@ -93,9 +94,12 @@ impl std::convert::From<clowder::Error> for Error {
 }
 
 const CACHED_EPS: [(&str, reqwest::Method); 6] = [
+    (
+        core::web_ep::SIGNED_SWAP_COMMIT_V1_EXT,
+        reqwest::Method::POST,
+    ),
     (core::web_ep::SWAP_COMMIT_V1_EXT, reqwest::Method::POST),
     (core::web_ep::SWAP_V1_EXT, reqwest::Method::POST),
-    (core::web_ep::SIGNED_SWAP_V1_EXT, reqwest::Method::POST),
     (treasury::web_ep::EBILLMINT_V1_EXT, reqwest::Method::POST),
     (
         treasury::web_ep::MELTQUOTE_ONCHAIN_V1_EXT,

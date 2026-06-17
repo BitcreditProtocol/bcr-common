@@ -40,9 +40,9 @@ pub mod web_ep {
 }
 
 const CACHED_EPS: [(&str, reqwest::Method); 3] = [
+    (web_ep::SIGNED_SWAP_COMMIT_V1, reqwest::Method::POST),
     (web_ep::SWAP_COMMIT_V1, reqwest::Method::POST),
     (web_ep::SWAP_V1, reqwest::Method::POST),
-    (web_ep::SIGNED_SWAP_V1, reqwest::Method::POST),
 ];
 
 pub type Result<T> = std::result::Result<T, Error>;
