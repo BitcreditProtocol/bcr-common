@@ -123,6 +123,8 @@ pub struct PerceivedState {
     #[schema(value_type = Option<String>)]
     pub substitute_beta: Option<bitcoin::secp256k1::PublicKey>,
     pub alpha_state: MintState,
+    /// Earliest beta-reported offline onset, Unix seconds; `Some` iff `alpha_state != Online`.
+    pub offline_since: Option<u64>,
 }
 
 ///--------------------------- Accounting
