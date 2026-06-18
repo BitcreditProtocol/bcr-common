@@ -138,7 +138,23 @@ pub mod wallet {
         Ok(required_fee)
     }
 
+    #[cfg(any(test, all(feature = "wallet", feature = "mint")))]
+    pub fn prepare_signed_swap(
+        inputs: &[Proof],
+        kinfos: &HashMap<Id, KeySetInfo>,
+    ) -> Result<SwapPlan> {
+        _prepare_swap(inputs, kinfos, true)
+    }
+
     pub fn prepare_swap(inputs: &[Proof], kinfos: &HashMap<Id, KeySetInfo>) -> Result<SwapPlan> {
+        _prepare_swap(inputs, kinfos, false)
+    }
+
+    fn _prepare_swap(
+        inputs: &[Proof],
+        kinfos: &HashMap<Id, KeySetInfo>,
+        no_fees: bool,
+    ) -> Result<SwapPlan> {
         let mut sum_by_id: HashMap<Id, Amount> = HashMap::new();
         let mut total_inputs_size = 0;
         for input in inputs {
@@ -157,6 +173,9 @@ pub mod wallet {
             .unwrap_or(0);
         let mut required_fee =
             Amount::from((max_fee_rate_ppk * total_inputs_size).div_ceil(FEE_RATE_PPK_MULTIPLIER));
+        if no_fees {
+            required_fee = Amount::ZERO;
+        }
         let mut plan = SwapPlan::new();
         for (kid, mut amount) in sum_by_id {
             if amount <= required_fee {
