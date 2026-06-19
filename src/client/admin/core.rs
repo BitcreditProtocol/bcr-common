@@ -50,26 +50,67 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("resource not found {0}")]
-    ResourceNotFound(String),
+    ResourceNotFound(RNFError),
     #[error("invalid request {0}")]
-    InvalidRequest(String),
+    InvalidRequest(BRError),
+    #[error("service unavailable {0}")]
+    ServiceUnavailable(serde_json::Value),
     #[error("internal {0}")]
     Internal(String),
     #[error("internal error {0}")]
     Reqwest(#[from] reqwest::Error),
 
-    #[error("sign error {0}")]
-    NUT20(#[from] cashu::nut20::Error),
     #[error("borsh sign error {0}")]
     BorshSign(#[from] crate::core::signature::BorshMsgSignatureError),
+}
+
+/// Resource not found error
+#[derive(Debug, Error, serde::Deserialize, serde::Serialize)]
+#[serde(tag = "type", content = "value")]
+pub enum RNFError {
+    #[error("unknown")]
+    Unknown,
+    #[error("keyset not found {0}")]
+    KeysetId(cashu::Id),
+}
+
+/// Bad request error
+#[derive(Debug, Error, serde::Deserialize, serde::Serialize)]
+#[serde(tag = "type", content = "value")]
+pub enum BRError {
+    #[error("unknown")]
+    Unknown,
+    #[error("commitment content does not match request")]
+    CommitmentMismatch,
+    #[error("{0}")]
+    Generic(String),
 }
 
 impl std::convert::From<jsonrpc::Error> for Error {
     fn from(value: jsonrpc::Error) -> Self {
         match value {
-            jsonrpc::Error::ResourceNotFound(msg) => Self::ResourceNotFound(msg),
-            jsonrpc::Error::InvalidRequest(msg) => Self::InvalidRequest(msg),
-            jsonrpc::Error::Internal(msg) => Self::InvalidRequest(msg),
+            jsonrpc::Error::ResourceNotFound(msg) => {
+                let err: RNFError = match serde_json::from_value(msg) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        tracing::warn!("failed to deserialize RNFError, {e}");
+                        RNFError::Unknown
+                    }
+                };
+                Self::ResourceNotFound(err)
+            }
+            jsonrpc::Error::InvalidRequest(msg) => {
+                let err: BRError = match serde_json::from_value(msg) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        tracing::warn!("failed to deserialize BRError, {e}");
+                        BRError::Unknown
+                    }
+                };
+                Self::InvalidRequest(err)
+            }
+            jsonrpc::Error::ServiceUnavailable(msg) => Self::ServiceUnavailable(msg),
+            jsonrpc::Error::Internal(msg) => Self::Internal(msg),
             jsonrpc::Error::Reqwest(err) => Self::Reqwest(err),
         }
     }
@@ -157,9 +198,9 @@ impl Client {
             .map(|m| m.keyset_id)
             .collect::<std::collections::HashSet<_>>();
         if unique_kids.len() > 1 {
-            return Err(Error::InvalidRequest(String::from(
+            return Err(Error::InvalidRequest(BRError::Generic(String::from(
                 "multiple kids in blinds",
-            )));
+            ))));
         }
         let url = self.base.join(admin_ep::SIGN).expect("sign relative path");
         let sigs = self.cl.post(url, msgs).await?;
@@ -336,7 +377,7 @@ pub(crate) mod common {
             .keysets
             .into_iter()
             .next()
-            .ok_or(Error::ResourceNotFound(kid.to_string()))
+            .ok_or(Error::ResourceNotFound(RNFError::KeysetId(kid)))
     }
 
     #[inline]
@@ -426,9 +467,7 @@ pub(crate) mod common {
         signed_payload.inputs.inputs.sort_by_key(|fp| fp.y);
         signed_payload.outputs.sort_by_key(|o| o.blinded_secret);
         if request != signed_payload {
-            return Err(Error::InvalidRequest(String::from(
-                "commitment content does not match request",
-            )));
+            return Err(Error::InvalidRequest(BRError::CommitmentMismatch));
         }
         Ok((response.content.clone(), response.commitment))
     }

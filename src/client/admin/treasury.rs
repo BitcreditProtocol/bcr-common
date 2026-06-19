@@ -53,9 +53,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("resource not found {0}")]
-    ResourceNotFound(String),
+    ResourceNotFound(serde_json::Value),
     #[error("invalid request {0}")]
-    InvalidRequest(String),
+    InvalidRequest(serde_json::Value),
+    #[error("service unavailable {0}")]
+    ServiceUnavailable(SUError),
     #[error("internal {0}")]
     Internal(String),
     #[error("internal error {0}")]
@@ -65,11 +67,31 @@ pub enum Error {
     NUT20(#[from] cashu::nut20::Error),
 }
 
+/// service unavailable error
+#[derive(Debug, Error, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum SUError {
+    #[error("unknown")]
+    Unknown,
+    #[error("melt operation temporarily suspended: {0}")]
+    MeltOpSuspended(String),
+}
+
 impl std::convert::From<jsonrpc::Error> for Error {
     fn from(value: jsonrpc::Error) -> Self {
         match value {
             jsonrpc::Error::ResourceNotFound(msg) => Self::ResourceNotFound(msg),
             jsonrpc::Error::InvalidRequest(msg) => Self::InvalidRequest(msg),
+            jsonrpc::Error::ServiceUnavailable(msg) => {
+                let err: SUError = match serde_json::from_value(msg) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        tracing::warn!("failed to deserialize SUError, {e}");
+                        SUError::Unknown
+                    }
+                };
+                Self::ServiceUnavailable(err)
+            }
             jsonrpc::Error::Internal(msg) => Self::Internal(msg),
             jsonrpc::Error::Reqwest(err) => Self::Reqwest(err),
         }
