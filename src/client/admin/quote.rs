@@ -3,7 +3,7 @@
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
-use crate::{client::admin::jsonrpc, wire::quotes as wire_quotes};
+use crate::{client::admin::jsonrpc, wire::bill as wire_bill, wire::quotes as wire_quotes};
 
 // ----- end imports
 
@@ -11,6 +11,7 @@ pub mod admin_ep {
     pub const LIST: &str = "/admin/quote";
     pub const LOOKUP: &str = "/admin/quote/{qid}";
     pub const UPDATE: &str = "/admin/quote/{qid}";
+    pub const SHARED_EBILL_HISTORY: &str = "/admin/ebill/{qid}/history";
 }
 
 pub mod web_ep {
@@ -145,6 +146,19 @@ impl Client {
             .base
             .join(&admin_ep::LOOKUP.replace("{qid}", &qid.to_string()))
             .expect("admin lookup relative path");
+        let response = self.cl.get(url, &[]).await?;
+        Ok(response)
+    }
+
+    pub async fn get_shared_ebill_history(
+        &self,
+        qid: Uuid,
+    ) -> Result<Vec<wire_bill::BillHistoryBlock>> {
+        assert!(admin_ep::LOOKUP.contains("{qid}"));
+        let url = self
+            .base
+            .join(&admin_ep::SHARED_EBILL_HISTORY.replace("{qid}", &qid.to_string()))
+            .expect("admin shared ebill history relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
     }

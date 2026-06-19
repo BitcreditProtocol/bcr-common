@@ -182,6 +182,7 @@ impl std::convert::From<quote::Error> for Error {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 const CACHED_EPS: [(&str, reqwest::Method); 6] = [
     (
         core::web_ep::SIGNED_SWAP_COMMIT_V1_EXT,
@@ -213,6 +214,7 @@ impl Client {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn with_retry(base: reqwest::Url, max_attempts: u32) -> Self {
         let builder = jsonrpc::retry::build_builder(&base, &CACHED_EPS, max_attempts);
         Self {

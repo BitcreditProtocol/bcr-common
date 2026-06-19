@@ -284,3 +284,11 @@ pub struct EnableMintingRequest {}
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct EnableMintingResponse {}
+
+///--------------------------- Fetch Data based on a shared bill
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Debug, Clone, ToSchema)]
+pub struct SharedBillData {
+    #[schema(value_type = String)]
+    pub bill_id: BillId,
+    pub data: String, // The base58 encoded, encrypted, borshed BillBlockPlaintextWrappers of the bill
+}

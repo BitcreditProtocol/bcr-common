@@ -28,6 +28,7 @@ pub struct Client {
     cl: reqwest::Client,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod retry {
     pub type CachedEp = (&'static str, reqwest::Method);
     pub fn build_builder(
@@ -55,6 +56,7 @@ impl Client {
         Client { cl }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn with_retry(builder: reqwest::retry::Builder) -> Self {
         let cl = reqwest::Client::builder()
             .retry(builder)
@@ -191,7 +193,7 @@ impl Default for Client {
 mod tests {
     use super::*;
 
-    pub const EP_1: &'static str = "/test";
+    pub const EP_1: &str = "/test";
     pub const CACHED_EPS: [retry::CachedEp; 1] = [(EP_1, reqwest::Method::GET)];
 
     #[tokio::test]

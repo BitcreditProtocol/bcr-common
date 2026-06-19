@@ -42,6 +42,7 @@ pub mod web_ep {
     pub const MINT_ONCHAIN_V1_EXT: &str = "/v1/treasury/mint/onchain";
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 const CACHED_EPS: [(&str, reqwest::Method); 3] = [
     (web_ep::EBILLMINT_V1, reqwest::Method::POST),
     (web_ep::MELTQUOTE_ONCHAIN_V1, reqwest::Method::POST),
@@ -112,6 +113,7 @@ impl Client {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn with_retry(base: reqwest::Url, max_attempts: u32) -> Self {
         let builder = jsonrpc::retry::build_builder(&base, &CACHED_EPS, max_attempts);
         Self {
