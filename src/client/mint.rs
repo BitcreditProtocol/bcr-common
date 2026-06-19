@@ -32,9 +32,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("resource not found {0}")]
-    ResourceNotFound(String),
+    ResourceNotFound(RNFError),
     #[error("invalid request {0}")]
-    InvalidRequest(String),
+    InvalidRequest(BRError),
+    #[error("service unavailable {0}")]
+    ServiceUnavailable(SUError),
     #[error("internal {0}")]
     Internal(String),
     #[error("internal error {0}")]
@@ -46,13 +48,86 @@ pub enum Error {
     BorshSign(#[from] BorshMsgSignatureError),
 }
 
-impl std::convert::From<jsonrpc::Error> for Error {
-    fn from(value: jsonrpc::Error) -> Self {
+#[derive(Debug, Error)]
+pub enum RNFError {
+    #[error("unknown")]
+    Unknown,
+    //core
+    #[error("keyset not found {0}")]
+    KeysetId(cashu::Id),
+    //quote
+    #[error("quote: {0}")]
+    Quote(serde_json::Value),
+    //treasury
+    #[error("treasury: {0}")]
+    Treasury(serde_json::Value),
+    //clowder
+    #[error("clowder: {0}")]
+    Clowder(serde_json::Value),
+}
+
+#[derive(Debug, Error)]
+pub enum BRError {
+    #[error("unknown")]
+    Unknown,
+    //core
+    #[error("commitment content does not match request")]
+    CommitmentMismatch,
+    #[error("{0}")]
+    Generic(String),
+    //quote
+    #[error("quote: {0}")]
+    Quote(serde_json::Value),
+    //treasury
+    #[error("treasury: {0}")]
+    Treasury(serde_json::Value),
+    //clowder
+    #[error("clowder: {0}")]
+    Clowder(serde_json::Value),
+}
+
+#[derive(Debug, Error)]
+pub enum SUError {
+    #[error("unknown")]
+    Unknown,
+    //core
+    #[error("core: {0}")]
+    Core(serde_json::Value),
+    //quote
+    #[error("quote: {0}")]
+    Quote(serde_json::Value),
+    //treasury
+    #[error("melt operation temporarily suspended: {0}")]
+    MeltOpSuspended(String),
+    //clowder
+    #[error("clowder: {0}")]
+    Clowder(serde_json::Value),
+}
+
+impl std::convert::From<core::RNFError> for RNFError {
+    fn from(value: core::RNFError) -> Self {
         match value {
-            jsonrpc::Error::ResourceNotFound(e) => Error::ResourceNotFound(e),
-            jsonrpc::Error::InvalidRequest(e) => Error::InvalidRequest(e),
-            jsonrpc::Error::Internal(e) => Error::Internal(e),
-            jsonrpc::Error::Reqwest(e) => Error::Reqwest(e),
+            core::RNFError::Unknown => RNFError::Unknown,
+            core::RNFError::KeysetId(kid) => RNFError::KeysetId(kid),
+        }
+    }
+}
+
+impl std::convert::From<core::BRError> for BRError {
+    fn from(value: core::BRError) -> Self {
+        match value {
+            core::BRError::Unknown => BRError::Unknown,
+            core::BRError::CommitmentMismatch => BRError::CommitmentMismatch,
+            core::BRError::Generic(s) => BRError::Generic(s),
+        }
+    }
+}
+
+impl std::convert::From<treasury::SUError> for SUError {
+    fn from(value: treasury::SUError) -> Self {
+        match value {
+            treasury::SUError::Unknown => SUError::Unknown,
+            treasury::SUError::MeltOpSuspended(s) => SUError::MeltOpSuspended(s),
         }
     }
 }
@@ -60,11 +135,11 @@ impl std::convert::From<jsonrpc::Error> for Error {
 impl std::convert::From<core::Error> for Error {
     fn from(value: core::Error) -> Self {
         match value {
-            core::Error::ResourceNotFound(e) => Error::ResourceNotFound(e),
-            core::Error::InvalidRequest(e) => Error::InvalidRequest(e),
+            core::Error::ResourceNotFound(e) => Error::ResourceNotFound(e.into()),
+            core::Error::InvalidRequest(e) => Error::InvalidRequest(e.into()),
+            core::Error::ServiceUnavailable(e) => Error::ServiceUnavailable(SUError::Core(e)),
             core::Error::Internal(e) => Error::Internal(e),
             core::Error::Reqwest(e) => Error::Reqwest(e),
-            core::Error::NUT20(e) => Error::Cdk20(e),
             core::Error::BorshSign(e) => Error::BorshSign(e),
         }
     }
@@ -73,8 +148,9 @@ impl std::convert::From<core::Error> for Error {
 impl std::convert::From<treasury::Error> for Error {
     fn from(value: treasury::Error) -> Self {
         match value {
-            treasury::Error::ResourceNotFound(e) => Error::ResourceNotFound(e),
-            treasury::Error::InvalidRequest(e) => Error::InvalidRequest(e),
+            treasury::Error::ResourceNotFound(e) => Error::ResourceNotFound(RNFError::Treasury(e)),
+            treasury::Error::InvalidRequest(e) => Error::InvalidRequest(BRError::Treasury(e)),
+            treasury::Error::ServiceUnavailable(e) => Error::ServiceUnavailable(e.into()),
             treasury::Error::Internal(e) => Error::Internal(e),
             treasury::Error::Reqwest(e) => Error::Reqwest(e),
             treasury::Error::NUT20(e) => Error::Cdk20(e),
@@ -85,10 +161,23 @@ impl std::convert::From<treasury::Error> for Error {
 impl std::convert::From<clowder::Error> for Error {
     fn from(value: clowder::Error) -> Self {
         match value {
-            clowder::Error::ResourceNotFound(e) => Error::ResourceNotFound(e),
-            clowder::Error::InvalidRequest(e) => Error::InvalidRequest(e),
+            clowder::Error::ResourceNotFound(e) => Error::ResourceNotFound(RNFError::Clowder(e)),
+            clowder::Error::InvalidRequest(e) => Error::InvalidRequest(BRError::Clowder(e)),
+            clowder::Error::ServiceUnavailable(e) => Error::ServiceUnavailable(SUError::Clowder(e)),
             clowder::Error::Internal(e) => Error::Internal(e),
             clowder::Error::Reqwest(e) => Error::Reqwest(e),
+        }
+    }
+}
+
+impl std::convert::From<quote::Error> for Error {
+    fn from(value: quote::Error) -> Self {
+        match value {
+            quote::Error::ResourceNotFound(e) => Error::ResourceNotFound(RNFError::Quote(e)),
+            quote::Error::InvalidRequest(e) => Error::InvalidRequest(BRError::Quote(e)),
+            quote::Error::ServiceUnavailable(e) => Error::ServiceUnavailable(SUError::Quote(e)),
+            quote::Error::Internal(e) => Error::Internal(e),
+            quote::Error::Reqwest(e) => Error::Reqwest(e),
         }
     }
 }
@@ -226,7 +315,11 @@ impl Client {
             .base
             .join(core::web_ep::SIGNED_SWAP_COMMIT_V1_EXT)
             .expect("signed swap commit relative path");
-        let response: wire_swap::SwapCommitmentResponse = self.cl.post(url, &request).await?;
+        let response: wire_swap::SwapCommitmentResponse = self
+            .cl
+            .post(url, &request)
+            .await
+            .map_err(core::Error::from)?;
         let result = core::common::verify_commitment(original, response, &mint_pk)?;
         Ok(result)
     }
@@ -258,7 +351,8 @@ impl Client {
             .join(core::web_ep::RESTORE_V1_EXT)
             .expect("restore relative path");
         let msg = cashu::RestoreRequest { outputs };
-        let response: cashu::RestoreResponse = self.cl.post(url, &msg).await?;
+        let response: cashu::RestoreResponse =
+            self.cl.post(url, &msg).await.map_err(core::Error::from)?;
         let cashu::RestoreResponse {
             outputs,
             signatures,
@@ -298,7 +392,11 @@ impl Client {
             .base
             .join(quote::web_ep::ENQUIRE_V1_EXT)
             .expect("enquire relative path");
-        let response: wire_quotes::EnquireReply = self.cl.post(url, &signed).await?;
+        let response: wire_quotes::EnquireReply = self
+            .cl
+            .post(url, &signed)
+            .await
+            .map_err(quote::Error::from)?;
         Ok(response.id)
     }
 
@@ -308,7 +406,8 @@ impl Client {
             .base
             .join(&quote::web_ep::LOOKUP_V1_EXT.replace("{qid}", &qid.to_string()))
             .expect("lookup relative path");
-        let response: wire_quotes::StatusReply = self.cl.get(url, &[]).await?;
+        let response: wire_quotes::StatusReply =
+            self.cl.get(url, &[]).await.map_err(quote::Error::from)?;
         Ok(response)
     }
 
@@ -320,7 +419,8 @@ impl Client {
             .expect("accept offer relative path");
         self.cl
             .patch_no_response(url, &wire_quotes::ResolveOffer::Accept)
-            .await?;
+            .await
+            .map_err(quote::Error::from)?;
         Ok(())
     }
 
@@ -332,7 +432,8 @@ impl Client {
             .expect("reject offer relative path");
         self.cl
             .patch_no_response(url, &wire_quotes::ResolveOffer::Reject)
-            .await?;
+            .await
+            .map_err(quote::Error::from)?;
         Ok(())
     }
 
@@ -342,7 +443,7 @@ impl Client {
             .base
             .join(&quote::web_ep::RESOLVE_V1_EXT.replace("{qid}", &qid.to_string()))
             .expect("cancel enquiry relative path");
-        self.cl.delete(url, &[]).await?;
+        self.cl.delete(url, &[]).await.map_err(quote::Error::from)?;
         Ok(())
     }
 
@@ -408,7 +509,11 @@ impl Client {
             signature: None,
         };
         msg.sign(sk)?;
-        let response: cashu::MintResponse = self.cl.post(url, &msg).await?;
+        let response: cashu::MintResponse = self
+            .cl
+            .post(url, &msg)
+            .await
+            .map_err(treasury::Error::from)?;
         Ok(response.signatures)
     }
 
@@ -437,7 +542,11 @@ impl Client {
         let wire_melt::MeltQuoteOnchainResponse {
             content,
             commitment,
-        } = self.cl.post(url, &msg).await?;
+        } = self
+            .cl
+            .post(url, &msg)
+            .await
+            .map_err(treasury::Error::from)?;
         signature::schnorr_verify_b64(&content, &commitment, &mint_pk.x_only_public_key().0)?;
         Ok((content, commitment))
     }
@@ -456,7 +565,11 @@ impl Client {
             blinded_messages: blinds,
             wallet_key,
         };
-        let response: wire_mint::OnchainMintQuoteResponse = self.cl.post(url, &msg).await?;
+        let response: wire_mint::OnchainMintQuoteResponse = self
+            .cl
+            .post(url, &msg)
+            .await
+            .map_err(treasury::Error::from)?;
         signature::schnorr_verify_b64(
             &response.content,
             &response.commitment,
@@ -475,7 +588,11 @@ impl Client {
             .join(treasury::web_ep::MELT_ONCHAIN_V1_EXT)
             .expect("onchain melt relative path");
         let msg = wire_melt::MeltOnchainRequest { quote: qid, inputs };
-        let response: wire_melt::MeltOnchainResponse = self.cl.post(url, &msg).await?;
+        let response: wire_melt::MeltOnchainResponse = self
+            .cl
+            .post(url, &msg)
+            .await
+            .map_err(treasury::Error::from)?;
         Ok(response.txid)
     }
 
@@ -492,7 +609,11 @@ impl Client {
             quote: qid,
             alpha_id: mint_id,
         };
-        let response: cashu::MintResponse = self.cl.post(url, &msg).await?;
+        let response: cashu::MintResponse = self
+            .cl
+            .post(url, &msg)
+            .await
+            .map_err(treasury::Error::from)?;
         Ok(response.signatures)
     }
 
@@ -581,7 +702,8 @@ impl Client {
             .base
             .join(clowder::web_ep::LOCAL_BETAS_V1_EXT)
             .expect("betas relative path");
-        let response: wire_clowder::ConnectedMintsResponse = self.cl.get(url, &[]).await?;
+        let response: wire_clowder::ConnectedMintsResponse =
+            self.cl.get(url, &[]).await.map_err(clowder::Error::from)?;
         Ok(response)
     }
 
@@ -590,7 +712,8 @@ impl Client {
             .base
             .join(clowder::web_ep::LOCAL_COVERAGE_V1_EXT)
             .expect("coverage relative path");
-        let response: wire_clowder::Coverage = self.cl.get(url, &[]).await?;
+        let response: wire_clowder::Coverage =
+            self.cl.get(url, &[]).await.map_err(clowder::Error::from)?;
         Ok(response)
     }
 

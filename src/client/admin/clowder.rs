@@ -84,9 +84,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("resource not found {0}")]
-    ResourceNotFound(String),
+    ResourceNotFound(serde_json::Value),
     #[error("invalid request {0}")]
-    InvalidRequest(String),
+    InvalidRequest(serde_json::Value),
+    #[error("service unavailable {0}")]
+    ServiceUnavailable(serde_json::Value),
     #[error("internal {0}")]
     Internal(String),
     #[error("internal error {0}")]
@@ -98,6 +100,7 @@ impl std::convert::From<jsonrpc::Error> for Error {
         match value {
             jsonrpc::Error::ResourceNotFound(msg) => Self::ResourceNotFound(msg),
             jsonrpc::Error::InvalidRequest(msg) => Self::InvalidRequest(msg),
+            jsonrpc::Error::ServiceUnavailable(msg) => Self::ServiceUnavailable(msg),
             jsonrpc::Error::Internal(msg) => Self::Internal(msg),
             jsonrpc::Error::Reqwest(err) => Self::Reqwest(err),
         }

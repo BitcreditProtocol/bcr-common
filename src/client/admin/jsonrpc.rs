@@ -12,9 +12,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("resource not found {0}")]
-    ResourceNotFound(String),
+    ResourceNotFound(serde_json::Value),
     #[error("invalid request {0}")]
-    InvalidRequest(String),
+    InvalidRequest(serde_json::Value),
+    #[error("service unavailable {0}")]
+    ServiceUnavailable(serde_json::Value),
     #[error("internal {0}")]
     Internal(String),
     #[error("internal error {0}")]
@@ -63,11 +65,29 @@ impl Client {
 
     async fn to_error(response: reqwest::Response) -> Error {
         let status = response.status();
-        let text = response.text().await.unwrap_or_default();
         match status {
-            StatusCode::NOT_FOUND => Error::ResourceNotFound(text),
-            StatusCode::BAD_REQUEST => Error::InvalidRequest(text),
-            _ => Error::Internal(text),
+            StatusCode::NOT_FOUND => {
+                let value: serde_json::Value = match response.json().await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        tracing::error!("failed to parse error response as json: {e}");
+                        serde_json::Value::Null
+                    }
+                };
+                Error::ResourceNotFound(value)
+            }
+            StatusCode::BAD_REQUEST => {
+                let value: serde_json::Value = response.json().await.unwrap_or_default();
+                Error::InvalidRequest(value)
+            }
+            StatusCode::SERVICE_UNAVAILABLE => {
+                let value: serde_json::Value = response.json().await.unwrap_or_default();
+                Error::ServiceUnavailable(value)
+            }
+            _ => {
+                let text = response.text().await.unwrap_or_default();
+                Error::Internal(text)
+            }
         }
     }
 
