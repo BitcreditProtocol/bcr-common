@@ -323,3 +323,89 @@ pub struct BillShortDescription {
     pub sum: bitcoin::Amount,
     pub recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BillHistoryBlock {
+    pub block_id: u64,
+    pub block_type: String,
+    pub pay_to_the_order_of: Option<BillParticipant>,
+    pub payment_data: Option<BillHistoryBlockPaymentData>,
+    pub request_deadline: Option<u64>,
+    pub signed: SignedBy,
+    pub signing_timestamp: u64,
+    pub signing_address: Option<PostalAddress>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BillHistoryBlockPaymentData {
+    pub sum: String,
+    pub currency: String,
+    pub payment_address: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SignedBy {
+    pub data: BillParticipant,
+    pub signatory: Option<BillSignatory>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BillSignatory {
+    #[schema(value_type = String)]
+    pub node_id: NodeId,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum BillCallerPaymentAction {
+    Pay(BillCallerPayment),
+    CheckPayment(BillCallerPayment),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum BillCallerPayment {
+    Sell {
+        buyer: BillParticipant,
+        seller: BillParticipant,
+        state: BillCallerPaymentState,
+    },
+    Payment {
+        payer: BillIdentParticipant,
+        payee: BillParticipant,
+        state: BillCallerPaymentState,
+    },
+    Recourse {
+        recourser: BillParticipant,
+        recoursee: BillIdentParticipant,
+        state: BillCallerPaymentState,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BillCallerPaymentState {
+    pub time_of_request: u64,
+    pub sum: String,
+    pub currency: String,
+    pub address_to_pay: String,
+    pub status: PaymentStatus,
+    pub payment_deadline: u64,
+    pub tx_id: Option<String>,
+    pub in_mempool: bool,
+    pub confirmations: u64,
+    pub private_descriptor_to_spend: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum PaymentStatus {
+    Requested(u64),
+    Paid(u64),
+    Rejected(u64),
+    Expired(u64),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ResyncBillPayload {
+    #[schema(value_type = String)]
+    pub bill_id: BillId,
+    pub from_nostr: Option<bool>,
+}

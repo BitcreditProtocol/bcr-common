@@ -310,6 +310,101 @@ impl Client {
             .await?;
         Ok(status)
     }
+
+    pub const GET_BILL_PAYMENT_ACTIONS_EP_V1: &'static str =
+        "/v1/admin/bill/payment_actions/{bill_id}";
+    pub async fn get_payment_actions(
+        &self,
+        bill_id: BillId,
+    ) -> Result<Vec<wire_bill::BillCallerPaymentAction>> {
+        let url = self
+            .base
+            .join(&Self::GET_BILL_PAYMENT_ACTIONS_EP_V1.replace("{bill_id}", &bill_id.to_string()))
+            .expect("bill payment actions relative path");
+        let request = self.cl.get(url);
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(bill_id.to_string()));
+        }
+        let res: Vec<wire_bill::BillCallerPaymentAction> = response
+            .json::<Vec<wire_bill::BillCallerPaymentAction>>()
+            .await?;
+        Ok(res)
+    }
+
+    pub const GET_BILL_HISTORY_EP_V1: &'static str = "/v1/admin/bill/history/{bill_id}";
+    pub async fn get_bill_history(
+        &self,
+        bill_id: BillId,
+    ) -> Result<Vec<wire_bill::BillHistoryBlock>> {
+        let url = self
+            .base
+            .join(&Self::GET_BILL_HISTORY_EP_V1.replace("{bill_id}", &bill_id.to_string()))
+            .expect("bill history actions relative path");
+        let request = self.cl.get(url);
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(bill_id.to_string()));
+        }
+        let res: Vec<wire_bill::BillHistoryBlock> =
+            response.json::<Vec<wire_bill::BillHistoryBlock>>().await?;
+        Ok(res)
+    }
+
+    pub const GET_SHARED_BILL_HISTORY_EP_V1: &'static str = "/v1/admin/shared_bill/history";
+    pub async fn get_shared_bill_history(
+        &self,
+        bill_id: BillId,
+        shared_bill_data: String,
+    ) -> Result<Vec<wire_bill::BillHistoryBlock>> {
+        let url = self
+            .base
+            .join(Self::GET_SHARED_BILL_HISTORY_EP_V1)
+            .expect("shared bill history actions relative path");
+        let payload = wire_quotes::SharedBillData {
+            bill_id: bill_id.clone(),
+            data: shared_bill_data,
+        };
+        let request = self.cl.post(url).json(&payload);
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(bill_id.to_string()));
+        }
+        let res: Vec<wire_bill::BillHistoryBlock> =
+            response.json::<Vec<wire_bill::BillHistoryBlock>>().await?;
+        Ok(res)
+    }
+
+    pub const SYNC_BILL_CHAIN_EP_V1: &'static str = "/v1/admin/bill/sync_bill_chain";
+    pub async fn sync_bill_chain(&self, bill_id: BillId, from_nostr: bool) -> Result<()> {
+        let url = self
+            .base
+            .join(Self::SYNC_BILL_CHAIN_EP_V1)
+            .expect("sync bill chain relative path");
+        let payload = wire_bill::ResyncBillPayload {
+            bill_id: bill_id.clone(),
+            from_nostr: Some(from_nostr),
+        };
+        let request = self.cl.post(url).json(&payload);
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(payload.bill_id.to_string()));
+        }
+        response.error_for_status()?;
+        Ok(())
+    }
 }
 
 pub fn detect_extension_for_bytes(bytes: &[u8]) -> Option<String> {
