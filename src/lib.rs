@@ -18,3 +18,5 @@ pub use wire::test_utils as wire_tests;
 pub use async_nats;
 pub use cashu;
 pub use cdk_common;
+#[cfg(feature = "clwdr-client")]
+pub use frost_secp256k1_tr;
