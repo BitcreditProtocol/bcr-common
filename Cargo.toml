@@ -9,7 +9,7 @@ default = ["wallet"]
 test-utils = []
 wallet = ["cashu/wallet", "cdk-common/wallet" ]
 mint = ["cashu/mint", "cdk-common/mint"]
-clwdr-client = ["dep:async-nats", "dep:bytes"]
+clwdr-client = ["dep:async-nats", "dep:bytes", "dep:frost-secp256k1-tr"]
 
 [dependencies]
 async-nats = {version = "0.49", optional = true}
@@ -21,6 +21,7 @@ cashu = {version = "=0.16.0", features = ["swagger"]}
 cdk-common = {version = "=0.16.0"}
 chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
+frost-secp256k1-tr = { version = "2.2.0", features = ["serde"], optional = true }
 infer = {version="0.19"}
 nostr = {version = "0.43"}
 rand = {version = "0.8"}
