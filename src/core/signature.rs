@@ -30,16 +30,19 @@ pub fn serialize_n_schnorr_sign_borsh_msg(
     msg: &impl BorshSerialize,
     keys: &secp::Keypair,
 ) -> BorshMsgSignatureResult<(String, secp::schnorr::Signature)> {
-    let serialized = borsh::to_vec(msg)?;
-    let sha = Sha256::hash(&serialized);
-    let secp_msg = secp::Message::from_digest(*sha.as_ref());
+    let (b64, secp_msg) = serialize_borsh_msg_b64(msg)?;
     let signature = secp::global::SECP256K1.sign_schnorr(&secp_msg, keys);
-    let b64 = BASE64_STANDARD.encode(serialized);
     Ok((b64, signature))
 }
 
-pub fn serialize_borsh_msg_b64(msg: &impl BorshSerialize) -> BorshMsgSignatureResult<String> {
-    Ok(BASE64_STANDARD.encode(borsh::to_vec(msg)?))
+pub fn serialize_borsh_msg_b64(
+    msg: &impl BorshSerialize,
+) -> BorshMsgSignatureResult<(String, secp::Message)> {
+    let serialized = borsh::to_vec(msg)?;
+    let sha = Sha256::hash(&serialized);
+    let secp_msg = secp::Message::from_digest(*sha.as_ref());
+    let b64 = BASE64_STANDARD.encode(serialized);
+    Ok((b64, secp_msg))
 }
 
 // deserialization and signature verification is split into two parts
