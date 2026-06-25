@@ -127,6 +127,12 @@ pub enum StatusReply {
         wallet_pubkey: cashu::PublicKey,
         minted_amount: cashu::Amount,
     },
+    FailedEbillValidation {
+        keyset_id: cashu::Id,
+        #[schema(value_type = u64)]
+        discounted: bitcoin::Amount,
+        wallet_pubkey: cashu::PublicKey,
+    },
 }
 
 /// --------------------------- List quotes
@@ -233,6 +239,13 @@ pub enum InfoReply {
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
         fee: cashu::Amount,
+    },
+    FailedEbillValidation {
+        id: uuid::Uuid,
+        bill: BillInfo,
+        keyset_id: cashu::Id,
+        #[schema(value_type = u64)]
+        discounted: bitcoin::Amount,
     },
 }
 
