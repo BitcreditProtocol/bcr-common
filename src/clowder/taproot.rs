@@ -127,6 +127,11 @@ pub fn derive_ebill_mint_req_to_pay_tweak(
     clowder_tagged_hash(purpose, aggregated_key, &payload)
 }
 
+pub fn derive_eiou_tweak(aggregated_key: &XOnlyPublicKey) -> [u8; 32] {
+    let purpose = b"eiou";
+    clowder_tagged_hash(purpose, aggregated_key, &[])
+}
+
 pub fn build_beta_script(frost_agg_key: &XOnlyPublicKey) -> ScriptBuf {
     ScriptBuilder::new()
         .push_x_only_key(frost_agg_key)
@@ -211,6 +216,11 @@ pub fn derive_ebill_mint_req_to_pay_address(
 ) -> Result<Address> {
     let tweak =
         derive_ebill_mint_req_to_pay_tweak(frost_agg_key, bill_id, block_id, previous_block_hash);
+    Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
+}
+
+pub fn derive_eiou_address(frost_agg_key: &XOnlyPublicKey, network: Network) -> Result<Address> {
+    let tweak = derive_eiou_tweak(frost_agg_key);
     Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
 }
 
