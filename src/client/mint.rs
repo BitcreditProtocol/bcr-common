@@ -55,6 +55,8 @@ pub enum RNFError {
     //core
     #[error("keyset not found {0}")]
     KeysetId(cashu::Id),
+    #[error("resource not found {0}")]
+    Generic(String),
     //quote
     #[error("quote: {0}")]
     Quote(serde_json::Value),
@@ -109,6 +111,7 @@ impl std::convert::From<core::RNFError> for RNFError {
         match value {
             core::RNFError::Unknown => RNFError::Unknown,
             core::RNFError::KeysetId(kid) => RNFError::KeysetId(kid),
+            core::RNFError::Generic(rsrc) => RNFError::Generic(rsrc),
         }
     }
 }

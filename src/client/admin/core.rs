@@ -73,6 +73,8 @@ pub enum RNFError {
     Unknown,
     #[error("keyset not found {0}")]
     KeysetId(cashu::Id),
+    #[error("resource not found {0}")]
+    Generic(String),
 }
 
 /// Bad request error
