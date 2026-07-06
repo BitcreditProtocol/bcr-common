@@ -58,6 +58,33 @@ impl Client {
         Ok(bill_info)
     }
 
+    pub const VALIDATE_ENDORSED_BILL_MATCHES_SHARED_BILL_EP_V1: &'static str =
+        "/v1/admin/bill/validate_endorsed_bill_matches_shared_bill";
+    pub async fn validate_endorsed_bill_matches_shared_bill(
+        &self,
+        bill_id: BillId,
+        shared_bill_data: String,
+    ) -> Result<()> {
+        let url = self
+            .base
+            .join(Self::VALIDATE_ENDORSED_BILL_MATCHES_SHARED_BILL_EP_V1)
+            .expect("validate endorsed bill matches shared bill relative path");
+        let payload = wire_quotes::SharedBillData {
+            bill_id: bill_id.clone(),
+            data: shared_bill_data,
+        };
+        let request = self.cl.post(url).json(&payload);
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(bill_id.to_string()));
+        }
+        response.error_for_status()?;
+        Ok(())
+    }
+
     pub const GET_FILE_FROM_REQUEST_TO_MINT_EP_V1: &'static str =
         "/v1/admin/bill/get_file_from_request_to_mint";
     pub async fn get_file_from_request_to_mint(

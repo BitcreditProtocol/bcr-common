@@ -11,6 +11,7 @@ pub mod admin_ep {
     pub const LIST: &str = "/admin/quote";
     pub const LOOKUP: &str = "/admin/quote/{qid}";
     pub const UPDATE: &str = "/admin/quote/{qid}";
+    pub const ENABLE_MINTING: &str = "/admin/quote/enable_mint/{qid}";
     pub const SHARED_EBILL_HISTORY: &str = "/admin/ebill/{qid}/history";
 }
 
@@ -147,6 +148,17 @@ impl Client {
             .join(&admin_ep::LOOKUP.replace("{qid}", &qid.to_string()))
             .expect("admin lookup relative path");
         let response = self.cl.get(url, &[]).await?;
+        Ok(response)
+    }
+
+    pub async fn enable_minting(&self, qid: Uuid) -> Result<wire_quotes::EnableMintingResponse> {
+        assert!(admin_ep::ENABLE_MINTING.contains("{qid}"));
+        let url = self
+            .base
+            .join(&admin_ep::ENABLE_MINTING.replace("{qid}", &qid.to_string()))
+            .expect("enable minting relative path");
+        let body = wire_quotes::EnableMintingRequest {};
+        let response = self.cl.patch(url, &body).await?;
         Ok(response)
     }
 
