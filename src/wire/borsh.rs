@@ -91,7 +91,7 @@ where
 }
 
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
-struct Dleq {
+pub struct Dleq {
     e: String,
     s: String,
     r: String,
@@ -133,7 +133,7 @@ pub fn deserialize_optionproofdleq(reader: &mut impl Read) -> Result<Option<cash
 }
 
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
-enum WitnessEnum {
+pub enum WitnessEnum {
     HTLCWitness {
         preimage: String,
         signatures: Option<Vec<String>>,
@@ -170,6 +170,20 @@ impl std::convert::From<WitnessEnum> for cashu::Witness {
             }
         }
     }
+}
+pub fn serialize_optionproofwitness(
+    witness: &Option<cashu::Witness>,
+    writer: &mut impl Write,
+) -> Result<()> {
+    let witness = witness.clone().map(WitnessEnum::from);
+    borsh::BorshSerialize::serialize(&witness, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_optionproofwitness(reader: &mut impl Read) -> Result<Option<cashu::Witness>> {
+    let witness: Option<WitnessEnum> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let witness = witness.map(cashu::Witness::from);
+    Ok(witness)
 }
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
 struct Proof {
