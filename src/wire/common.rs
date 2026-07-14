@@ -23,4 +23,5 @@ pub struct Pagination {
 pub enum ProtestStatus {
     Resolved,
     Rabid,
+    Offline,
 }
