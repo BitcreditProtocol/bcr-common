@@ -506,6 +506,69 @@ pub struct CheckStateRequest {
     pub ids: Vec<cashu::Id>,
 }
 
+///--------------------------- Reply envelope
+
+#[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize)]
+pub enum ClowderRejection {
+    #[error("proof at index {index} already spent")]
+    AlreadySpent { index: u32 },
+    #[error("commitment inputs reserved")]
+    InputsReserved,
+    #[error("commitment outputs reserved")]
+    OutputsReserved,
+    #[error("commitment not found")]
+    CommitmentNotFound,
+    #[error("commitment mismatch")]
+    CommitmentMismatch,
+    #[error("signature at index {index} already issued")]
+    DuplicateSignature { index: u32 },
+    #[error("expired")]
+    Expired,
+    #[error("internal error: {0}")]
+    Internal(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ClowderReply<T> {
+    Ok(T),
+    Err(ClowderRejection),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bitcoin::secp256k1 as secp;
+
+    fn cbor_roundtrip<T: Serialize + serde::de::DeserializeOwned>(value: &T) -> T {
+        let mut bytes = Vec::new();
+        ciborium::into_writer(value, &mut bytes).expect("serialize");
+        ciborium::from_reader(bytes.as_slice()).expect("deserialize")
+    }
+
+    #[test]
+    fn clowder_reply_ok_roundtrip() {
+        let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
+        let msg = secp::Message::from_digest([9u8; 32]);
+        let commitment = secp::global::SECP256K1.sign_schnorr(&msg, &keypair);
+        let reply = ClowderReply::Ok(SwapCommitmentResponse { commitment });
+        match cbor_roundtrip(&reply) {
+            ClowderReply::Ok(r) => assert_eq!(r.commitment, commitment),
+            ClowderReply::Err(e) => panic!("expected Ok, got {e}"),
+        }
+    }
+
+    #[test]
+    fn clowder_reply_err_roundtrip() {
+        let reply = ClowderReply::<SwapCommitmentResponse>::Err(ClowderRejection::AlreadySpent {
+            index: 3,
+        });
+        match cbor_roundtrip(&reply) {
+            ClowderReply::Err(ClowderRejection::AlreadySpent { index }) => assert_eq!(index, 3),
+            other => panic!("expected AlreadySpent, got {other:?}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeysetRequest {
     pub keyset: cashu::KeySet,

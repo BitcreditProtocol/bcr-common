@@ -43,6 +43,9 @@ pub enum ClowderClientError {
 
     #[error("Deserialization error: {0}")]
     Deserialization(String),
+
+    #[error("rejected: {0}")]
+    Rejected(#[from] crate::wire::clowder::ClowderRejection),
 }
 
 pub type Result<T> = std::result::Result<T, ClowderClientError>;
