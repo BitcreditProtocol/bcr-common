@@ -25,6 +25,13 @@ impl ClowderNatsClient {
         Ok(Self { client })
     }
 
+    fn decode_reply<T: serde::de::DeserializeOwned>(payload: &[u8]) -> Result<T> {
+        match ciborium::from_reader::<wire_clowder::ClowderReply<T>, _>(payload)? {
+            wire_clowder::ClowderReply::Ok(r) => Ok(r),
+            wire_clowder::ClowderReply::Err(rej) => Err(rej.into()),
+        }
+    }
+
     // Mints
     pub const ONCHAIN_TOPIC: &'static str = "clowder.mint_onchain";
     pub const EIOU_TOPIC: &'static str = "clowder.mint_eiou";
@@ -58,9 +65,7 @@ impl ClowderNatsClient {
             .request(Self::SWAP_COMMITMENT_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::SwapCommitmentResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn melt_quote_onchain(
@@ -75,9 +80,7 @@ impl ClowderNatsClient {
             .request(Self::MELT_QUOTE_ONCHAIN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::MeltQuoteOnchainResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn mint_quote_onchain(
@@ -92,9 +95,7 @@ impl ClowderNatsClient {
             .request(Self::MINT_QUOTE_ONCHAIN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::MintQuoteOnchainResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn sign_offline_exchange(
@@ -109,9 +110,7 @@ impl ClowderNatsClient {
             .request(Self::OFFLINE_EXCHANGE_SIGN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::OfflineExchangeSignResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn mint_swap(
@@ -127,8 +126,7 @@ impl ClowderNatsClient {
             .request(Self::SWAP_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::SwapResponse = ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn mint_onchain(
@@ -144,9 +142,7 @@ impl ClowderNatsClient {
             .request(Self::ONCHAIN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::MintOnchainResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn mint_bill(
@@ -162,9 +158,7 @@ impl ClowderNatsClient {
             .request(Self::EBILL_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::MintEbillResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn request_to_pay_bill(
@@ -180,9 +174,7 @@ impl ClowderNatsClient {
             .request(Self::BILLREQUESTTOPAY_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::RequestToPayEbillResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn mint_foreign_ecash(
@@ -198,9 +190,7 @@ impl ClowderNatsClient {
             .request(Self::FOREIGN_ECASH_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::MintForeignEcashResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn mint_offline_foreign_ecash(
@@ -219,9 +209,7 @@ impl ClowderNatsClient {
             .request(Self::FOREIGN_OFFLINE_ECASH_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::MintForeignOfflineEcashResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn mint_eiou(
@@ -237,9 +225,7 @@ impl ClowderNatsClient {
             .request(Self::EIOU_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::MintEiouResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn new_keyset(
@@ -255,9 +241,7 @@ impl ClowderNatsClient {
             .request(Self::KEYSET_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::KeysetCreationResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn melt_onchain(
@@ -272,9 +256,7 @@ impl ClowderNatsClient {
             .request(Self::MELT_ONCHAIN_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::MeltOnchainResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn deactivate_keyset(
@@ -289,9 +271,7 @@ impl ClowderNatsClient {
             .request(Self::DEACTIVATE_KEYSET_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::KeysetDeactivationResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn heartbeat(
@@ -307,8 +287,6 @@ impl ClowderNatsClient {
             .request(Self::HEARTBEAT_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::HeartbeatResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 }
