@@ -29,6 +29,7 @@ impl ClowderNatsClient {
     pub const ONCHAIN_TOPIC: &'static str = "clowder.mint_onchain";
     pub const EIOU_TOPIC: &'static str = "clowder.mint_eiou";
     pub const EBILL_TOPIC: &'static str = "clowder.mint_ebill";
+    pub const REGISTER_EBILL_TOPIC: &'static str = "clowder.register_ebill";
     pub const FOREIGN_ECASH_TOPIC: &'static str = "clowder.mint_foreign_ecash";
     pub const MINT_QUOTE_ONCHAIN_TOPIC: &'static str = "clowder.mint_quote_onchain";
     pub const FOREIGN_OFFLINE_ECASH_TOPIC: &'static str = "clowder.mint_foreign_offline_ecash";
@@ -163,6 +164,24 @@ impl ClowderNatsClient {
             .await?;
 
         let result: wire_clowder::MintEbillResponse =
+            ciborium::from_reader(response.payload.as_ref())?;
+        Ok(result)
+    }
+
+    pub async fn register_ebill(
+        &self,
+        req: wire_clowder::RegisterEbillRequest,
+        resp: wire_clowder::RegisterEbillResponse,
+    ) -> Result<wire_clowder::RegisterEbillResponse> {
+        let mut payload = Vec::new();
+        ciborium::into_writer(&MintStream::RegisterEbill(req, resp), &mut payload)?;
+
+        let response = self
+            .client
+            .request(Self::REGISTER_EBILL_TOPIC, Bytes::from(payload))
+            .await?;
+
+        let result: wire_clowder::RegisterEbillResponse =
             ciborium::from_reader(response.payload.as_ref())?;
         Ok(result)
     }
