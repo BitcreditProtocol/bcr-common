@@ -321,6 +321,22 @@ impl std::convert::TryFrom<BlindSigDleq> for cashu::BlindSignatureDleq {
         Ok(cashu::BlindSignatureDleq { e, s })
     }
 }
+pub fn serialize_option_blindsigdleq(
+    dleq: &Option<cashu::BlindSignatureDleq>,
+    writer: &mut impl Write,
+) -> Result<()> {
+    let dleq = dleq.clone().map(BlindSigDleq::from);
+    borsh::BorshSerialize::serialize(&dleq, writer)?;
+    Ok(())
+}
+
+pub fn deserialize_option_blindsigdleq(
+    reader: &mut impl Read,
+) -> Result<Option<cashu::BlindSignatureDleq>> {
+    let dleq: Option<BlindSigDleq> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    let dleq = dleq.map(cashu::BlindSignatureDleq::try_from).transpose()?;
+    Ok(dleq)
+}
 
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
 struct BlindSignatureBorsh {

@@ -4,6 +4,7 @@
 pub mod client;
 pub mod clowder;
 pub mod core;
+pub mod ecash;
 pub mod wallet;
 pub mod wire;
 
