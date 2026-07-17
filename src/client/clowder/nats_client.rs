@@ -175,9 +175,7 @@ impl ClowderNatsClient {
             .request(Self::REGISTER_EBILL_TOPIC, Bytes::from(payload))
             .await?;
 
-        let result: wire_clowder::RegisterEbillResponse =
-            ciborium::from_reader(response.payload.as_ref())?;
-        Ok(result)
+        Self::decode_reply(response.payload.as_ref())
     }
 
     pub async fn request_to_pay_bill(
