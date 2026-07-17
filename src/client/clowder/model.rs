@@ -23,6 +23,10 @@ pub enum MintStream {
         wire_clowder::MintEbillRequest,
         wire_clowder::MintEbillResponse,
     ),
+    RegisterEbill(
+        wire_clowder::RegisterEbillRequest,
+        wire_clowder::RegisterEbillResponse,
+    ),
     MintForeignEcash(
         wire_clowder::MintForeignEcashRequest,
         wire_clowder::MintForeignEcashResponse,

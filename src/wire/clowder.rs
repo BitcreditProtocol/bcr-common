@@ -304,6 +304,17 @@ pub struct RequestToPayEbillRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestToPayEbillResponse {}
 
+///--------------------------- Register Ebill
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisterEbillRequest {
+    pub bill_id: crate::core::BillId,
+    pub amount: cashu::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisterEbillResponse {}
+
 ///--------------------------- Mint Ebill
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
