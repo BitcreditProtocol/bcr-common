@@ -1,6 +1,10 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::Amount;
+use bitcoin::{
+    Amount,
+    hashes::{Hash, sha256::Hash as Sha256Hash},
+    secp256k1 as secp,
+};
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -68,15 +72,44 @@ pub struct OnchainMintRequest {
 
 /// Mint request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MintRequest {
+pub struct EbillMintRequest {
     /// Quote ID
     #[schema(value_type = String)]
     pub quote: uuid::Uuid,
     /// Blinded messages to be signed
     pub outputs: Vec<cashu::BlindedMessage>,
     /// Signature
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signature: Option<String>,
+    #[schema(value_type = String)]
+    pub signature: bitcoin::secp256k1::schnorr::Signature,
+}
+impl EbillMintRequest {
+    pub fn new(quote: uuid::Uuid, outputs: Vec<cashu::BlindedMessage>, kp: &secp::Keypair) -> Self {
+        let msg = Self::msg_to_sign(quote, &outputs);
+        let signature = secp::global::SECP256K1.sign_schnorr(&msg, kp);
+        Self {
+            quote,
+            outputs,
+            signature,
+        }
+    }
+    fn msg_to_sign(qid: uuid::Uuid, outputs: &[cashu::BlindedMessage]) -> secp::Message {
+        let quote_id = qid.to_string();
+        let capacity = quote_id.len() + (outputs.len() * 66);
+        let mut raw = Vec::with_capacity(capacity);
+        raw.append(&mut quote_id.clone().into_bytes()); // String.into_bytes() produces UTF-8
+        for output in outputs {
+            raw.extend_from_slice(output.blinded_secret.to_hex().as_bytes());
+        }
+        let hash: Sha256Hash = Sha256Hash::hash(&raw);
+        secp::Message::from_digest(*hash.as_ref())
+    }
+
+    pub fn verify_signature(&self, pk: &secp::PublicKey) -> bool {
+        let msg = Self::msg_to_sign(self.quote, &self.outputs);
+        secp::global::SECP256K1
+            .verify_schnorr(&self.signature, &msg, &pk.x_only_public_key().0)
+            .is_ok()
+    }
 }
 
 /// Onchain Mint quote response with commitment signature
@@ -89,7 +122,7 @@ pub struct OnchainMintQuoteResponse {
 
 /// Mint response
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct MintResponse {
+pub struct EbillMintResponse {
     pub signatures: Vec<cashu::BlindSignature>,
 }
 
@@ -131,11 +164,8 @@ mod tests {
             .into_iter()
             .map(|(b, _, _)| b)
             .collect();
-        let request = MintRequest {
-            quote: uuid::Uuid::from_u128(rand::random()),
-            outputs: blinds,
-            signature: Some(String::from("signature")),
-        };
+        let kp = core::generate_random_keypair();
+        let request = EbillMintRequest::new(uuid::Uuid::new_v4(), blinds, &kp);
         let bytes = serde_json::to_vec(&request).expect("serialize");
         let deserialized: cashu::MintRequest<uuid::Uuid> =
             serde_json::from_slice(&bytes).expect("deserialize");
@@ -144,14 +174,19 @@ mod tests {
             deserialized.outputs[0].blinded_secret,
             request.outputs[0].blinded_secret
         );
-        assert_eq!(deserialized.signature, request.signature);
+        assert_eq!(
+            deserialized.signature.as_ref().unwrap(),
+            &request.signature.to_string()
+        );
+        let cpk = cashu::PublicKey::from(kp.public_key());
+        deserialized.verify_signature(cpk).unwrap()
     }
 
     #[test]
     fn mintresponse_json_wire_compat() {
         let (kinfo, _) = core_tests::generate_random_ecash_keyset();
         let pk = cashu::PublicKey::from(core::generate_random_keypair().public_key());
-        let response = MintResponse {
+        let response = EbillMintResponse {
             signatures: vec![cashu::BlindSignature {
                 amount: cashu::Amount::from(rand::random::<u16>() as u64),
                 keyset_id: kinfo.id,
