@@ -264,18 +264,6 @@ pub struct KeysetCreationResponse {
     pub unit: cashu::CurrencyUnit,
 }
 
-///--------------------------- Keyset Deactivation
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeysetDeactivationRequest {
-    pub id: cashu::Id,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeysetDeactivationResponse {
-    pub id: cashu::Id,
-}
-
 ///--------------------------- Mint Onchain
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

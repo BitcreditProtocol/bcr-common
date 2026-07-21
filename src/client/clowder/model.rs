@@ -52,7 +52,6 @@ pub enum MintStream {
         wire_clowder::HeartbeatRequest,
         wire_clowder::HeartbeatResponse,
     ),
-    DeactivateKeyset(wire_clowder::KeysetDeactivationRequest),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
