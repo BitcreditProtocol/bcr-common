@@ -37,17 +37,6 @@ pub struct SignRequest {
     pub msg: cashu::BlindedMessage,
 }
 
-///--------------------------- Deactivate keyset
-#[derive(Serialize, Deserialize, ToSchema, Debug)]
-pub struct DeactivateKeysetRequest {
-    pub kid: cashu::Id,
-}
-
-#[derive(Serialize, Deserialize, ToSchema, Debug)]
-pub struct DeactivateKeysetResponse {
-    pub kid: cashu::Id,
-}
-
 ///--------------------------- Proof fingerprint validation
 #[derive(
     Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize, ToSchema, PartialEq,

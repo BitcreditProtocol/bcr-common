@@ -49,7 +49,6 @@ impl ClowderNatsClient {
     pub const MELT_ONCHAIN_TOPIC: &'static str = "clowder.melt_onchain";
     pub const MELT_QUOTE_ONCHAIN_TOPIC: &'static str = "clowder.melt_quote_onchain";
     // Misc
-    pub const DEACTIVATE_KEYSET_TOPIC: &'static str = "clowder.deactivate_keyset";
     pub const HEARTBEAT_TOPIC: &'static str = "clowder.heartbeat";
     pub const BILLREQUESTTOPAY_TOPIC: &'static str = "clowder.billrequesttopay";
     pub const OFFLINE_EXCHANGE_SIGN_TOPIC: &'static str = "clowder.offline_exchange_sign";
@@ -271,21 +270,6 @@ impl ClowderNatsClient {
         let response = self
             .client
             .request(Self::MELT_ONCHAIN_TOPIC, Bytes::from(payload))
-            .await?;
-
-        Self::decode_reply(response.payload.as_ref())
-    }
-
-    pub async fn deactivate_keyset(
-        &self,
-        req: wire_clowder::KeysetDeactivationRequest,
-    ) -> Result<wire_clowder::KeysetDeactivationResponse> {
-        let mut payload = Vec::new();
-        ciborium::into_writer(&MintStream::DeactivateKeyset(req), &mut payload)?;
-
-        let response = self
-            .client
-            .request(Self::DEACTIVATE_KEYSET_TOPIC, Bytes::from(payload))
             .await?;
 
         Self::decode_reply(response.payload.as_ref())
