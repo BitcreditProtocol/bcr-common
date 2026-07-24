@@ -248,7 +248,7 @@ pub fn deserialize_vecof_cdkproof(reader: &mut impl Read) -> Result<Vec<cashu::P
 }
 
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
-struct BlindedMessageBorsh {
+pub struct BlindedMessageBorsh {
     amount: u64,
     kid: Vec<u8>,
     blinded_secret: [u8; secp256k1::constants::PUBLIC_KEY_SIZE],
@@ -296,6 +296,18 @@ pub fn deserialize_vecof_blindedmessage(
     msgs.into_iter()
         .map(cashu::BlindedMessage::try_from)
         .collect()
+}
+pub fn serialize_blindedmessage(
+    input: &cashu::BlindedMessage,
+    writer: &mut impl Write,
+) -> Result<()> {
+    let msg = BlindedMessageBorsh::from(input.to_owned());
+    borsh::BorshSerialize::serialize(&msg, writer)?;
+    Ok(())
+}
+pub fn deserialize_blindedmessage(reader: &mut impl Read) -> Result<cashu::BlindedMessage> {
+    let msg: BlindedMessageBorsh = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    cashu::BlindedMessage::try_from(msg)
 }
 
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
@@ -630,5 +642,32 @@ mod tests {
         serialize_option_vecof_blindsignature(&None, &mut buf).unwrap();
         let deser_none = deserialize_option_vecof_blindsignature(&mut buf.as_slice()).unwrap();
         assert_eq!(deser_none, None);
+    }
+
+    #[test]
+    fn serialize_deserialize_blinded_message() {
+        let (_, keyset) = core_tests::generate_random_ecash_keyset();
+
+        let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+        let (blinded_secret, _) = cashu::dhke::blind_message(secret.as_bytes(), None).unwrap();
+
+        let msg = cashu::BlindedMessage {
+            amount: cashu::Amount::from(512u64),
+            keyset_id: keyset.id,
+            blinded_secret,
+            witness: None,
+        };
+
+        let mut buf = Vec::new();
+        serialize_blindedmessage(&msg, &mut buf).unwrap();
+
+        let deser_msg = deserialize_blindedmessage(&mut buf.as_slice()).unwrap();
+
+        assert_eq!(msg, deser_msg);
+
+        let mut buf2 = Vec::new();
+        serialize_blindedmessage(&msg, &mut buf2).unwrap();
+
+        assert_eq!(buf, buf2);
     }
 }
