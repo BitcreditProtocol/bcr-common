@@ -522,12 +522,16 @@ impl Client {
         Ok(response.signatures)
     }
 
-    /// target: the amount you expect to receive in recipient
+    /// amount: the amount you expect to receive in recipient
+    /// network_fee: total tx fee in sats you pay for the onchain transaction
     /// return: serialized (wire_melt::MeltQuoteOnchainResponseBody, signature)
+    #[allow(clippy::too_many_arguments)]
     pub async fn onchain_melt_quote(
         &self,
         inputs: Vec<wire_keys::ProofFingerprint>,
         recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+        amount: bitcoin::Amount,
+        network_fee: bitcoin::Amount,
         wallet_key: cashu::PublicKey,
         mint_pk: secp256k1::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
@@ -542,6 +546,8 @@ impl Client {
                 attestation,
             },
             address: recipient,
+            amount,
+            network_fee,
             wallet_key,
         };
         let wire_melt::MeltQuoteOnchainResponse {
@@ -580,6 +586,36 @@ impl Client {
             &response.commitment,
             &mint_pk.x_only_public_key().0,
         )?;
+        Ok(response)
+    }
+
+    pub async fn onchain_melt_estimate(
+        &self,
+        amount: bitcoin::Amount,
+        recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    ) -> Result<wire_melt::MeltOnchainEstimateResponse> {
+        let url = self
+            .base
+            .join(treasury::web_ep::MELT_ONCHAIN_ESTIMATE_V1_EXT)
+            .expect("onchain melt estimate relative path");
+        let msg = wire_melt::MeltOnchainEstimateRequest {
+            amount,
+            address: recipient,
+        };
+        let response = self
+            .cl
+            .post(url, &msg)
+            .await
+            .map_err(treasury::Error::from)?;
+        Ok(response)
+    }
+
+    pub async fn onchain_melt_config(&self) -> Result<wire_melt::MeltOnchainConfigResponse> {
+        let url = self
+            .base
+            .join(treasury::web_ep::MELT_ONCHAIN_CONFIG_V1_EXT)
+            .expect("onchain melt config relative path");
+        let response = self.cl.get(url, &[]).await.map_err(treasury::Error::from)?;
         Ok(response)
     }
 
