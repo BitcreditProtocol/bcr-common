@@ -120,7 +120,13 @@ pub struct OnchainMintQuoteResponse {
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
-/// Mint response
+/// Onchain Mint response
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OnchainMintResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
+}
+
+/// E-Bill Mint response
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EbillMintResponse {
     pub signatures: Vec<cashu::BlindSignature>,
@@ -183,10 +189,28 @@ mod tests {
     }
 
     #[test]
-    fn mintresponse_json_wire_compat() {
+    fn ebill_mintresponse_json_wire_compat() {
         let (kinfo, _) = core_tests::generate_random_ecash_keyset();
         let pk = cashu::PublicKey::from(core::generate_random_keypair().public_key());
         let response = EbillMintResponse {
+            signatures: vec![cashu::BlindSignature {
+                amount: cashu::Amount::from(rand::random::<u16>() as u64),
+                keyset_id: kinfo.id,
+                c: pk,
+                dleq: None,
+            }],
+        };
+        let bytes = serde_json::to_vec(&response).expect("serialize");
+        let deserialized: cashu::MintResponse =
+            serde_json::from_slice(&bytes).expect("deserialize");
+        assert_eq!(deserialized.signatures[0].c, response.signatures[0].c);
+    }
+
+    #[test]
+    fn onchain_mintresponse_json_wire_compat() {
+        let (kinfo, _) = core_tests::generate_random_ecash_keyset();
+        let pk = cashu::PublicKey::from(core::generate_random_keypair().public_key());
+        let response = OnchainMintResponse {
             signatures: vec![cashu::BlindSignature {
                 amount: cashu::Amount::from(rand::random::<u16>() as u64),
                 keyset_id: kinfo.id,
