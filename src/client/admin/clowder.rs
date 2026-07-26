@@ -561,7 +561,7 @@ impl Client {
     pub async fn fetch_mint_onchain(
         &self,
         request: &crate::wire::mint::OnchainMintRequest,
-    ) -> Result<crate::wire::mint::EbillMintResponse> {
+    ) -> Result<crate::wire::mint::OnchainMintResponse> {
         let url = self
             .base
             .join(admin_ep::FOREIGN_MINT_ONCHAIN)
