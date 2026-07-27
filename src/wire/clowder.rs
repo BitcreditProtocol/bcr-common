@@ -366,6 +366,10 @@ pub struct MeltOnchainRequest {
     pub inputs: Vec<cashu::Proof>,
     pub fees: Vec<cashu::BlindSignature>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    /// total tx fee the user pays; None = legacy dynamic-fee path
+    /// optional to keep ledger entries byte-identical under CBOR re-serialization
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub network_fee: Option<bitcoin::Amount>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -523,6 +527,8 @@ pub enum ClowderRejection {
     DuplicateSignature { index: u32 },
     #[error("expired")]
     Expired,
+    #[error("invalid fees")]
+    InvalidFees,
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -566,6 +572,70 @@ mod tests {
             other => panic!("expected AlreadySpent, got {other:?}"),
         }
     }
+
+    /// Ledger entries are hashed and signature-verified over their CBOR bytes,
+    /// and historical entries are re-serialized and re-verified. A request
+    /// without `network_fee` must keep its legacy byte encoding.
+    #[test]
+    fn melt_onchain_request_legacy_cbor_compat() {
+        #[derive(Serialize, Deserialize)]
+        struct LegacyMeltOnchainRequest {
+            quote: uuid::Uuid,
+            address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+            amount: bitcoin::Amount,
+            inputs: Vec<cashu::Proof>,
+            fees: Vec<cashu::BlindSignature>,
+            commitment: bitcoin::secp256k1::schnorr::Signature,
+        }
+
+        let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
+        let msg = secp::Message::from_digest([7u8; 32]);
+        let commitment = secp::global::SECP256K1.sign_schnorr(&msg, &keypair);
+        let quote = uuid::Uuid::from_u128(42);
+        let address: bitcoin::Address<bitcoin::address::NetworkUnchecked> =
+            "bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080"
+                .parse()
+                .expect("valid address");
+        let amount = bitcoin::Amount::from_sat(2000);
+
+        let legacy = LegacyMeltOnchainRequest {
+            quote,
+            address: address.clone(),
+            amount,
+            inputs: vec![],
+            fees: vec![],
+            commitment,
+        };
+        let current = MeltOnchainRequest {
+            quote,
+            address,
+            amount,
+            inputs: vec![],
+            fees: vec![],
+            commitment,
+            network_fee: None,
+        };
+
+        let mut legacy_bytes = Vec::new();
+        ciborium::into_writer(&legacy, &mut legacy_bytes).expect("serialize legacy");
+        let mut current_bytes = Vec::new();
+        ciborium::into_writer(&current, &mut current_bytes).expect("serialize current");
+        assert_eq!(
+            legacy_bytes, current_bytes,
+            "None must re-serialize byte-identical to the legacy encoding"
+        );
+
+        let decoded: MeltOnchainRequest =
+            ciborium::from_reader(legacy_bytes.as_slice()).expect("decode legacy blob");
+        assert_eq!(decoded.network_fee, None);
+
+        let with_fee = MeltOnchainRequest {
+            network_fee: Some(bitcoin::Amount::from_sat(250)),
+            ..current
+        };
+        let back = cbor_roundtrip(&with_fee);
+        assert_eq!(back.network_fee, Some(bitcoin::Amount::from_sat(250)));
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -608,4 +678,18 @@ pub struct OnchainFeesEstimateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OnchainFeesEstimateResponse {
     pub fees: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnchainTxEstimateRequest {
+    /// the target amount to send onchain
+    pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnchainTxEstimateResponse {
+    /// estimated tx virtual size in vbytes for sending the requested amount
+    pub tx_vsize: u64,
+    /// current fee rates per confirmation target
+    pub feerates: Vec<crate::wire::melt::FeeRateEstimate>,
 }

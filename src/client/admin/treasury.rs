@@ -36,6 +36,10 @@ pub mod web_ep {
     pub const MELTQUOTE_ONCHAIN_V1_EXT: &str = "/v1/treasury/melt/onchain/quote";
     pub const MELT_ONCHAIN_V1: &str = "/v1/melt/onchain";
     pub const MELT_ONCHAIN_V1_EXT: &str = "/v1/treasury/melt/onchain";
+    pub const MELT_ONCHAIN_CONFIG_V1: &str = "/v1/melt/onchain/config";
+    pub const MELT_ONCHAIN_CONFIG_V1_EXT: &str = "/v1/treasury/melt/onchain/config";
+    pub const MELT_ONCHAIN_ESTIMATE_V1: &str = "/v1/melt/onchain/estimate";
+    pub const MELT_ONCHAIN_ESTIMATE_V1_EXT: &str = "/v1/treasury/melt/onchain/estimate";
     pub const MINTQUOTE_ONCHAIN_V1: &str = "/v1/mint/onchain/quote";
     pub const MINTQUOTE_ONCHAIN_V1_EXT: &str = "/v1/treasury/mint/onchain/quote";
     pub const MINT_ONCHAIN_V1: &str = "/v1/mint/onchain";

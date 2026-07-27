@@ -48,6 +48,7 @@ pub mod admin_ep {
     pub const LOCAL_VERIFY_EBILL_PAYMENT: &str = "/admin/local/verify_ebill_payment";
     pub const LOCAL_VERIFY_PAYMENT: &str = "/admin/local/verify_payment";
     pub const LOCAL_ONCHAIN_FEES_ESTIMATE: &str = "/admin/local/onchain_fees_estimate";
+    pub const LOCAL_ONCHAIN_TX_ESTIMATE: &str = "/admin/local/onchain_tx_estimate";
 }
 
 pub mod web_ep {
@@ -705,6 +706,19 @@ impl Client {
         let response: wire_clowder::OnchainFeesEstimateResponse =
             self.cl.post(url, &request).await?;
         Ok(response.fees)
+    }
+
+    pub async fn onchain_tx_estimate(
+        &self,
+        amount: bitcoin::Amount,
+    ) -> Result<wire_clowder::OnchainTxEstimateResponse> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_ONCHAIN_TX_ESTIMATE)
+            .expect("local onchain tx estimate relative path");
+        let request = wire_clowder::OnchainTxEstimateRequest { amount };
+        let response = self.cl.post(url, &request).await?;
+        Ok(response)
     }
 
     pub async fn post_attest_issuance(
