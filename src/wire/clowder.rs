@@ -684,6 +684,9 @@ pub struct OnchainFeesEstimateResponse {
 pub struct OnchainTxEstimateRequest {
     /// the target amount to send onchain
     pub amount: bitcoin::Amount,
+    /// when set, the recipient output is sized from its script type
+    #[serde(default)]
+    pub address: Option<bitcoin::Address<bitcoin::address::NetworkUnchecked>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

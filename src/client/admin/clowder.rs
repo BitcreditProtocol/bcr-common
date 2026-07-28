@@ -711,12 +711,13 @@ impl Client {
     pub async fn onchain_tx_estimate(
         &self,
         amount: bitcoin::Amount,
+        address: Option<bitcoin::Address<bitcoin::address::NetworkUnchecked>>,
     ) -> Result<wire_clowder::OnchainTxEstimateResponse> {
         let url = self
             .base
             .join(admin_ep::LOCAL_ONCHAIN_TX_ESTIMATE)
             .expect("local onchain tx estimate relative path");
-        let request = wire_clowder::OnchainTxEstimateRequest { amount };
+        let request = wire_clowder::OnchainTxEstimateRequest { amount, address };
         let response = self.cl.post(url, &request).await?;
         Ok(response)
     }

@@ -140,8 +140,10 @@ pub struct MeltOnchainEstimateRequest {
     /// the amount the user wants the mint to pay to the address
     #[schema(value_type = u64)]
     pub amount: Amount,
-    #[schema(value_type = String)]
-    pub address: bitcoin::Address<NetworkUnchecked>,
+    /// when set, the recipient output is sized from its script type
+    #[schema(value_type = Option<String>)]
+    #[serde(default)]
+    pub address: Option<bitcoin::Address<NetworkUnchecked>>,
 }
 
 ///--------------------------- Fee Rate Estimate
@@ -255,12 +257,15 @@ mod tests {
     fn melt_onchain_estimate_json_roundtrip() {
         let request = MeltOnchainEstimateRequest {
             amount: Amount::from_sat(2000),
-            address: sample_address(),
+            address: Some(sample_address()),
         };
         let json = serde_json::to_string(&request).expect("serialize");
         let back: MeltOnchainEstimateRequest = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.amount, request.amount);
         assert_eq!(back.address, request.address);
+        let back: MeltOnchainEstimateRequest =
+            serde_json::from_str(r#"{"amount":2000}"#).expect("deserialize");
+        assert_eq!(back.address, None);
 
         let response = MeltOnchainEstimateResponse {
             tx_vsize: 154,
