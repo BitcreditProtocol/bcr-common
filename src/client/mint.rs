@@ -592,7 +592,7 @@ impl Client {
     pub async fn onchain_melt_estimate(
         &self,
         amount: bitcoin::Amount,
-        recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+        recipient: Option<bitcoin::Address<bitcoin::address::NetworkUnchecked>>,
     ) -> Result<wire_melt::MeltOnchainEstimateResponse> {
         let url = self
             .base
