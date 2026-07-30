@@ -185,6 +185,10 @@ pub struct MintCirculatingSupplyResponse {
 pub struct ClowderNodeInfo {
     #[schema(value_type = String)]
     pub change_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    /// Address dedicated to receiving brc-20 eIOU tokens
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub eiou_address: Option<bitcoin::Address<bitcoin::address::NetworkUnchecked>>,
     /// FROST aggregated public key
     #[schema(value_type = String)]
     pub multisig_agg_xonly: XOnlyPublicKey,

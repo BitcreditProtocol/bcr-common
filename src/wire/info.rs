@@ -37,4 +37,8 @@ pub struct WildcatInfo {
     /// Clowder change address
     #[schema(value_type = String)]
     pub clowder_change_address: bitcoin::address::Address<bitcoin::address::NetworkUnchecked>,
+    /// Clowder eIOU deposit address
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub clowder_eiou_address: Option<bitcoin::address::Address<bitcoin::address::NetworkUnchecked>>,
 }
