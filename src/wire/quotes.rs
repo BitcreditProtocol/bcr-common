@@ -1,7 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
 use borsh::{BorshDeserialize, BorshSerialize};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 // ----- local imports
@@ -10,7 +9,8 @@ use crate::{
     wire::{
         bill::{BillIdentParticipant, BillParticipant},
         borsh::{
-            deserialize_from_str, deserialize_vec_of_strs, serialize_as_str, serialize_vec_of_strs,
+            deserialize_bill_date, deserialize_from_str, deserialize_vec_of_strs, serialize_as_str,
+            serialize_bill_date, serialize_vec_of_strs,
         },
     },
 };
@@ -49,10 +49,11 @@ pub struct BillInfo {
     pub endorsees: Vec<BillParticipant>,
     pub sum: u64, // in satoshis, converted to bitcoin::Amount in the service
     #[borsh(
-        serialize_with = "serialize_as_str",
-        deserialize_with = "deserialize_from_str"
+        serialize_with = "serialize_bill_date",
+        deserialize_with = "deserialize_bill_date"
     )]
-    pub maturity_date: chrono::NaiveDate,
+    #[serde(with = "crate::wire::bill_date")]
+    pub maturity_date: time::Date,
     #[borsh(
         serialize_with = "serialize_vec_of_strs",
         deserialize_with = "deserialize_vec_of_strs"
@@ -92,20 +93,24 @@ pub struct EnquireReply {
 pub enum StatusReply {
     Pending,
     Canceled {
-        tstamp: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        tstamp: time::OffsetDateTime,
     },
     Denied {
-        tstamp: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        tstamp: time::OffsetDateTime,
     },
     Offered {
         keyset_id: cashu::Id,
-        expiration_date: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        expiration_date: time::OffsetDateTime,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
         wallet_pubkey: cashu::PublicKey,
     },
     OfferExpired {
-        tstamp: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        tstamp: time::OffsetDateTime,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
     },
@@ -116,7 +121,8 @@ pub enum StatusReply {
         wallet_pubkey: cashu::PublicKey,
     },
     Rejected {
-        tstamp: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        tstamp: time::OffsetDateTime,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
     },
@@ -138,8 +144,10 @@ pub enum StatusReply {
 /// --------------------------- List quotes
 #[derive(Debug, Default, Serialize, Deserialize, IntoParams)]
 pub struct ListParam {
-    pub bill_maturity_date_from: Option<chrono::NaiveDate>,
-    pub bill_maturity_date_to: Option<chrono::NaiveDate>,
+    #[serde(default, with = "crate::wire::bill_date::option")]
+    pub bill_maturity_date_from: Option<time::Date>,
+    #[serde(default, with = "crate::wire::bill_date::option")]
+    pub bill_maturity_date_to: Option<time::Date>,
     pub status: Option<InfoReplyDiscriminants>,
     #[param(value_type = Option<String>)]
     pub bill_id: Option<BillId>,
@@ -190,18 +198,22 @@ pub enum InfoReply {
     Pending {
         id: uuid::Uuid,
         bill: BillInfo,
-        submitted: DateTime<Utc>,
-        suggested_expiration: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        submitted: time::OffsetDateTime,
+        #[serde(with = "time::serde::rfc3339")]
+        suggested_expiration: time::OffsetDateTime,
     },
     Canceled {
         id: uuid::Uuid,
         bill: BillInfo,
-        tstamp: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        tstamp: time::OffsetDateTime,
     },
     Offered {
         id: uuid::Uuid,
         bill: BillInfo,
-        ttl: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        ttl: time::OffsetDateTime,
         keyset_id: cashu::Id,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
@@ -209,14 +221,16 @@ pub enum InfoReply {
     OfferExpired {
         id: uuid::Uuid,
         bill: BillInfo,
-        tstamp: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        tstamp: time::OffsetDateTime,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
     },
     Denied {
         id: uuid::Uuid,
         bill: BillInfo,
-        tstamp: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        tstamp: time::OffsetDateTime,
     },
     Accepted {
         id: uuid::Uuid,
@@ -228,7 +242,8 @@ pub enum InfoReply {
     Rejected {
         id: uuid::Uuid,
         bill: BillInfo,
-        tstamp: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        tstamp: time::OffsetDateTime,
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
     },
@@ -251,7 +266,8 @@ pub enum InfoReply {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ListPendingQueryRequest {
-    pub since: Option<DateTime<Utc>>,
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    pub since: Option<time::OffsetDateTime>,
 }
 
 /// --------------------------- Update quote status request
@@ -262,7 +278,8 @@ pub enum UpdateQuoteRequest {
     Offer {
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
-        ttl: Option<DateTime<Utc>>,
+        #[serde(default, with = "time::serde::rfc3339::option")]
+        ttl: Option<time::OffsetDateTime>,
     },
 }
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -272,7 +289,8 @@ pub enum UpdateQuoteResponse {
     Offered {
         #[schema(value_type = u64)]
         discounted: bitcoin::Amount,
-        ttl: DateTime<Utc>,
+        #[serde(with = "time::serde::rfc3339")]
+        ttl: time::OffsetDateTime,
     },
 }
 
@@ -304,4 +322,68 @@ pub struct SharedBillData {
     #[schema(value_type = String)]
     pub bill_id: BillId,
     pub data: String, // The base58 encoded, encrypted, borshed BillBlockPlaintextWrappers of the bill
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tstamp_json_wire_compat() {
+        let reply = StatusReply::Canceled {
+            tstamp: time::macros::datetime!(2026-08-03 12:00:00 UTC),
+        };
+        let json = serde_json::to_string(&reply).unwrap();
+        assert_eq!(
+            json,
+            r#"{"status":"Canceled","tstamp":"2026-08-03T12:00:00Z"}"#
+        );
+        let deserialized: StatusReply = serde_json::from_str(&json).unwrap();
+        assert!(
+            matches!(deserialized, StatusReply::Canceled { tstamp } if tstamp.unix_timestamp() == 1_785_758_400)
+        );
+    }
+
+    #[test]
+    fn option_tstamp_json_wire_compat() {
+        let request = UpdateQuoteRequest::Offer {
+            discounted: bitcoin::Amount::from_sat(7),
+            ttl: Some(time::macros::datetime!(2026-08-03 12:00:00 UTC)),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        assert_eq!(
+            json,
+            r#"{"action":"Offer","discounted":7,"ttl":"2026-08-03T12:00:00Z"}"#
+        );
+        let request = UpdateQuoteRequest::Offer {
+            discounted: bitcoin::Amount::from_sat(7),
+            ttl: None,
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        assert_eq!(json, r#"{"action":"Offer","discounted":7,"ttl":null}"#);
+        let missing: UpdateQuoteRequest =
+            serde_json::from_str(r#"{"action":"Offer","discounted":7}"#).unwrap();
+        assert!(matches!(
+            missing,
+            UpdateQuoteRequest::Offer { ttl: None, .. }
+        ));
+    }
+
+    #[test]
+    fn option_bill_date_json_wire_compat() {
+        let params = ListParam {
+            bill_maturity_date_from: Some(time::macros::date!(2026 - 08 - 03)),
+            ..Default::default()
+        };
+        let json = serde_json::to_value(&params).unwrap();
+        assert_eq!(json["bill_maturity_date_from"], "2026-08-03");
+        assert_eq!(json["bill_maturity_date_to"], serde_json::Value::Null);
+        let deserialized: ListParam = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            deserialized.bill_maturity_date_from,
+            Some(time::macros::date!(2026 - 08 - 03))
+        );
+        let missing: ListParam = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.bill_maturity_date_from, None);
+    }
 }

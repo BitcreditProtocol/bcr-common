@@ -199,7 +199,7 @@ pub mod wallet {
         proofs: &'a [Proof],
         kinfos: &HashMap<Id, KeySetInfo>,
         target: Amount,
-        now: chrono::DateTime<chrono::Utc>,
+        now: time::OffsetDateTime,
     ) -> Result<Vec<&'a cashu::Proof>> {
         if target == Amount::ZERO {
             return Ok(vec![]);
@@ -211,7 +211,7 @@ pub mod wallet {
         let mut pure_debits: Vec<&Proof> = Vec::with_capacity(proofs.len());
         let mut expire_credits: Vec<&Proof> = Vec::with_capacity(proofs.len());
         let mut credits: Vec<&Proof> = Vec::with_capacity(proofs.len());
-        let now = now.timestamp() as u64;
+        let now = now.unix_timestamp() as u64;
         for p in proofs {
             let kinfo = kinfos
                 .get(&p.keyset_id)
@@ -1068,11 +1068,11 @@ mod test {
         let (mut kinfo_expired, keyset_expired) = core_tests::generate_random_ecash_keyset();
         let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
         let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
-        let now = chrono::Utc::now();
+        let now = time::OffsetDateTime::now_utc();
         kinfo_expired.final_expiry =
-            Some((now - chrono::Duration::seconds(3600)).timestamp() as u64);
+            Some((now - time::Duration::seconds(3600)).unix_timestamp() as u64);
         kinfo_credit.final_expiry =
-            Some((now + chrono::Duration::seconds(3600)).timestamp() as u64);
+            Some((now + time::Duration::seconds(3600)).unix_timestamp() as u64);
         let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
         let proofs_expired = core_tests::generate_random_ecash_proofs(&keyset_expired, &amounts);
         let proofs_debit = core_tests::generate_random_ecash_proofs(&keyset_debit, &amounts);
@@ -1099,11 +1099,11 @@ mod test {
         let (mut kinfo_expired, keyset_expired) = core_tests::generate_random_ecash_keyset();
         let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
         let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
-        let now = chrono::Utc::now();
+        let now = time::OffsetDateTime::now_utc();
         kinfo_expired.final_expiry =
-            Some((now - chrono::Duration::seconds(3600)).timestamp() as u64);
+            Some((now - time::Duration::seconds(3600)).unix_timestamp() as u64);
         kinfo_credit.final_expiry =
-            Some((now + chrono::Duration::seconds(3600)).timestamp() as u64);
+            Some((now + time::Duration::seconds(3600)).unix_timestamp() as u64);
         let amounts = vec![Amount::from(2), Amount::from(4), Amount::from(8)];
         let proofs_expired = core_tests::generate_random_ecash_proofs(&keyset_expired, &amounts);
         let proofs_credit = core_tests::generate_random_ecash_proofs(&keyset_credit, &amounts);
@@ -1131,11 +1131,11 @@ mod test {
         let (mut kinfo_expired, keyset_expired) = core_tests::generate_random_ecash_keyset();
         let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
         let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
-        let now = chrono::Utc::now();
+        let now = time::OffsetDateTime::now_utc();
         kinfo_expired.final_expiry =
-            Some((now - chrono::Duration::seconds(3600)).timestamp() as u64);
+            Some((now - time::Duration::seconds(3600)).unix_timestamp() as u64);
         kinfo_credit.final_expiry =
-            Some((now + chrono::Duration::seconds(3600)).timestamp() as u64);
+            Some((now + time::Duration::seconds(3600)).unix_timestamp() as u64);
         let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
         let proofs_expired = core_tests::generate_random_ecash_proofs(&keyset_expired, &amounts);
         let proofs_credit = core_tests::generate_random_ecash_proofs(&keyset_credit, &amounts);
@@ -1226,7 +1226,13 @@ mod test {
         let amounts = vec![Amount::from(2), Amount::from(2), Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
         let kinfos = HashMap::from([(keyset.id, cashu::KeySetInfo::from(kinfo))]);
-        let result = prepare_melt(&proofs, &kinfos, Amount::from(7), chrono::Utc::now()).unwrap();
+        let result = prepare_melt(
+            &proofs,
+            &kinfos,
+            Amount::from(7),
+            time::OffsetDateTime::now_utc(),
+        )
+        .unwrap();
         assert_eq!(result.len(), 3);
     }
 }

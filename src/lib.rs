@@ -21,3 +21,7 @@ pub use cashu;
 pub use cdk_common;
 #[cfg(feature = "clwdr-client")]
 pub use frost_secp256k1_tr;
+pub use time;
+
+pub type TStamp = time::OffsetDateTime;
+pub type BillDate = time::Date;

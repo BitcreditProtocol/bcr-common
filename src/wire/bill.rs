@@ -133,12 +133,14 @@ pub struct BillMintStatus {
     pub has_mint_requests: bool,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct BillData {
     pub time_of_drawing: u64,
-    pub issue_date: chrono::NaiveDate,
+    #[serde(with = "crate::wire::bill_date")]
+    pub issue_date: time::Date,
     pub time_of_maturity: u64,
-    pub maturity_date: chrono::NaiveDate,
+    #[serde(with = "crate::wire::bill_date")]
+    pub maturity_date: time::Date,
     pub country_of_issuing: String,
     pub city_of_issuing: String,
     pub country_of_payment: String,
@@ -147,6 +149,25 @@ pub struct BillData {
     pub sum: String,
     pub files: Vec<File>,
     pub active_notification: Option<Notification>,
+}
+
+impl Default for BillData {
+    fn default() -> Self {
+        Self {
+            time_of_drawing: 0,
+            issue_date: time::macros::date!(1970 - 01 - 01),
+            time_of_maturity: 0,
+            maturity_date: time::macros::date!(1970 - 01 - 01),
+            country_of_issuing: String::default(),
+            city_of_issuing: String::default(),
+            country_of_payment: String::default(),
+            city_of_payment: String::default(),
+            currency: String::default(),
+            sum: String::default(),
+            files: Vec::default(),
+            active_notification: None,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -214,7 +235,8 @@ pub struct Notification {
     pub notification_type: NotificationType,
     pub reference_id: Option<String>,
     pub description: String,
-    pub datetime: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub datetime: time::OffsetDateTime,
     pub active: bool,
     pub payload: Option<serde_json::Value>,
 }
@@ -232,7 +254,8 @@ pub struct RequestToPayBitcreditBillPayload {
     #[schema(value_type = String)]
     pub bill_id: BillId,
     pub currency: String,
-    pub deadline: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub deadline: time::OffsetDateTime,
     #[schema(value_type = String)]
     pub payment_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
 }
@@ -408,4 +431,22 @@ pub struct ResyncBillPayload {
     #[schema(value_type = String)]
     pub bill_id: BillId,
     pub from_nostr: Option<bool>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bill_date_json_wire_compat() {
+        let data = BillData {
+            maturity_date: time::macros::date!(2026 - 08 - 03),
+            ..Default::default()
+        };
+        let json = serde_json::to_value(&data).unwrap();
+        assert_eq!(json["issue_date"], "1970-01-01");
+        assert_eq!(json["maturity_date"], "2026-08-03");
+        let deserialized: BillData = serde_json::from_value(json).unwrap();
+        assert_eq!(deserialized.maturity_date, data.maturity_date);
+    }
 }

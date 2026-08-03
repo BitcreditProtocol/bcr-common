@@ -19,7 +19,6 @@ borsh = {version = "1.5", features = ["derive"]}
 bytes = {version = "1", optional = true}
 cashu = {version = "=0.16.0", features = ["swagger"]}
 cdk-common = {version = "=0.16.0"}
-chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
 frost-secp256k1-tr = { version = "2.2.0", features = ["serde"], optional = true }
 infer = {version="0.19"}
@@ -31,9 +30,10 @@ serde_json = {version = "1.0"}
 serde_repr = {version = "0.1"}
 strum = {version = "0.27", features = ["derive"]}
 thiserror = {version = "2.0"}
+time = {version = "0.3", features = ["serde", "formatting", "parsing", "macros"]}
 tracing = {version = "0.1"}
 url = {version = "2.5"}
-utoipa = {version = "5.4", features = ["chrono", "uuid", "url"]}
+utoipa = {version = "5.4", features = ["time", "uuid", "url"]}
 uuid = {version = "1", features = ["serde"]}
 
 [dev-dependencies]

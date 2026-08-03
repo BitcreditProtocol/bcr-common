@@ -147,7 +147,7 @@ impl Client {
 
     pub async fn new_keyset(
         &self,
-        expiration: Option<chrono::NaiveDate>,
+        expiration: Option<time::Date>,
         fees_ppk: u64,
     ) -> Result<cdk_common::mint::MintKeySetInfo> {
         let url = self
@@ -165,24 +165,19 @@ impl Client {
 
     pub async fn get_or_create_keyset_with_expiration(
         &self,
-        expiration: chrono::NaiveDate,
+        expiration: time::Date,
     ) -> Result<cashu::KeySetInfo> {
         let unit = Self::currency_unit();
         let filters = wire_keys::KeysetInfoFilters {
             unit: Some(unit.clone()),
-            min_expiration: Some(expiration - chrono::Duration::days(1)),
-            max_expiration: Some(expiration + chrono::Duration::days(1)),
+            min_expiration: Some(expiration.saturating_sub(time::Duration::days(1))),
+            max_expiration: Some(expiration.saturating_add(time::Duration::days(1))),
         };
         let kinfos =
             common::list_keyset_info(&self.cl, &self.base, web_ep::LIST_KEYSET_INFO_V1, filters)
                 .await?;
-        let expiration_tstamp = u64::try_from(
-            expiration
-                .and_time(chrono::NaiveTime::MIN)
-                .and_utc()
-                .timestamp(),
-        )
-        .unwrap_or(0);
+        let expiration_tstamp =
+            u64::try_from(expiration.midnight().assume_utc().unix_timestamp()).unwrap_or(0);
         for kinfo in kinfos {
             if kinfo.unit == unit && kinfo.final_expiry == Some(expiration_tstamp) {
                 return Ok(kinfo);
@@ -315,7 +310,7 @@ impl Client {
     pub async fn reserve(
         &self,
         ys: Vec<cashu::PublicKey>,
-        deadline: chrono::DateTime<chrono::Utc>,
+        deadline: time::OffsetDateTime,
     ) -> Result<()> {
         let url = self
             .base
@@ -483,5 +478,15 @@ pub(crate) mod common {
             prepare_swap_commitment_request(inputs, outputs, expiry, wallet_pk, attestation);
         let response: wire_swap::SwapCommitmentResponse = cl.post(url, &request).await?;
         verify_commitment(request, response, &mint_pk)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn keyset_expiration_midnight_utc_timestamp() {
+        let expiration = time::macros::date!(2026 - 08 - 03);
+        let tstamp = u64::try_from(expiration.midnight().assume_utc().unix_timestamp()).unwrap();
+        assert_eq!(tstamp, 1_785_715_200);
     }
 }
