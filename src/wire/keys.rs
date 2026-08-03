@@ -18,7 +18,8 @@ use crate::{
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NewKeysetRequest {
     pub unit: cashu::CurrencyUnit,
-    pub expiration: Option<chrono::NaiveDate>,
+    #[serde(default, with = "crate::wire::bill_date::option")]
+    pub expiration: Option<time::Date>,
     pub fees_ppk: u64,
 }
 
@@ -26,8 +27,10 @@ pub struct NewKeysetRequest {
 #[derive(Debug, Default, Deserialize)]
 pub struct KeysetInfoFilters {
     pub unit: Option<cashu::CurrencyUnit>,
-    pub min_expiration: Option<chrono::NaiveDate>,
-    pub max_expiration: Option<chrono::NaiveDate>,
+    #[serde(default, with = "crate::wire::bill_date::option")]
+    pub min_expiration: Option<time::Date>,
+    #[serde(default, with = "crate::wire::bill_date::option")]
+    pub max_expiration: Option<time::Date>,
 }
 
 ///--------------------------- Pre-sign blinded message
