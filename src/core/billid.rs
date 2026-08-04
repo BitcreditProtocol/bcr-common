@@ -6,10 +6,7 @@ use bitcoin::{
     hashes::{Hash, sha256},
 };
 // ----- local modules
-use crate::core::{
-    Error, ID_PREFIX, NETWORK_MAINNET, NETWORK_REGTEST, NETWORK_TESTNET, NETWORK_TESTNET4,
-    network_char,
-};
+use crate::core::{Error, ID_PREFIX, network_char, network_from_char};
 
 // ----- end imports
 
@@ -22,6 +19,7 @@ use crate::core::{
 /// * t => Testnet
 /// * T => Testnet4
 /// * r => Regtest
+/// * s => Signet
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct BillId {
     hash: String,
@@ -59,20 +57,11 @@ impl FromStr for BillId {
         if !s.starts_with(ID_PREFIX) {
             return Err(Error::InvalidBillId);
         }
-        let network = match s.chars().nth(ID_PREFIX.len()) {
-            None => {
-                return Err(Error::InvalidBillId);
-            }
-            Some(network_str) => match network_str {
-                NETWORK_MAINNET => bitcoin::Network::Bitcoin,
-                NETWORK_TESTNET => bitcoin::Network::Testnet,
-                NETWORK_TESTNET4 => bitcoin::Network::Testnet4,
-                NETWORK_REGTEST => bitcoin::Network::Regtest,
-                _ => {
-                    return Err(Error::InvalidBillId);
-                }
-            },
-        };
+        let network = s
+            .chars()
+            .nth(ID_PREFIX.len())
+            .and_then(network_from_char)
+            .ok_or(Error::InvalidBillId)?;
         let hash_str = &s[ID_PREFIX.len() + 1..];
         let decoded = base58::decode(hash_str).map_err(|_| Error::InvalidBillId)?;
         if decoded.len() != sha256::Hash::LEN {

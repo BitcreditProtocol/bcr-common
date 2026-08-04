@@ -2,10 +2,7 @@
 use std::str::FromStr;
 // ----- extra library imports
 // ----- local modules
-use crate::core::{
-    Error, ID_PREFIX, NETWORK_MAINNET, NETWORK_REGTEST, NETWORK_TESTNET, NETWORK_TESTNET4,
-    network_char,
-};
+use crate::core::{Error, ID_PREFIX, network_char, network_from_char};
 
 // ----- end imports
 
@@ -18,6 +15,7 @@ use crate::core::{
 /// * t => Testnet
 /// * T => Testnet4
 /// * r => Regtest
+/// * s => Signet
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct NodeId {
     pub_key: bitcoin::secp256k1::PublicKey,
@@ -66,20 +64,11 @@ impl FromStr for NodeId {
             return Err(Error::InvalidNodeId);
         }
 
-        let network = match s.chars().nth(ID_PREFIX.len()) {
-            None => {
-                return Err(Error::InvalidNodeId);
-            }
-            Some(network_str) => match network_str {
-                NETWORK_MAINNET => bitcoin::Network::Bitcoin,
-                NETWORK_TESTNET => bitcoin::Network::Testnet,
-                NETWORK_TESTNET4 => bitcoin::Network::Testnet4,
-                NETWORK_REGTEST => bitcoin::Network::Regtest,
-                _ => {
-                    return Err(Error::InvalidNodeId);
-                }
-            },
-        };
+        let network = s
+            .chars()
+            .nth(ID_PREFIX.len())
+            .and_then(network_from_char)
+            .ok_or(Error::InvalidNodeId)?;
 
         let pub_key_str = &s[ID_PREFIX.len() + 1..];
         let pub_key = bitcoin::secp256k1::PublicKey::from_str(pub_key_str)
