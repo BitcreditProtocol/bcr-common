@@ -83,6 +83,36 @@ pub struct Proof {
     pub p2pk_e: Option<cashu::PublicKey>,
 }
 
+pub type Proofs = Vec<Proof>;
+
+impl From<cashu::Proof> for Proof {
+    fn from(proof: cashu::Proof) -> Self {
+        Self {
+            amount: proof.amount,
+            keyset_id: proof.keyset_id,
+            secret: proof.secret,
+            c: proof.c,
+            witness: proof.witness,
+            dleq: proof.dleq,
+            p2pk_e: proof.p2pk_e,
+        }
+    }
+}
+
+impl From<Proof> for cashu::Proof {
+    fn from(proof: Proof) -> Self {
+        Self {
+            amount: proof.amount,
+            keyset_id: proof.keyset_id,
+            secret: proof.secret,
+            c: proof.c,
+            witness: proof.witness,
+            dleq: proof.dleq,
+            p2pk_e: proof.p2pk_e,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct KeySet {
     pub id: cashu::Id,
@@ -104,6 +134,30 @@ pub struct KeySetInfo {
     pub input_fee_ppk: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub final_expiry: Option<u64>,
+}
+
+impl From<cashu::KeySetInfo> for KeySetInfo {
+    fn from(info: cashu::KeySetInfo) -> Self {
+        Self {
+            id: info.id,
+            unit: info.unit,
+            active: info.active,
+            input_fee_ppk: info.input_fee_ppk,
+            final_expiry: info.final_expiry,
+        }
+    }
+}
+
+impl From<KeySetInfo> for cashu::KeySetInfo {
+    fn from(info: KeySetInfo) -> Self {
+        Self {
+            id: info.id,
+            unit: info.unit,
+            active: info.active,
+            input_fee_ppk: info.input_fee_ppk,
+            final_expiry: info.final_expiry,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -221,6 +275,28 @@ mod tests {
         let bytes = serde_json::to_vec(&mint_keyset).expect("serialize");
         let deserialized: cashu::MintKeySet = serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(deserialized.keys, mint_keyset.keys);
+    }
+
+    #[test]
+    fn cashu_conversions_round_trip() {
+        let keyset = random_mint_keyset();
+        let proof: Proof =
+            core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
+                .remove(0)
+                .into();
+        assert_eq!(Proof::from(cashu::Proof::from(proof.clone())), proof);
+
+        let info = KeySetInfo {
+            id: keyset.id,
+            unit: keyset.unit,
+            active: true,
+            input_fee_ppk: keyset.input_fee_ppk,
+            final_expiry: keyset.final_expiry,
+        };
+        assert_eq!(
+            KeySetInfo::from(cashu::KeySetInfo::from(info.clone())),
+            info
+        );
     }
 
     #[test]
