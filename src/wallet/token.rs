@@ -3,7 +3,7 @@ use bitcoin::base64::{Engine as _, alphabet};
 use bitcoin::secp256k1::PublicKey;
 use cashu::{
     Amount, CurrencyUnit, KeySetInfo, MintUrl, Proof, Proofs,
-    nut00::{Error, ProofV4, token::TokenV4Token},
+    nut00::Error,
     nut02::{self, ShortKeysetId},
     nuts::Id,
 };
@@ -13,6 +13,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::core::{ID_PREFIX, network_char, network_from_char};
+use crate::wallet::proof::{ProofV4, TokenV4Token};
 
 /// Raw binary counterpart of [`ID_PREFIX`]
 pub const RAW_PREFIX: &str = "braw";
@@ -617,9 +618,7 @@ mod tests {
         assert_eq!(mainnet.token.len(), 1);
         assert_eq!(mainnet.token[0].keyset_id.to_string(), "00ffd48b8f5ecf80");
         assert_eq!(mainnet.value().unwrap(), cashu::Amount::from(1));
-        // cashu's ProofV4 always emits the proof level dleq key, so re-encoding a
-        // proof carrying token differs from the spec example by an explicit d null
-        assert_eq!(v5(&mainnet.to_string()), mainnet);
+        assert_eq!(mainnet.to_string(), MAINNET_V5);
 
         let regtest = v5(REGTEST_EMPTY_V5);
         assert_eq!(regtest.network, bitcoin::Network::Regtest);
