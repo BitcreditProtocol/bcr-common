@@ -96,10 +96,15 @@ pub struct Proof {
 
 pub type Proofs = Vec<Proof>;
 
+/// `y`, the `hash_to_curve(secret)` point the mint identifies a proof by
+pub fn y_of(secret: &cashu::secret::Secret) -> Result<cashu::PublicKey> {
+    Ok(cashu::dhke::hash_to_curve(secret.as_bytes())?)
+}
+
 impl Proof {
     /// `y`, the `hash_to_curve(secret)` point the mint uses to identify this proof
     pub fn y(&self) -> Result<cashu::PublicKey> {
-        Ok(cashu::dhke::hash_to_curve(self.secret.as_bytes())?)
+        y_of(&self.secret)
     }
 }
 

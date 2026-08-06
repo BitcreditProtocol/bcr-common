@@ -157,6 +157,15 @@ impl Token {
         }
     }
 
+    /// Proofs as carried, grouped by short keyset id. Needs no keysets, unlike
+    /// [`Token::proofs`]
+    pub fn groups(&self) -> &[TokenV4Token] {
+        match self {
+            Self::BitcrV4(token) => &token.token,
+            Self::BitcrV5(token) => &token.token,
+        }
+    }
+
     /// Bitcoin network the token belongs to, absent from the legacy V4 format
     pub fn network(&self) -> Option<bitcoin::Network> {
         match self {
@@ -893,6 +902,39 @@ mod tests {
             Err(Error::UnknownKeysetId(_))
         ));
         assert!(matches!(token.proofs(&[]), Err(Error::UnknownKeysetId(_))));
+    }
+
+    /// Reading a token offline sees what resolving it sees: same proofs, same
+    /// order, same `y`
+    #[test]
+    fn test_groups_read_the_same_proofs_offline() {
+        let first = Id::from_str("00ad268c4d1f5826").unwrap();
+        let second = Id::from_str("00ffd48b8f5ecf80").unwrap();
+        let token = Token::from(BitcrTokenV5::new(
+            NodeId::new(mint_key(), bitcoin::Network::Bitcoin),
+            cashu::CurrencyUnit::Sat,
+            vec![
+                proof(second, 2, "bbb"),
+                proof(first, 1, "aaa"),
+                proof(first, 8, "ccc"),
+            ],
+        ));
+
+        let resolved = token
+            .proofs(&[keyset_info(first), keyset_info(second)])
+            .unwrap();
+        let offline: Vec<_> = token
+            .groups()
+            .iter()
+            .flat_map(|group| &group.proofs)
+            .collect();
+
+        assert_eq!(offline.len(), 3);
+        assert_eq!(offline.len(), resolved.len());
+        for (carried, proof) in offline.iter().zip(resolved.iter()) {
+            assert_eq!(carried.secret, proof.secret);
+            assert_eq!(carried.y().unwrap(), proof.y().unwrap());
+        }
     }
 
     /// Reusing a secret is a duplicate no matter what amounts the copies claim

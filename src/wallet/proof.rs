@@ -55,6 +55,11 @@ pub struct ProofV4 {
 }
 
 impl ProofV4 {
+    /// `y`, available without resolving the short keyset id
+    pub fn y(&self) -> crate::ecash::Result<PublicKey> {
+        crate::ecash::y_of(&self.secret)
+    }
+
     /// [`ProofV4`] into [`Proof`]
     pub fn into_proof(&self, keyset_id: &Id) -> Proof {
         Proof {
