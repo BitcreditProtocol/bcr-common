@@ -160,6 +160,8 @@ pub struct ListParam {
 pub enum ListSort {
     BillMaturityDateDesc,
     BillMaturityDateAsc,
+    SubmittedDesc,
+    SubmittedAsc,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
