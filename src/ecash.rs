@@ -2,11 +2,22 @@
 // ----- extra library imports
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire;
 
 // ----- end imports
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("dhke {0}")]
+    Dhke(#[from] cashu::dhke::Error),
+    #[error("amount {0}")]
+    Amount(#[from] cashu::amount::Error),
+}
 
 #[derive(
     Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize,
@@ -83,6 +94,68 @@ pub struct Proof {
     pub p2pk_e: Option<cashu::PublicKey>,
 }
 
+pub type Proofs = Vec<Proof>;
+
+/// `y`, the `hash_to_curve(secret)` point the mint identifies a proof by
+pub fn y_of(secret: &cashu::secret::Secret) -> Result<cashu::PublicKey> {
+    Ok(cashu::dhke::hash_to_curve(secret.as_bytes())?)
+}
+
+impl Proof {
+    /// `y`, the `hash_to_curve(secret)` point the mint uses to identify this proof
+    pub fn y(&self) -> Result<cashu::PublicKey> {
+        y_of(&self.secret)
+    }
+}
+
+/// Aggregates over a collection of [`Proof`]s. Implemented for `[Proof]`, so it
+/// reaches [`Proofs`] and any slice of proofs alike
+pub trait ProofsMethods {
+    /// Total value of the proofs
+    fn total_amount(&self) -> Result<cashu::Amount>;
+
+    /// `y` of every proof, in order
+    fn ys(&self) -> Result<Vec<cashu::PublicKey>>;
+}
+
+impl ProofsMethods for [Proof] {
+    fn total_amount(&self) -> Result<cashu::Amount> {
+        Ok(cashu::Amount::try_sum(self.iter().map(|p| p.amount))?)
+    }
+
+    fn ys(&self) -> Result<Vec<cashu::PublicKey>> {
+        self.iter().map(Proof::y).collect()
+    }
+}
+
+impl From<cashu::Proof> for Proof {
+    fn from(proof: cashu::Proof) -> Self {
+        Self {
+            amount: proof.amount,
+            keyset_id: proof.keyset_id,
+            secret: proof.secret,
+            c: proof.c,
+            witness: proof.witness,
+            dleq: proof.dleq,
+            p2pk_e: proof.p2pk_e,
+        }
+    }
+}
+
+impl From<Proof> for cashu::Proof {
+    fn from(proof: Proof) -> Self {
+        Self {
+            amount: proof.amount,
+            keyset_id: proof.keyset_id,
+            secret: proof.secret,
+            c: proof.c,
+            witness: proof.witness,
+            dleq: proof.dleq,
+            p2pk_e: proof.p2pk_e,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct KeySet {
     pub id: cashu::Id,
@@ -104,6 +177,30 @@ pub struct KeySetInfo {
     pub input_fee_ppk: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub final_expiry: Option<u64>,
+}
+
+impl From<cashu::KeySetInfo> for KeySetInfo {
+    fn from(info: cashu::KeySetInfo) -> Self {
+        Self {
+            id: info.id,
+            unit: info.unit,
+            active: info.active,
+            input_fee_ppk: info.input_fee_ppk,
+            final_expiry: info.final_expiry,
+        }
+    }
+}
+
+impl From<KeySetInfo> for cashu::KeySetInfo {
+    fn from(info: KeySetInfo) -> Self {
+        Self {
+            id: info.id,
+            unit: info.unit,
+            active: info.active,
+            input_fee_ppk: info.input_fee_ppk,
+            final_expiry: info.final_expiry,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -221,6 +318,51 @@ mod tests {
         let bytes = serde_json::to_vec(&mint_keyset).expect("serialize");
         let deserialized: cashu::MintKeySet = serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(deserialized.keys, mint_keyset.keys);
+    }
+
+    /// `y` and `total_amount` must agree with cashu's, since the mint is the one
+    /// checking both
+    #[test]
+    fn proof_utilities_match_cashu() {
+        let keyset = random_mint_keyset();
+        let cashu_proofs = core_tests::generate_random_ecash_proofs(
+            &keyset,
+            &[cashu::Amount::from(1u64), cashu::Amount::from(8u64)],
+        );
+        let proofs: Proofs = cashu_proofs.iter().cloned().map(Into::into).collect();
+
+        for (proof, expected) in proofs.iter().zip(cashu_proofs.iter()) {
+            assert_eq!(proof.y().unwrap(), expected.y().unwrap());
+        }
+        assert_eq!(proofs.ys().unwrap().len(), 2);
+        assert_eq!(proofs.total_amount().unwrap(), cashu::Amount::from(9u64));
+        assert_eq!(
+            proofs.total_amount().unwrap(),
+            cashu::nut00::ProofsMethods::total_amount(&cashu_proofs).unwrap()
+        );
+        assert_eq!(Proofs::new().total_amount().unwrap(), cashu::Amount::ZERO);
+    }
+
+    #[test]
+    fn cashu_conversions_round_trip() {
+        let keyset = random_mint_keyset();
+        let proof: Proof =
+            core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
+                .remove(0)
+                .into();
+        assert_eq!(Proof::from(cashu::Proof::from(proof.clone())), proof);
+
+        let info = KeySetInfo {
+            id: keyset.id,
+            unit: keyset.unit,
+            active: true,
+            input_fee_ppk: keyset.input_fee_ppk,
+            final_expiry: keyset.final_expiry,
+        };
+        assert_eq!(
+            KeySetInfo::from(cashu::KeySetInfo::from(info.clone())),
+            info
+        );
     }
 
     #[test]
