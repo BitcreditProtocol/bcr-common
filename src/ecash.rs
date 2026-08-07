@@ -169,7 +169,7 @@ pub struct KeySet {
     pub final_expiry: Option<u64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct KeySetInfo {
     pub id: cashu::Id,
     pub unit: cashu::CurrencyUnit,
@@ -210,6 +210,18 @@ pub struct MintKeySet {
     pub keys: cashu::nut01::MintKeys,
     pub input_fee_ppk: u64,
     pub final_expiry: Option<u64>,
+}
+
+impl From<cashu::MintKeySet> for MintKeySet {
+    fn from(keyset: cashu::MintKeySet) -> Self {
+        Self {
+            id: keyset.id,
+            unit: keyset.unit,
+            keys: keyset.keys,
+            input_fee_ppk: keyset.input_fee_ppk,
+            final_expiry: keyset.final_expiry,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::{
-    core,
+    core, ecash,
     wire::borsh::{
         deserialize_from_str, deserialize_optionproofdleq, serialize_as_str,
         serialize_optionproofdleq,
@@ -99,5 +99,37 @@ pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> cash
         witness: None,
         secret,
         p2pk_e: None,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct KeysetResponse {
+    pub keysets: Vec<ecash::KeySetInfo>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core_tests;
+
+    #[test]
+    fn keyset_response_json_wire_compat() {
+        let response = cashu::KeysetResponse {
+            keysets: vec![
+                core_tests::generate_random_ecash_keyset().0.into(),
+                core_tests::generate_random_ecash_keyset().0.into(),
+                core_tests::generate_random_ecash_keyset().0.into(),
+            ],
+        };
+        let bytes = serde_json::to_vec(&response).expect("serialize");
+        let deserialized: KeysetResponse = serde_json::from_slice(&bytes).expect("deserialize");
+        assert_eq!(deserialized.keysets.len(), response.keysets.len());
+        assert_eq!(deserialized.keysets[0].id, response.keysets[0].id);
+        assert_eq!(deserialized.keysets[1].id, response.keysets[1].id);
+        assert_eq!(deserialized.keysets[2].id, response.keysets[2].id);
+        let deserialized_bytes = serde_json::to_vec(&deserialized).expect("serialize");
+        let deserialized2: cashu::KeysetResponse =
+            serde_json::from_slice(&deserialized_bytes).expect("deserialize");
+        assert_eq!(response, deserialized2);
     }
 }
