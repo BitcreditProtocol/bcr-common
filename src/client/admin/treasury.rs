@@ -207,6 +207,7 @@ impl Client {
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
+        wallet_signature: secp256k1::schnorr::Signature,
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
         let result = common::exchange_offline_raw(
             &self.cl,
@@ -215,6 +216,7 @@ impl Client {
             fingerprints,
             hashes,
             wallet_pk,
+            wallet_signature,
         )
         .await?;
         Ok(result)
@@ -286,12 +288,14 @@ pub(crate) mod common {
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
+        wallet_signature: secp256k1::schnorr::Signature,
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
         let url = base.join(ep).expect("exchange_offline relative path");
         let msg = wire_exchange::OfflineExchangeRequest {
             fingerprints,
             hashes,
             wallet_pk,
+            wallet_signature,
         };
         let response: wire_exchange::OfflineExchangeResponse = cl.post(url, &msg).await?;
         Ok(response)

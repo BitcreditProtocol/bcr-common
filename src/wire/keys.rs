@@ -65,14 +65,26 @@ pub struct ProofFingerprint {
     pub dleq: Option<cashu::ProofDleq>,
 }
 
-impl std::convert::From<ProofFingerprint> for core::signature::ProofFingerprint {
-    fn from(fp: ProofFingerprint) -> Self {
+impl std::convert::From<&ProofFingerprint> for core::signature::ProofFingerprint {
+    fn from(fp: &ProofFingerprint) -> Self {
         core::signature::ProofFingerprint {
             keyset_id: fp.keyset_id,
             amount: cashu::Amount::from(fp.amount),
             y: *fp.y,
             c: *fp.c,
         }
+    }
+}
+
+impl std::convert::From<ProofFingerprint> for core::signature::ProofFingerprint {
+    fn from(fp: ProofFingerprint) -> Self {
+        Self::from(&fp)
+    }
+}
+
+impl ProofFingerprint {
+    pub fn verify_dleq(&self, keyset: &cashu::KeySet) -> core::signature::ECashSignatureResult<()> {
+        core::signature::verify_fingerprint_dleq(keyset, &self.into(), self.dleq.as_ref())
     }
 }
 

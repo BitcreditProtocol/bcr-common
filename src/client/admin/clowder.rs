@@ -7,7 +7,10 @@ use crate::{
     cashu::{Id, KeysResponse, KeysetResponse, Proof},
     client::admin::jsonrpc,
     core::BillId,
-    wire::{attestation as wire_attestation, clowder as wire_clowder, keys as wire_keys},
+    wire::{
+        attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
+        keys as wire_keys,
+    },
 };
 
 // ----- end imports
@@ -39,6 +42,7 @@ pub mod admin_ep {
     pub const LOCAL_CIRCULATING_SUPPLY: &str = "/admin/local/circulating_supply";
     pub const LOCAL_COLLATERAL: &str = "/admin/local/collateral";
     pub const LOCAL_COMMITMENT_SUBSTITUTE: &str = "/admin/local/commitment/substitute";
+    pub const LOCAL_OFFLINE_EXCHANGE: &str = "/admin/local/exchange/offline";
     pub const LOCAL_PERCEIVED_STATE: &str = "/admin/local/perceived_state";
     pub const LOCAL_REQUEST_ADDRESS: &str = "/admin/local/request_address";
     pub const LOCAL_SIGN_PROOFS: &str = "/admin/local/sign_proofs";
@@ -257,6 +261,22 @@ impl Client {
         let response: wire_clowder::SubstituteExchangeResponse =
             self.cl.post(url, &payload).await?;
         Ok(response.signature)
+    }
+
+    /// Records an offline exchange on the node: it verifies the wallet
+    /// signature and fingerprints, broadcasts the evidence to the Betas, and
+    /// returns the digests the mint issues under.
+    pub async fn post_record_offline_exchange(
+        &self,
+        request: &wire_exchange::OfflineExchangeRequest,
+    ) -> Result<wire_exchange::RecordOfflineExchangeResponse> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_OFFLINE_EXCHANGE)
+            .expect("local offline exchange relative path");
+        let response: wire_exchange::RecordOfflineExchangeResponse =
+            self.cl.post(url, request).await?;
+        Ok(response)
     }
 
     pub async fn get_keyset_info(
