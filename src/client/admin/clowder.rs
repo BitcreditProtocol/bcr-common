@@ -49,6 +49,8 @@ pub mod admin_ep {
     pub const LOCAL_VERIFY_PAYMENT: &str = "/admin/local/verify_payment";
     pub const LOCAL_ONCHAIN_FEES_ESTIMATE: &str = "/admin/local/onchain_fees_estimate";
     pub const LOCAL_ONCHAIN_TX_ESTIMATE: &str = "/admin/local/onchain_tx_estimate";
+    pub const LOCAL_RESERVES: &str = "/admin/local/reserves";
+    pub const LOCAL_RESERVE: &str = "/admin/local/reserves/{reserve_id}";
 }
 
 pub mod web_ep {
@@ -133,6 +135,27 @@ impl Client {
             .expect("local alphas relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
+    }
+
+    pub async fn add_reserve(
+        &self,
+        request: &wire_clowder::AddReserveRequest,
+    ) -> Result<wire_clowder::AddReserveResponse> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_RESERVES)
+            .expect("local reserves relative path");
+        Ok(self.cl.post(url, request).await?)
+    }
+
+    pub async fn get_reserve(
+        &self,
+        reserve_id: uuid::Uuid,
+    ) -> Result<wire_clowder::AddReserveResponse> {
+        assert!(admin_ep::LOCAL_RESERVE.contains("{reserve_id}"));
+        let path = admin_ep::LOCAL_RESERVE.replace("{reserve_id}", &reserve_id.to_string());
+        let url = self.base.join(&path).expect("local reserve relative path");
+        Ok(self.cl.get(url, &[]).await?)
     }
 
     pub async fn get_mint_url(

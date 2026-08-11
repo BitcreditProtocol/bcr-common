@@ -700,3 +700,33 @@ pub struct OnchainTxEstimateResponse {
     /// current fee rates per confirmation target
     pub feerates: Vec<crate::wire::melt::FeeRateEstimate>,
 }
+
+///--------------------------- Reserve funding
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+pub struct AddReserveRequest {
+    #[schema(value_type = String)]
+    pub reserve_id: uuid::Uuid,
+    #[schema(value_type = u64)]
+    pub amount: bitcoin::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+pub struct AddReserveResponse {
+    #[schema(value_type = String)]
+    pub reserve_id: uuid::Uuid,
+    #[schema(value_type = String)]
+    pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    #[schema(value_type = u64)]
+    pub amount: bitcoin::Amount,
+    pub status: AddReserveStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+pub enum AddReserveStatus {
+    Pending,
+    Completed {
+        #[schema(value_type = String)]
+        outpoint: bitcoin::OutPoint,
+    },
+    FundingMismatch,
+}

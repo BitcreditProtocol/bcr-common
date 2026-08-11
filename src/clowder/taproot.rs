@@ -109,6 +109,10 @@ pub fn derive_change_tweak(aggregated_key: &XOnlyPublicKey) -> [u8; 32] {
     clowder_tagged_hash(b"change", aggregated_key, &[])
 }
 
+pub fn derive_add_reserve_tweak(aggregated_key: &XOnlyPublicKey, uuid: &Uuid) -> [u8; 32] {
+    clowder_tagged_hash(b"reserve", aggregated_key, uuid.as_bytes())
+}
+
 /// Derives the tweak for E-Bill mint request to pay
 /// Contains the bill id, block id and previous block hash of the payment request
 pub fn derive_ebill_mint_req_to_pay_tweak(
@@ -207,6 +211,15 @@ pub fn derive_change_address(frost_agg_key: &XOnlyPublicKey, network: Network) -
     Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
 }
 
+pub fn derive_add_reserve_address(
+    frost_agg_key: &XOnlyPublicKey,
+    reserve_id: &Uuid,
+    network: Network,
+) -> Result<Address> {
+    let tweak = derive_add_reserve_tweak(frost_agg_key, reserve_id);
+    Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
+}
+
 pub fn derive_ebill_mint_req_to_pay_address(
     frost_agg_key: &XOnlyPublicKey,
     bill_id: &BillId,
@@ -296,6 +309,25 @@ mod tests {
         assert_eq!(c1, c2);
         assert_ne!(r1, r3);
         assert!(r1.to_string().starts_with("bcrt1p"));
+    }
+
+    #[test]
+    fn test_add_reserve_address_derivation_is_deterministic_and_domain_separated() {
+        let mut rng = bitcoin::secp256k1::rand::thread_rng();
+        let frost = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
+        let reserve_id = Uuid::from_u128(1);
+        let net = Network::Regtest;
+
+        let reserve = derive_add_reserve_address(&frost, &reserve_id, net).unwrap();
+        let reserve_again = derive_add_reserve_address(&frost, &reserve_id, net).unwrap();
+        let mint_quote = derive_receive_address(&frost, &reserve_id, net).unwrap();
+
+        assert_eq!(reserve, reserve_again);
+        assert_ne!(reserve, mint_quote);
+        assert_ne!(
+            derive_add_reserve_tweak(&frost, &reserve_id),
+            derive_receive_tweak(&frost, &reserve_id)
+        );
     }
 
     #[test]
