@@ -1,7 +1,11 @@
 // ----- standard library imports
 use std::collections::BTreeMap;
 // ----- extra library imports
-use bitcoin::{XOnlyPublicKey, hashes::sha256::Hash as Sha256Hash, secp256k1};
+use bitcoin::{
+    XOnlyPublicKey,
+    hashes::{Hash, sha256::Hash as Sha256Hash},
+    secp256k1,
+};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
@@ -26,6 +30,9 @@ pub struct PublicKeyResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct OfflineResponse {
     pub offline: bool,
+    /// Frozen-tip digest the wallet signs exchanges against. `Some` iff `offline`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence_digest: Option<[u8; 32]>,
 }
 
 ///--------------------------- Connected Mint
@@ -340,11 +347,99 @@ pub struct MintForeignOfflineEcashRequest {
     pub fingerprints: Vec<wire_keys::ProofFingerprint>,
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
     pub wallet_pk: cashu::PublicKey,
+    /// Required on offline issuances. Optional (with `wallet_signature`) only so
+    /// older ledger entries re-serialize byte-identical.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exchange_digest: Option<[u8; 32]>,
+    /// Over the exchange digest; only wallet-signed reports can spend its proofs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wallet_signature: Option<secp256k1::schnorr::Signature>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintForeignOfflineEcashResponse {
     pub proofs: Vec<cashu::Proof>,
+}
+
+///--------------------------- Offline Spend (Alpha's recovery ledger entries)
+/// One verified exchange marked spent on Alpha's chain, with the exchange
+/// digest and wallet pubkey that may still redeem it. Sourced from a
+/// dual-signed entry or a wallet-signed Beta broadcast.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineSpendRequest {
+    pub evidence_digest: [u8; 32],
+    pub exchange_digest: [u8; 32],
+    /// The exchanged proofs, complete enough for any Beta to mark them spent.
+    pub fingerprints: Vec<wire_keys::ProofFingerprint>,
+    pub wallet_pk: cashu::PublicKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineSpendResponse {}
+
+/// Streamed after the spend entries. A Beta resumes lease acks once this
+/// marker is on the chain and every exchange it witnessed is spent on it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutageCloseRequest {
+    pub evidence_digest: [u8; 32],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutageCloseResponse {}
+
+///--------------------------- Lease Acknowledgment
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeaseAckRequest {
+    pub alpha_id: secp256k1::PublicKey,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeaseAckResponse {
+    pub beta_id: secp256k1::PublicKey,
+    pub alpha_id: secp256k1::PublicKey,
+    pub tip_seq: u64,
+    /// Echoes the request timestamp; signed so an old ack cannot renew a lease.
+    pub timestamp: u64,
+    pub signature: secp256k1::schnorr::Signature,
+}
+
+/// Domain separation tag for a Beta lease acknowledgment signature.
+pub const DOMAIN_TAG_LEASE: &[u8] = b"bcr/exchange/lease/v1";
+
+/// `SHA256(DOMAIN_TAG_LEASE || alpha_id || beta_id || tip_seq || timestamp)`.
+pub fn lease_ack_message(
+    alpha_id: &secp256k1::PublicKey,
+    beta_id: &secp256k1::PublicKey,
+    tip_seq: u64,
+    timestamp: u64,
+) -> secp256k1::Message {
+    let mut msg = Vec::with_capacity(DOMAIN_TAG_LEASE.len() + 33 + 33 + 8 + 8);
+    msg.extend_from_slice(DOMAIN_TAG_LEASE);
+    msg.extend_from_slice(&alpha_id.serialize());
+    msg.extend_from_slice(&beta_id.serialize());
+    msg.extend_from_slice(&tip_seq.to_be_bytes());
+    msg.extend_from_slice(&timestamp.to_be_bytes());
+    secp256k1::Message::from_digest(*Sha256Hash::hash(&msg).as_ref())
+}
+
+impl LeaseAckResponse {
+    /// True only for a verified ack to this exact poll: same alpha and timestamp.
+    pub fn authenticates(&self, request: &LeaseAckRequest) -> bool {
+        self.alpha_id == request.alpha_id
+            && self.timestamp == request.timestamp
+            && self.verify().is_ok()
+    }
+
+    pub fn verify(&self) -> Result<(), secp256k1::Error> {
+        let msg = lease_ack_message(&self.alpha_id, &self.beta_id, self.tip_seq, self.timestamp);
+        secp256k1::global::SECP256K1.verify_schnorr(
+            &self.signature,
+            &msg,
+            &self.beta_id.x_only_public_key().0,
+        )
+    }
 }
 
 ///--------------------------- Mint EIOU
@@ -533,6 +628,8 @@ pub enum ClowderRejection {
     Expired,
     #[error("invalid fees")]
     InvalidFees,
+    #[error("mint lease expired")]
+    LeaseExpired,
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -639,6 +736,108 @@ mod tests {
         };
         let back = cbor_roundtrip(&with_fee);
         assert_eq!(back.network_fee, Some(bitcoin::Amount::from_sat(250)));
+    }
+
+    #[test]
+    fn mint_foreign_offline_ecash_request_legacy_cbor_compat() {
+        #[derive(Serialize, Deserialize)]
+        struct LegacyMintForeignOfflineEcashRequest {
+            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            hashes: Vec<bitcoin::hashes::sha256::Hash>,
+            wallet_pk: cashu::PublicKey,
+        }
+
+        let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
+        let wallet_pk: cashu::PublicKey = keypair.public_key().into();
+        let hashes = vec![bitcoin::hashes::Hash::hash(&[1u8])];
+
+        let legacy = LegacyMintForeignOfflineEcashRequest {
+            fingerprints: vec![],
+            hashes: hashes.clone(),
+            wallet_pk,
+        };
+        let current = MintForeignOfflineEcashRequest {
+            fingerprints: vec![],
+            hashes,
+            wallet_pk,
+            exchange_digest: None,
+            wallet_signature: None,
+        };
+
+        let mut legacy_bytes = Vec::new();
+        ciborium::into_writer(&legacy, &mut legacy_bytes).expect("serialize legacy");
+        let mut current_bytes = Vec::new();
+        ciborium::into_writer(&current, &mut current_bytes).expect("serialize current");
+        assert_eq!(
+            legacy_bytes, current_bytes,
+            "None must re-serialize byte-identical to the legacy encoding"
+        );
+
+        let decoded: MintForeignOfflineEcashRequest =
+            ciborium::from_reader(legacy_bytes.as_slice()).expect("decode legacy blob");
+        assert_eq!(decoded.exchange_digest, None);
+        assert_eq!(decoded.wallet_signature, None);
+
+        let msg = secp::Message::from_digest([5u8; 32]);
+        let with_digest = MintForeignOfflineEcashRequest {
+            exchange_digest: Some([5u8; 32]),
+            wallet_signature: Some(secp::global::SECP256K1.sign_schnorr(&msg, &keypair)),
+            ..current
+        };
+        let back = cbor_roundtrip(&with_digest);
+        assert_eq!(back.exchange_digest, Some([5u8; 32]));
+        assert_eq!(back.wallet_signature, with_digest.wallet_signature);
+    }
+
+    #[test]
+    fn offline_spend_request_cbor_roundtrip() {
+        let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
+        let pk: cashu::PublicKey = keypair.public_key().into();
+        let req = OfflineSpendRequest {
+            evidence_digest: [1u8; 32],
+            exchange_digest: [2u8; 32],
+            fingerprints: Vec::new(),
+            wallet_pk: pk,
+        };
+        let back = cbor_roundtrip(&req);
+        assert_eq!(back.evidence_digest, req.evidence_digest);
+        assert_eq!(back.exchange_digest, req.exchange_digest);
+        assert!(back.fingerprints.is_empty());
+        assert_eq!(back.wallet_pk, req.wallet_pk);
+    }
+
+    #[test]
+    fn lease_ack_response_sign_verify() {
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng());
+        let beta = secp::Keypair::new_global(&mut rand::thread_rng());
+        let msg = lease_ack_message(&alpha.public_key(), &beta.public_key(), 42, 100);
+        let signature = secp::global::SECP256K1.sign_schnorr(&msg, &beta);
+        let ack = LeaseAckResponse {
+            beta_id: beta.public_key(),
+            alpha_id: alpha.public_key(),
+            tip_seq: 42,
+            timestamp: 100,
+            signature,
+        };
+        ack.verify().unwrap();
+
+        let request = LeaseAckRequest {
+            alpha_id: alpha.public_key(),
+            timestamp: 100,
+        };
+        assert!(ack.authenticates(&request));
+
+        let ack_for_another_poll = LeaseAckRequest {
+            timestamp: 101,
+            ..request
+        };
+        assert!(!ack.authenticates(&ack_for_another_poll));
+
+        let stale = LeaseAckResponse {
+            timestamp: 101,
+            ..ack
+        };
+        assert!(stale.verify().is_err());
     }
 }
 

@@ -319,6 +319,47 @@ pub fn verify_ecash_fingerprint(
     }
 }
 
+/// `C_ = C + r*K`, the blinded signature recomputed from an unblinded one.
+pub fn recompute_blinded_sig(
+    c: &cashu::PublicKey,
+    r: &cashu::SecretKey,
+    mint_pub: &cashu::PublicKey,
+) -> ECashSignatureResult<cashu::PublicKey> {
+    let r_bigk = mint_pub.mul_tweak(secp::global::SECP256K1, &secp::Scalar::from(**r))?;
+    Ok(c.combine(&r_bigk)?.into())
+}
+
+/// NUT-12 verification of a fingerprint without the secret: `C_ = C + r*K`,
+/// `B' = Y + r*G`, then DLEQ over `(B', C_)`. Resolving `K` from
+/// `(keyset_id, amount)` is what binds the claimed amount.
+pub fn verify_fingerprint_dleq(
+    keyset: &cashu::KeySet,
+    fp: &ProofFingerprint,
+    dleq: Option<&cashu::ProofDleq>,
+) -> ECashSignatureResult<()> {
+    if fp.keyset_id != keyset.id {
+        return Err(ECashSignatureError::MismatchedKid(keyset.id, fp.keyset_id));
+    }
+    let Some(mint_pub) = keyset.keys.amount_key(fp.amount) else {
+        return Err(ECashSignatureError::NoKeyForAmount(fp.amount));
+    };
+    let dleq = dleq.ok_or(ECashSignatureError::Cdk12(cdk12::Error::MissingDleqProof))?;
+    let c = cashu::PublicKey::from(fp.c);
+    let blinded_signature = recompute_blinded_sig(&c, &dleq.r, &mint_pub)?;
+    let blinded_message: cashu::PublicKey = fp.y.combine(&dleq.r.public_key())?.into();
+    let signature = cashu::BlindSignature {
+        amount: fp.amount,
+        keyset_id: fp.keyset_id,
+        c: blinded_signature,
+        dleq: Some(cdk12::BlindSignatureDleq {
+            e: dleq.e.clone(),
+            s: dleq.s.clone(),
+        }),
+    };
+    signature.verify_dleq(mint_pub, blinded_message)?;
+    Ok(())
+}
+
 pub fn proofs_to_map(
     proofs: impl IntoIterator<Item = cashu::Proof>,
 ) -> HashMap<cashu::Id, Vec<cashu::Proof>> {
@@ -394,6 +435,67 @@ mod tests {
             ..valid_fp
         };
         assert!(verify_ecash_fingerprint(&keyset, &invalid_fp).is_err());
+    }
+
+    fn signed_fingerprint(
+        keyset: &cashu::MintKeySet,
+        amount: cashu::Amount,
+    ) -> (ProofFingerprint, cashu::ProofDleq) {
+        let keypair = keyset.keys.get(&amount).expect("keys for amount");
+        let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+        let (b_, r) = cashu::dhke::blind_message(secret.as_bytes(), None).expect("blind_message");
+        let blinded = cashu::BlindedMessage::new(amount, keyset.id, b_);
+        let mut signature = sign_ecash(keyset, &blinded).expect("sign_ecash");
+        let c = cashu::dhke::unblind_message(&signature.c, &r, &keypair.public_key)
+            .expect("unblind_message");
+        let dleq = signature.dleq.take().expect("dleq");
+        let fp = ProofFingerprint {
+            keyset_id: keyset.id,
+            amount,
+            y: *cashu::dhke::hash_to_curve(secret.as_bytes()).expect("hash_to_curve"),
+            c: *c,
+        };
+        (fp, cashu::ProofDleq::new(dleq.e, dleq.s, r))
+    }
+
+    #[test]
+    fn test_verify_fingerprint_dleq() {
+        use crate::core::test_utils::generate_random_ecash_keyset;
+
+        let (_, mint_keyset) = generate_random_ecash_keyset();
+        let keyset = crate::core::keys::to_keyset(&mint_keyset, None);
+        let (fp, dleq) = signed_fingerprint(&mint_keyset, cashu::Amount::from(8u64));
+        verify_fingerprint_dleq(&keyset, &fp, Some(&dleq)).expect("valid fingerprint dleq");
+
+        let inflated = ProofFingerprint {
+            amount: cashu::Amount::from(16u64),
+            ..fp
+        };
+        assert!(
+            verify_fingerprint_dleq(&keyset, &inflated, Some(&dleq)).is_err(),
+            "the amount is bound by the key it resolves"
+        );
+
+        let (_, other) = generate_random_ecash_keyset();
+        let foreign = ProofFingerprint {
+            keyset_id: other.id,
+            ..fp
+        };
+        assert!(matches!(
+            verify_fingerprint_dleq(&keyset, &foreign, Some(&dleq)),
+            Err(ECashSignatureError::MismatchedKid(..))
+        ));
+
+        let tampered = ProofFingerprint {
+            c: secp::Keypair::new_global(&mut rand::thread_rng()).public_key(),
+            ..fp
+        };
+        assert!(verify_fingerprint_dleq(&keyset, &tampered, Some(&dleq)).is_err());
+
+        assert!(matches!(
+            verify_fingerprint_dleq(&keyset, &fp, None),
+            Err(ECashSignatureError::Cdk12(cdk12::Error::MissingDleqProof))
+        ));
     }
 
     fn offline_htlc_proof(wallet: &cashu::SecretKey, preimage: &str) -> cashu::Proof {

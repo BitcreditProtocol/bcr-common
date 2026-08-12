@@ -477,6 +477,7 @@ impl Client {
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
+        wallet_signature: secp256k1::schnorr::Signature,
         mint_pk: secp256k1::PublicKey,
     ) -> Result<(Vec<cashu::Proof>, secp256k1::schnorr::Signature)> {
         let response = treasury::common::exchange_offline_raw(
@@ -486,6 +487,7 @@ impl Client {
             fingerprints,
             hashes,
             wallet_pk,
+            wallet_signature,
         )
         .await?;
         signature::schnorr_verify_b64(
