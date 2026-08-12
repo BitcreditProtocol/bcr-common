@@ -920,7 +920,13 @@ pub struct AddReserveResponse {
     pub status: AddReserveStatus,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq, strum::EnumDiscriminants,
+)]
+#[strum_discriminants(
+    derive(strum::Display, strum::EnumString),
+    strum(serialize_all = "lowercase")
+)]
 pub enum AddReserveStatus {
     Pending,
     Completed {
