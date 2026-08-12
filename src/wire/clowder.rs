@@ -11,7 +11,10 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::{
     core::BillId,
-    wire::{attestation::AttestedFingerprints, bill as wire_bill, keys as wire_keys},
+    wire::{
+        attestation::AttestedFingerprints, bill as wire_bill, exchange as wire_exchange,
+        keys as wire_keys,
+    },
 };
 
 // ----- end imports
@@ -362,16 +365,11 @@ pub struct MintForeignOfflineEcashResponse {
 }
 
 ///--------------------------- Offline Spend (Alpha's recovery ledger entries)
-/// One verified exchange marked spent on Alpha's chain, with the exchange
-/// digest and wallet pubkey that may still redeem it. Sourced from a
-/// dual-signed entry or a wallet-signed Beta broadcast.
+/// One exchange marked spent on Alpha's chain. Carries the wallet's signed
+/// claim verbatim so any Beta can authenticate the spend on its own.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfflineSpendRequest {
-    pub evidence_digest: [u8; 32],
-    pub exchange_digest: [u8; 32],
-    /// The exchanged proofs, complete enough for any Beta to mark them spent.
-    pub fingerprints: Vec<wire_keys::ProofFingerprint>,
-    pub wallet_pk: cashu::PublicKey,
+    pub exchange: wire_exchange::ExchangeBroadcast,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -791,19 +789,23 @@ mod tests {
 
     #[test]
     fn offline_spend_request_cbor_roundtrip() {
-        let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
-        let pk: cashu::PublicKey = keypair.public_key().into();
+        let wallet = secp::Keypair::new_global(&mut rand::thread_rng());
         let req = OfflineSpendRequest {
-            evidence_digest: [1u8; 32],
-            exchange_digest: [2u8; 32],
-            fingerprints: Vec::new(),
-            wallet_pk: pk,
+            exchange: wire_exchange::tests_support::sample_broadcast(&wallet),
         };
         let back = cbor_roundtrip(&req);
-        assert_eq!(back.evidence_digest, req.evidence_digest);
-        assert_eq!(back.exchange_digest, req.exchange_digest);
-        assert!(back.fingerprints.is_empty());
-        assert_eq!(back.wallet_pk, req.wallet_pk);
+        assert_eq!(back.exchange.exchange_digest, req.exchange.exchange_digest);
+        assert_eq!(back.exchange.wallet_pk, req.exchange.wallet_pk);
+
+        // A Beta that never saw the broadcast can still authenticate the spend.
+        back.exchange.verify().expect("spend carries its own proof");
+
+        let mut forged = req.clone();
+        forged.exchange.fingerprints = wire_exchange::tests_support::sample_fingerprints(&[8]);
+        assert!(
+            forged.exchange.verify().is_err(),
+            "naming other proofs needs a wallet signature nobody has"
+        );
     }
 
     #[test]
