@@ -19,7 +19,8 @@ use crate::wire::{
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ReserveRequest {
     pub ys: Vec<cashu::PublicKey>,
-    pub deadline: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub deadline: time::OffsetDateTime,
 }
 
 ///--------------------------- Burn tokens

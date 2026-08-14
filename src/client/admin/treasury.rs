@@ -130,7 +130,7 @@ impl Client {
         &self,
         ebill_id: BillId,
         amount: Amount,
-        deadline: chrono::DateTime<chrono::Utc>,
+        deadline: time::OffsetDateTime,
     ) -> Result<wire_treasury::RequestToPayFromEBillResponse> {
         let request = wire_treasury::RequestToPayFromEBillRequest {
             ebill_id,

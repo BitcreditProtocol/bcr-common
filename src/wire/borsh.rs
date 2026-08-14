@@ -50,6 +50,28 @@ where
     Ok(t)
 }
 
+pub fn serialize_tstamp(t: &crate::TStamp, writer: &mut impl Write) -> Result<()> {
+    borsh::BorshSerialize::serialize(&t.unix_timestamp(), writer)?;
+    Ok(())
+}
+
+pub fn deserialize_tstamp(reader: &mut impl Read) -> Result<crate::TStamp> {
+    let secs: i64 = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    crate::TStamp::from_unix_timestamp(secs)
+        .map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))
+}
+
+pub fn serialize_bill_date(d: &crate::BillDate, writer: &mut impl Write) -> Result<()> {
+    borsh::BorshSerialize::serialize(&d.to_julian_day(), writer)?;
+    Ok(())
+}
+
+pub fn deserialize_bill_date(reader: &mut impl Read) -> Result<crate::BillDate> {
+    let julian_day: i32 = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    crate::BillDate::from_julian_day(julian_day)
+        .map_err(|e| BorshError::new(ErrorKind::InvalidInput, e))
+}
+
 pub fn serialize_vec_of_strs<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
 where
     T: std::fmt::Display,
@@ -467,11 +489,12 @@ mod tests {
     use crate::{core, core_tests};
 
     #[test]
-    fn serialize_deserialize_chrono_naivedate() {
-        let date = chrono::NaiveDate::from_ymd_opt(2023, 10, 5).unwrap();
+    fn serialize_deserialize_bill_date() {
+        let date = time::macros::date!(2000 - 01 - 01);
         let mut buf = Vec::new();
-        serialize_as_str(&date, &mut buf).unwrap();
-        let deserialized_date = deserialize_from_str(&mut buf.as_slice()).unwrap();
+        serialize_bill_date(&date, &mut buf).unwrap();
+        assert_eq!(buf, 2_451_545_i32.to_le_bytes());
+        let deserialized_date = deserialize_bill_date(&mut buf.as_slice()).unwrap();
         assert_eq!(date, deserialized_date);
     }
 
@@ -486,12 +509,12 @@ mod tests {
     }
 
     #[test]
-    fn serialize_deserialize_chrono_tstamp() {
-        let tstamp = chrono::Utc::now();
+    fn serialize_deserialize_tstamp() {
+        let tstamp = time::macros::datetime!(2026-08-03 12:00:00 UTC);
         let mut buf = Vec::new();
-        serialize_as_str(&tstamp, &mut buf).unwrap();
-        let deserialized_tstamp: chrono::DateTime<chrono::Utc> =
-            deserialize_from_str(&mut buf.as_slice()).unwrap();
+        serialize_tstamp(&tstamp, &mut buf).unwrap();
+        assert_eq!(buf, tstamp.unix_timestamp().to_le_bytes());
+        let deserialized_tstamp = deserialize_tstamp(&mut buf.as_slice()).unwrap();
         assert_eq!(tstamp, deserialized_tstamp);
     }
 

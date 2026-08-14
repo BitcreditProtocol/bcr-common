@@ -1,7 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
 use borsh::{BorshDeserialize, BorshSerialize};
-use chrono::NaiveDate;
 use nostr::ToBech32;
 use serde::{Deserialize, Serialize, Serializer};
 use utoipa::ToSchema;
@@ -52,7 +51,8 @@ pub struct Identity {
     #[schema(value_type = String)]
     pub npub: nostr::PublicKey,
     pub postal_address: OptionalPostalAddress,
-    pub date_of_birth: Option<NaiveDate>,
+    #[serde(default, with = "crate::wire::bill_date::option")]
+    pub date_of_birth: Option<time::Date>,
     pub country_of_birth: Option<String>,
     pub city_of_birth: Option<String>,
     pub identification_number: Option<String>,
@@ -75,7 +75,8 @@ pub struct NewIdentityPayload {
     pub name: String,
     pub email: Option<String>,
     pub postal_address: OptionalPostalAddress,
-    pub date_of_birth: Option<NaiveDate>,
+    #[serde(default, with = "crate::wire::bill_date::option")]
+    pub date_of_birth: Option<time::Date>,
     pub country_of_birth: Option<String>,
     pub city_of_birth: Option<String>,
     pub identification_number: Option<String>,
