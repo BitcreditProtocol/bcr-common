@@ -145,6 +145,25 @@ impl ExchangeEntry {
         )
     }
 
+    /// The wallet's half of this entry, as the broadcast an Alpha puts on
+    /// its chain at close.
+    pub fn into_broadcast(
+        self,
+        alpha_id: secp256k1::PublicKey,
+        evidence_digest: [u8; 32],
+    ) -> ExchangeBroadcast {
+        let exchange_digest = self.exchange_digest(&alpha_id, &evidence_digest);
+        ExchangeBroadcast {
+            alpha_id,
+            evidence_digest,
+            exchange_digest,
+            fingerprints: self.fingerprints,
+            hashes: self.hashes,
+            wallet_pk: self.wallet_pk,
+            wallet_signature: self.wallet_signature,
+        }
+    }
+
     /// Verifies both signatures against the digest recomputed from the entry's
     /// own fields, so no field can be swapped after signing.
     pub fn verify(
@@ -216,13 +235,14 @@ pub struct RequestToMintFromForeignECash {
     pub signature: secp256k1::schnorr::Signature,
 }
 
+/// Shared with the other wire modules that embed an exchange.
 #[cfg(test)]
-mod tests {
+pub mod tests_support {
     use super::*;
     use crate::core_tests;
     use bitcoin::secp256k1 as secp;
 
-    fn sample_fingerprints(amounts: &[u64]) -> Vec<wire_keys::ProofFingerprint> {
+    pub fn sample_fingerprints(amounts: &[u64]) -> Vec<wire_keys::ProofFingerprint> {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts: Vec<cashu::Amount> = amounts.iter().map(|a| cashu::Amount::from(*a)).collect();
         core_tests::generate_random_ecash_proofs(&keyset, &amounts)
@@ -231,13 +251,44 @@ mod tests {
             .collect()
     }
 
-    fn sample_hashes(n: u8) -> Vec<Sha256> {
+    pub fn sample_hashes(n: u8) -> Vec<Sha256> {
         (0..n).map(|i| Sha256::hash(&[i])).collect()
     }
 
-    fn wallet() -> secp::Keypair {
+    pub fn wallet() -> secp::Keypair {
         secp::Keypair::new_global(&mut rand::thread_rng())
     }
+
+    pub fn sample_broadcast(wallet_kp: &secp::Keypair) -> ExchangeBroadcast {
+        let alpha_id = wallet().public_key();
+        let evidence_digest = [3u8; 32];
+        let fingerprints = sample_fingerprints(&[8]);
+        let hashes = sample_hashes(1);
+        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let digest = exchange_digest(
+            &alpha_id,
+            &evidence_digest,
+            &fingerprints,
+            &hashes,
+            &wallet_pk,
+        );
+        ExchangeBroadcast {
+            alpha_id,
+            evidence_digest,
+            exchange_digest: digest,
+            fingerprints,
+            hashes,
+            wallet_pk,
+            wallet_signature: SECP256K1.sign_schnorr(&exchange_message(&digest), wallet_kp),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tests_support::*;
+    use super::*;
+    use bitcoin::secp256k1 as secp;
 
     #[test]
     fn exchange_digest_is_order_independent() {
@@ -314,30 +365,6 @@ mod tests {
         );
     }
 
-    fn sample_broadcast(wallet_kp: &secp::Keypair) -> ExchangeBroadcast {
-        let alpha_id = secp::Keypair::new_global(&mut rand::thread_rng()).public_key();
-        let evidence_digest = [3u8; 32];
-        let fingerprints = sample_fingerprints(&[8]);
-        let hashes = sample_hashes(1);
-        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
-        let digest = exchange_digest(
-            &alpha_id,
-            &evidence_digest,
-            &fingerprints,
-            &hashes,
-            &wallet_pk,
-        );
-        ExchangeBroadcast {
-            alpha_id,
-            evidence_digest,
-            exchange_digest: digest,
-            fingerprints,
-            hashes,
-            wallet_pk,
-            wallet_signature: SECP256K1.sign_schnorr(&exchange_message(&digest), wallet_kp),
-        }
-    }
-
     #[test]
     fn broadcast_is_self_verifying() {
         let wallet_kp = wallet();
@@ -405,6 +432,33 @@ mod tests {
                 .verify(&alpha_id, &evidence, &substitute.public_key())
                 .is_err()
         );
+    }
+
+    // A broadcast built from an entry carries the same digest and still verifies.
+    #[test]
+    fn entry_and_broadcast_agree_on_one_claim() {
+        let wallet_kp = wallet();
+        let substitute = wallet();
+        let alpha_id = wallet().public_key();
+        let evidence = [3u8; 32];
+        let fingerprints = sample_fingerprints(&[8]);
+        let hashes = sample_hashes(1);
+        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let digest = exchange_digest(&alpha_id, &evidence, &fingerprints, &hashes, &wallet_pk);
+        let msg = exchange_message(&digest);
+        let entry = ExchangeEntry {
+            fingerprints,
+            hashes,
+            wallet_pk,
+            wallet_signature: SECP256K1.sign_schnorr(&msg, &wallet_kp),
+            substitute_signature: SECP256K1.sign_schnorr(&msg, &substitute),
+        };
+
+        let broadcast = entry.into_broadcast(alpha_id, evidence);
+        assert_eq!(broadcast.exchange_digest, digest);
+        broadcast
+            .verify()
+            .expect("an entry's wallet half stands on its own");
     }
 
     #[test]
