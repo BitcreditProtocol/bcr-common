@@ -419,6 +419,7 @@ mod tests {
 
         let (_, keyset) = generate_random_ecash_keyset();
         let proofs = generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)]);
+        let keyset = keyset.into();
         let proof = &proofs[0];
         let y = proof.y().expect("hash_to_curve");
 
@@ -463,6 +464,7 @@ mod tests {
         use crate::core::test_utils::generate_random_ecash_keyset;
 
         let (_, mint_keyset) = generate_random_ecash_keyset();
+        let mint_keyset = mint_keyset.into();
         let keyset = crate::core::keys::to_keyset(&mint_keyset, None);
         let (fp, dleq) = signed_fingerprint(&mint_keyset, cashu::Amount::from(8u64));
         verify_fingerprint_dleq(&keyset, &fp, Some(&dleq)).expect("valid fingerprint dleq");
