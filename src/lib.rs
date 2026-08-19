@@ -21,3 +21,6 @@ pub use cashu;
 pub use cdk_common;
 #[cfg(feature = "clwdr-client")]
 pub use frost_secp256k1_tr;
+pub use reqwest;
+pub use strum;
+pub use utoipa;
