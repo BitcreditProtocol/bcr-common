@@ -21,7 +21,7 @@ cashu = {version = "=0.16.0", features = ["swagger"]}
 cdk-common = {version = "=0.16.0"}
 chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
-frost-secp256k1-tr = { version = "2.2.0", features = ["serde"], optional = true }
+frost-secp256k1-tr = { version = "3.0.0", features = ["serde"], optional = true }
 infer = {version="0.19"}
 nostr = {version = "0.43"}
 rand = {version = "0.8"}
