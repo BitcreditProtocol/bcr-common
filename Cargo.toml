@@ -25,15 +25,15 @@ frost-secp256k1-tr = { version = "2.2.0", features = ["serde"], optional = true 
 infer = {version="0.19"}
 nostr = {version = "0.43"}
 rand = {version = "0.8"}
-reqwest = {version = "0.12", default-features = false, features = ["json", "rustls-tls"]}
+reqwest = {version = "0.13", default-features = false, features = ["json", "rustls", "query"]}
 serde = {version = "1.0"}
 serde_json = {version = "1.0"}
 serde_repr = {version = "0.1"}
-strum = {version = "0.27", features = ["derive"]}
+strum = {version = "0.28", features = ["derive"]}
 thiserror = {version = "2.0"}
 tracing = {version = "0.1"}
 url = {version = "2.5"}
-utoipa = {version = "5.4", features = ["chrono", "uuid", "url"]}
+utoipa = {version = "5.5", features = ["chrono", "uuid", "url"]}
 uuid = {version = "1", features = ["serde"]}
 
 [dev-dependencies]
