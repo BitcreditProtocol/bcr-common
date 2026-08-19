@@ -4,7 +4,10 @@ use bitcoin::{bip32 as btc32, secp256k1 as secp};
 use cashu::nut02 as cdk02;
 use rand::RngCore;
 // ----- local imports
-use crate::core::{BillId, NodeId, generate_random_keypair};
+use crate::{
+    core::{BillId, NodeId, generate_random_keypair},
+    ecash,
+};
 
 // ----- end imports
 
@@ -22,7 +25,7 @@ pub fn node_id_from_pub_key(pub_key: secp::PublicKey) -> NodeId {
     NodeId::new(pub_key, bitcoin::Network::Testnet)
 }
 
-pub fn generate_random_ecash_keyset() -> (cdk_common::mint::MintKeySetInfo, cashu::MintKeySet) {
+pub fn generate_random_ecash_keyset() -> (ecash::MintKeySetInfo, ecash::MintKeySet) {
     let path = btc32::DerivationPath::master();
     let mut random_seed = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut random_seed);
@@ -37,7 +40,7 @@ pub fn generate_random_ecash_keyset() -> (cdk_common::mint::MintKeySetInfo, cash
         None,
         cdk02::KeySetVersion::Version01,
     );
-    let info = cdk_common::mint::MintKeySetInfo {
+    let info = ecash::MintKeySetInfo {
         id: set.id,
         active: true,
         unit: cashu::CurrencyUnit::Sat,
@@ -47,13 +50,12 @@ pub fn generate_random_ecash_keyset() -> (cdk_common::mint::MintKeySetInfo, cash
         derivation_path_index: None,
         derivation_path: path,
         input_fee_ppk: 0,
-        issuer_version: None,
     };
-    (info, set)
+    (info, set.into())
 }
 
 pub fn generate_random_ecash_proofs(
-    keyset: &cashu::MintKeySet,
+    keyset: &ecash::MintKeySet,
     amounts: &[cashu::Amount],
 ) -> Vec<cashu::Proof> {
     let mut proofs: Vec<cashu::Proof> = Vec::new();
@@ -94,7 +96,7 @@ pub fn generate_random_ecash_blindedmessages(
 }
 
 pub fn generate_ecash_signatures(
-    keyset: &cashu::MintKeySet,
+    keyset: &ecash::MintKeySet,
     amounts: &[cashu::Amount],
 ) -> Vec<cashu::BlindSignature> {
     let a_pk = cashu::PublicKey::from_hex(

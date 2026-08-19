@@ -32,6 +32,7 @@ mod tests {
     #[test]
     fn test_to_fee_and_amounts() {
         let (info, set) = generate_random_ecash_keyset();
+        let set = set.into();
         let mut keyset = to_keyset(&set, None);
         keyset.input_fee_ppk = 100;
 
