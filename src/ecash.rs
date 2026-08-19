@@ -1,5 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
+use bitcoin::bip32 as btc32;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -212,6 +213,19 @@ pub struct MintKeySet {
     pub final_expiry: Option<u64>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MintKeySetInfo {
+    pub id: cashu::Id,
+    pub unit: cashu::CurrencyUnit,
+    pub active: bool,
+    pub valid_from: u64,
+    pub derivation_path: btc32::DerivationPath,
+    pub derivation_path_index: Option<u32>,
+    pub amounts: Vec<u64>,
+    pub input_fee_ppk: u64,
+    pub final_expiry: Option<u64>,
+}
+
 impl From<cashu::MintKeySet> for MintKeySet {
     fn from(keyset: cashu::MintKeySet) -> Self {
         Self {
@@ -220,6 +234,46 @@ impl From<cashu::MintKeySet> for MintKeySet {
             keys: keyset.keys,
             input_fee_ppk: keyset.input_fee_ppk,
             final_expiry: keyset.final_expiry,
+        }
+    }
+}
+
+impl From<MintKeySet> for cashu::MintKeySet {
+    fn from(keyset: MintKeySet) -> Self {
+        Self {
+            id: keyset.id,
+            unit: keyset.unit,
+            keys: keyset.keys,
+            input_fee_ppk: keyset.input_fee_ppk,
+            final_expiry: keyset.final_expiry,
+        }
+    }
+}
+
+impl From<cdk_common::mint::MintKeySetInfo> for MintKeySetInfo {
+    fn from(info: cdk_common::mint::MintKeySetInfo) -> Self {
+        Self {
+            id: info.id,
+            unit: info.unit,
+            active: info.active,
+            valid_from: info.valid_from,
+            derivation_path: info.derivation_path,
+            derivation_path_index: info.derivation_path_index,
+            amounts: info.amounts,
+            input_fee_ppk: info.input_fee_ppk,
+            final_expiry: info.final_expiry,
+        }
+    }
+}
+
+impl From<MintKeySetInfo> for cashu::KeySetInfo {
+    fn from(info: MintKeySetInfo) -> Self {
+        Self {
+            id: info.id,
+            unit: info.unit,
+            active: info.active,
+            input_fee_ppk: info.input_fee_ppk,
+            final_expiry: info.final_expiry,
         }
     }
 }
@@ -239,7 +293,7 @@ mod tests {
         cashu::PublicKey::from(core::generate_random_keypair().public_key())
     }
 
-    fn random_mint_keyset() -> cashu::MintKeySet {
+    fn random_mint_keyset() -> MintKeySet {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
         keyset
     }
@@ -303,7 +357,8 @@ mod tests {
 
     #[test]
     fn keyset_json_wire_compat() {
-        let cashu_keyset = core::keys::to_keyset(&random_mint_keyset(), Some(true));
+        let mint_keyset = random_mint_keyset().into();
+        let cashu_keyset = core::keys::to_keyset(&mint_keyset, Some(true));
         let keyset = KeySet {
             id: cashu_keyset.id,
             unit: cashu_keyset.unit,
