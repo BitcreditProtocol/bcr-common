@@ -41,6 +41,7 @@ impl ClowderNatsClient {
     pub const MINT_QUOTE_ONCHAIN_TOPIC: &'static str = "clowder.mint_quote_onchain";
     pub const FOREIGN_OFFLINE_ECASH_TOPIC: &'static str = "clowder.mint_foreign_offline_ecash";
     pub const OFFLINE_REDEEM_TOPIC: &'static str = "clowder.offline_redeem";
+    pub const BURN_TOPIC: &'static str = "clowder.burn";
     // Swaps
     pub const SWAP_TOPIC: &'static str = "clowder.swap";
     pub const SWAP_COMMITMENT_TOPIC: &'static str = "clowder.swap_commitment";
@@ -224,6 +225,22 @@ impl ClowderNatsClient {
         let response = self
             .client
             .request(Self::FOREIGN_OFFLINE_ECASH_TOPIC, Bytes::from(payload))
+            .await?;
+
+        Self::decode_reply(response.payload.as_ref())
+    }
+
+    pub async fn burn(
+        &self,
+        req: wire_clowder::BurnRequest,
+        resp: wire_clowder::BurnResponse,
+    ) -> Result<wire_clowder::BurnResponse> {
+        let mut payload = Vec::new();
+        ciborium::into_writer(&MintStream::Burn(req, resp), &mut payload)?;
+
+        let response = self
+            .client
+            .request(Self::BURN_TOPIC, Bytes::from(payload))
             .await?;
 
         Self::decode_reply(response.payload.as_ref())

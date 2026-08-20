@@ -39,6 +39,7 @@ pub enum MintStream {
         wire_clowder::OfflineRedeemRequest,
         wire_clowder::OfflineRedeemResponse,
     ),
+    Burn(wire_clowder::BurnRequest, wire_clowder::BurnResponse),
     MeltOnchain(wire_clowder::MeltOnchainRequest),
     MeltQuoteOnchain(wire_clowder::MeltQuoteOnchainRequest),
     MintQuoteOnchain(wire_clowder::MintQuoteOnchainRequest),

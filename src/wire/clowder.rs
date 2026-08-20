@@ -385,6 +385,18 @@ pub struct OutageCloseRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutageCloseResponse {}
 
+///--------------------------- Burn (a mint retiring its own eCash)
+/// Takes eCash out of circulation that nothing backs: an exchange HTLC that expired
+/// unclaimed leaves its issuer holding value it never collected collateral for.
+/// Spends the proofs without issuing anything, so supply falls by their amount.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BurnRequest {
+    pub proofs: Vec<cashu::Proof>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BurnResponse {}
+
 ///--------------------------- Offline Redeem (Alpha issues against a spend entry)
 /// Carries the wallet's claim verbatim, so any Beta can judge the issuance from the
 /// spend entry already on the chain.
