@@ -500,6 +500,20 @@ impl Client {
         Ok((payload.proofs, response.signature))
     }
 
+    pub async fn redeem_exchange_offline(
+        &self,
+        request: wire_exchange::RedeemOfflineExchangeRequest,
+    ) -> Result<Vec<cashu::BlindSignature>> {
+        let response = treasury::common::redeem_exchange_offline(
+            &self.cl,
+            &self.base,
+            treasury::web_ep::EXCHANGE_OFFLINE_REDEEM_V1_EXT,
+            request,
+        )
+        .await?;
+        Ok(response.signatures)
+    }
+
     pub async fn ebill_mint(
         &self,
         qid: Uuid,

@@ -43,6 +43,7 @@ pub mod admin_ep {
     pub const LOCAL_COLLATERAL: &str = "/admin/local/collateral";
     pub const LOCAL_COMMITMENT_SUBSTITUTE: &str = "/admin/local/commitment/substitute";
     pub const LOCAL_OFFLINE_EXCHANGE: &str = "/admin/local/exchange/offline";
+    pub const LOCAL_OFFLINE_EXCHANGE_REDEEM: &str = "/admin/local/exchange/offline/redeem";
     pub const LOCAL_PERCEIVED_STATE: &str = "/admin/local/perceived_state";
     pub const LOCAL_REQUEST_ADDRESS: &str = "/admin/local/request_address";
     pub const LOCAL_SIGN_PROOFS: &str = "/admin/local/sign_proofs";
@@ -80,6 +81,8 @@ pub mod web_ep {
     pub const LOCAL_INFO_V1_EXT: &str = "/v1/clowder/local/info";
     pub const OFFLINE_EXCHANGE_V1: &str = "/v1/exchange/offline";
     pub const OFFLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/offline";
+    pub const OFFLINE_EXCHANGE_REDEEM_V1: &str = "/v1/exchange/offline/redeem";
+    pub const OFFLINE_EXCHANGE_REDEEM_V1_EXT: &str = "/v1/clowder/exchange/offline/redeem";
     pub const ONLINE_EXCHANGE_V1: &str = "/v1/exchange/online";
     pub const ONLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/online";
     pub const ATTEST_ISSUANCE_V1: &str = "/v1/attest/issuance";
@@ -298,6 +301,20 @@ impl Client {
             .join(admin_ep::LOCAL_OFFLINE_EXCHANGE)
             .expect("local offline exchange relative path");
         let response: wire_exchange::RecordOfflineExchangeResponse =
+            self.cl.post(url, request).await?;
+        Ok(response)
+    }
+
+    /// Claims a spend entry for the wallet and returns the amount the mint owes.
+    pub async fn post_redeem_offline_exchange(
+        &self,
+        request: &wire_exchange::RedeemOfflineExchangeRequest,
+    ) -> Result<wire_clowder::RedeemOfflineExchangeAuthorization> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_OFFLINE_EXCHANGE_REDEEM)
+            .expect("local offline exchange redeem relative path");
+        let response: wire_clowder::RedeemOfflineExchangeAuthorization =
             self.cl.post(url, request).await?;
         Ok(response)
     }

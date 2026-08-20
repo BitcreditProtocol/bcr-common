@@ -44,12 +44,45 @@ pub fn exchange_message(exchange_digest: &[u8; 32]) -> Message {
     Message::from_digest(*exchange_digest)
 }
 
+/// Domain separation tag for the offline exchange redemption digest.
+pub const DOMAIN_TAG_REDEEM: &[u8] = b"bcr/exchange/redeem/v1";
+
+/// `SHA256(borsh(outputs))`. Order-preserving, unlike `fp_digest`: the mint returns
+/// signatures positionally.
+pub fn outputs_digest(outputs: &[cashu::BlindedMessage]) -> [u8; 32] {
+    let mut bytes = Vec::new();
+    wire_borsh::serialize_vecof_blindedmessage(outputs, &mut bytes)
+        .expect("borsh serialization of blinded messages");
+    Sha256::hash(&bytes).to_byte_array()
+}
+
+/// `SHA256(DOMAIN_TAG_REDEEM || alpha_id || exchange_digest || outputs_digest(outputs))`.
+pub fn redemption_digest(
+    alpha_id: &secp256k1::PublicKey,
+    exchange_digest: &[u8; 32],
+    outputs: &[cashu::BlindedMessage],
+) -> [u8; 32] {
+    let mut msg = Vec::with_capacity(DOMAIN_TAG_REDEEM.len() + 33 + 32 + 32);
+    msg.extend_from_slice(DOMAIN_TAG_REDEEM);
+    msg.extend_from_slice(&alpha_id.serialize());
+    msg.extend_from_slice(exchange_digest);
+    msg.extend_from_slice(&outputs_digest(outputs));
+    Sha256::hash(&msg).to_byte_array()
+}
+
+/// The message the wallet signs; the digest is already domain-tagged.
+pub fn redemption_message(redemption_digest: &[u8; 32]) -> Message {
+    Message::from_digest(*redemption_digest)
+}
+
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum ExchangeError {
     #[error("schnorr signature verification failed: {0}")]
     Signature(#[from] secp256k1::Error),
     #[error("exchange digest does not match its fields")]
     DigestMismatch,
+    #[error("redemption outputs do not total the amount claimable")]
+    AmountMismatch,
 }
 
 ///--------------------------- Online ExchangeRequest
@@ -197,6 +230,60 @@ pub struct RecordOfflineExchangeResponse {
     pub exchange_digest: [u8; 32],
 }
 
+///--------------------------- Redeem Offline Exchange (Wallet -> Alpha)
+/// Claims an exchange the alpha spent at close but never issued against. The authority
+/// is the key the spend entry recorded, so the request names none of its own.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RedeemOfflineExchangeRequest {
+    pub exchange_digest: [u8; 32],
+    pub outputs: Vec<cashu::BlindedMessage>,
+    /// Over the redemption digest.
+    #[schema(value_type = String)]
+    pub wallet_signature: secp256k1::schnorr::Signature,
+}
+
+impl RedeemOfflineExchangeRequest {
+    pub fn new(
+        alpha_id: &secp256k1::PublicKey,
+        exchange_digest: [u8; 32],
+        outputs: Vec<cashu::BlindedMessage>,
+        wallet_kp: &secp256k1::Keypair,
+    ) -> Self {
+        let digest = redemption_digest(alpha_id, &exchange_digest, &outputs);
+        Self {
+            exchange_digest,
+            outputs,
+            wallet_signature: SECP256K1.sign_schnorr(&redemption_message(&digest), wallet_kp),
+        }
+    }
+
+    /// Takes `amount` so no caller can authorise a redemption without checking value.
+    pub fn verify(
+        &self,
+        alpha_id: &secp256k1::PublicKey,
+        wallet_pk: &cashu::PublicKey,
+        amount: cashu::Amount,
+    ) -> Result<(), ExchangeError> {
+        let total = cashu::Amount::try_sum(self.outputs.iter().map(|o| o.amount))
+            .map_err(|_| ExchangeError::AmountMismatch)?;
+        if total != amount {
+            return Err(ExchangeError::AmountMismatch);
+        }
+        let digest = redemption_digest(alpha_id, &self.exchange_digest, &self.outputs);
+        SECP256K1.verify_schnorr(
+            &self.wallet_signature,
+            &redemption_message(&digest),
+            &wallet_pk.x_only_public_key(),
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RedeemOfflineExchangeResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
+}
+
 ///--------------------------- Offline ExchangePayload
 #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
 pub struct OfflineExchangePayload {
@@ -259,6 +346,15 @@ pub mod tests_support {
         secp::Keypair::new_global(&mut rand::thread_rng())
     }
 
+    pub fn sample_outputs(amounts: &[u64]) -> Vec<cashu::BlindedMessage> {
+        let (_, keyset) = core_tests::generate_random_ecash_keyset();
+        let amounts: Vec<cashu::Amount> = amounts.iter().map(|a| cashu::Amount::from(*a)).collect();
+        core_tests::generate_random_ecash_blindedmessages(keyset.id, &amounts)
+            .into_iter()
+            .map(|(msg, _, _)| msg)
+            .collect()
+    }
+
     pub fn sample_broadcast(wallet_kp: &secp::Keypair) -> ExchangeBroadcast {
         let alpha_id = wallet().public_key();
         let evidence_digest = [3u8; 32];
@@ -288,7 +384,6 @@ pub mod tests_support {
 mod tests {
     use super::tests_support::*;
     use super::*;
-    use bitcoin::secp256k1 as secp;
 
     #[test]
     fn exchange_digest_is_order_independent() {
@@ -487,5 +582,122 @@ mod tests {
         back.verify()
             .expect("round-tripped broadcast still verifies");
         assert_eq!(back.exchange_digest, broadcast.exchange_digest);
+    }
+
+    #[test]
+    fn redemption_digest_binds_every_field() {
+        let alpha = wallet().public_key();
+        let exchange = [7u8; 32];
+        let outputs = sample_outputs(&[1, 2]);
+        let original = redemption_digest(&alpha, &exchange, &outputs);
+
+        assert_ne!(
+            redemption_digest(&wallet().public_key(), &exchange, &outputs),
+            original
+        );
+        assert_ne!(redemption_digest(&alpha, &[8u8; 32], &outputs), original);
+        assert_ne!(
+            redemption_digest(&alpha, &exchange, &sample_outputs(&[1, 2])),
+            original
+        );
+
+        // Same blinded secrets, different amount: the digest still has to move.
+        let mut inflated = outputs.clone();
+        inflated[0].amount = cashu::Amount::from(64_u64);
+        assert_ne!(redemption_digest(&alpha, &exchange, &inflated), original);
+
+        let mut rekeyed = outputs.clone();
+        rekeyed[0].keyset_id = sample_outputs(&[1])[0].keyset_id;
+        assert_ne!(redemption_digest(&alpha, &exchange, &rekeyed), original);
+    }
+
+    #[test]
+    fn redemption_digest_is_order_sensitive() {
+        let alpha = wallet().public_key();
+        let exchange = [7u8; 32];
+        let mut outputs = sample_outputs(&[1, 2]);
+        let original = redemption_digest(&alpha, &exchange, &outputs);
+        outputs.swap(0, 1);
+        assert_ne!(redemption_digest(&alpha, &exchange, &outputs), original);
+    }
+
+    #[test]
+    fn redemption_request_verifies_against_the_recorded_key() {
+        let alpha = wallet().public_key();
+        let wallet_kp = wallet();
+        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let amount = cashu::Amount::from(3_u64);
+        let req = RedeemOfflineExchangeRequest::new(
+            &alpha,
+            [7u8; 32],
+            sample_outputs(&[1, 2]),
+            &wallet_kp,
+        );
+
+        req.verify(&alpha, &wallet_pk, amount).expect("own claim");
+
+        // Another wallet cannot claim a spend entry recorded for this one.
+        let other: cashu::PublicKey = wallet().public_key().into();
+        assert!(matches!(
+            req.verify(&alpha, &other, amount),
+            Err(ExchangeError::Signature(_))
+        ));
+        // Nor replayed at another alpha, or against another exchange of this one.
+        assert!(
+            req.verify(&wallet().public_key(), &wallet_pk, amount)
+                .is_err()
+        );
+        let mut moved = req.clone();
+        moved.exchange_digest = [9u8; 32];
+        assert!(moved.verify(&alpha, &wallet_pk, amount).is_err());
+    }
+
+    #[test]
+    fn redemption_totalling_more_than_claimable_is_refused() {
+        let alpha = wallet().public_key();
+        let wallet_kp = wallet();
+        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let req = RedeemOfflineExchangeRequest::new(
+            &alpha,
+            [7u8; 32],
+            sample_outputs(&[1, 2]),
+            &wallet_kp,
+        );
+
+        // Correctly signed for its own outputs, but the entry owes less than they ask.
+        assert!(matches!(
+            req.verify(&alpha, &wallet_pk, cashu::Amount::from(2_u64)),
+            Err(ExchangeError::AmountMismatch)
+        ));
+        // Overflowing outputs report a mismatch rather than panicking the mint.
+        let mut overflowing = req.clone();
+        overflowing.outputs[0].amount = cashu::Amount::from(u64::MAX);
+        overflowing.outputs[1].amount = cashu::Amount::from(u64::MAX);
+        assert!(matches!(
+            overflowing.verify(&alpha, &wallet_pk, cashu::Amount::from(3_u64)),
+            Err(ExchangeError::AmountMismatch)
+        ));
+    }
+
+    #[test]
+    fn redemption_request_json_roundtrip() {
+        let alpha = wallet().public_key();
+        let wallet_kp = wallet();
+        let req = RedeemOfflineExchangeRequest::new(
+            &alpha,
+            [7u8; 32],
+            sample_outputs(&[1, 2]),
+            &wallet_kp,
+        );
+        let back: RedeemOfflineExchangeRequest =
+            serde_json::from_str(&serde_json::to_string(&req).expect("ser")).expect("de");
+        assert_eq!(back.exchange_digest, req.exchange_digest);
+        assert_eq!(back.wallet_signature, req.wallet_signature);
+        back.verify(
+            &alpha,
+            &wallet_kp.public_key().into(),
+            cashu::Amount::from(3_u64),
+        )
+        .expect("survives the wire");
     }
 }
