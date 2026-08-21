@@ -30,6 +30,8 @@ pub mod web_ep {
     pub const EBILLMINT_V1_EXT: &str = "/v1/treasury/mint/ebill";
     pub const EXCHANGE_OFFLINE_V1: &str = "/v1/exchange/offline";
     pub const EXCHANGE_OFFLINE_V1_EXT: &str = "/v1/treasury/exchange/offline";
+    pub const EXCHANGE_OFFLINE_REDEEM_V1: &str = "/v1/exchange/offline/redeem";
+    pub const EXCHANGE_OFFLINE_REDEEM_V1_EXT: &str = "/v1/treasury/exchange/offline/redeem";
     pub const EXCHANGE_ONLINE_V1: &str = "/v1/exchange/online";
     pub const EXCHANGE_ONLINE_V1_EXT: &str = "/v1/treasury/exchange/online";
     pub const MELTQUOTE_ONCHAIN_V1: &str = "/v1/melt/onchain/quote";
@@ -222,6 +224,20 @@ impl Client {
         Ok(result)
     }
 
+    pub async fn redeem_exchange_offline(
+        &self,
+        request: wire_exchange::RedeemOfflineExchangeRequest,
+    ) -> Result<wire_exchange::RedeemOfflineExchangeResponse> {
+        let result = common::redeem_exchange_offline(
+            &self.cl,
+            &self.base,
+            web_ep::EXCHANGE_OFFLINE_REDEEM_V1,
+            request,
+        )
+        .await?;
+        Ok(result)
+    }
+
     pub async fn exchange_online(
         &self,
         proofs: Vec<cashu::Proof>,
@@ -298,6 +314,19 @@ pub(crate) mod common {
             wallet_signature,
         };
         let response: wire_exchange::OfflineExchangeResponse = cl.post(url, &msg).await?;
+        Ok(response)
+    }
+
+    pub async fn redeem_exchange_offline(
+        cl: &jsonrpc::Client,
+        base: &reqwest::Url,
+        ep: &'static str,
+        request: wire_exchange::RedeemOfflineExchangeRequest,
+    ) -> Result<wire_exchange::RedeemOfflineExchangeResponse> {
+        let url = base
+            .join(ep)
+            .expect("redeem exchange_offline relative path");
+        let response: wire_exchange::RedeemOfflineExchangeResponse = cl.post(url, &request).await?;
         Ok(response)
     }
 

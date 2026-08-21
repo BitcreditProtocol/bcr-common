@@ -385,6 +385,37 @@ pub struct OutageCloseRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutageCloseResponse {}
 
+///--------------------------- Burn (a mint retiring its own eCash)
+/// Takes eCash out of circulation that nothing backs: an exchange HTLC that expired
+/// unclaimed leaves its issuer holding value it never collected collateral for.
+/// Spends the proofs without issuing anything, so supply falls by their amount.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BurnRequest {
+    pub proofs: Vec<cashu::Proof>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BurnResponse {}
+
+///--------------------------- Offline Redeem (Alpha issues against a spend entry)
+/// Carries the wallet's claim verbatim, so any Beta can judge the issuance from the
+/// spend entry already on the chain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineRedeemRequest {
+    pub redemption: wire_exchange::RedeemOfflineExchangeRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineRedeemResponse {
+    pub signatures: Vec<cashu::BlindSignature>,
+}
+
+/// What the node authorised; the mint issues against this, never the request's total.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RedeemOfflineExchangeAuthorization {
+    pub amount: cashu::Amount,
+}
+
 ///--------------------------- Lease Acknowledgment
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -805,6 +836,39 @@ mod tests {
         assert!(
             forged.exchange.verify().is_err(),
             "naming other proofs needs a wallet signature nobody has"
+        );
+    }
+
+    #[test]
+    fn offline_redeem_request_cbor_roundtrip() {
+        let wallet = secp::Keypair::new_global(&mut rand::thread_rng());
+        let alpha = secp::Keypair::new_global(&mut rand::thread_rng()).public_key();
+        let outputs = wire_exchange::tests_support::sample_outputs(&[1, 2]);
+        let req = OfflineRedeemRequest {
+            redemption: wire_exchange::RedeemOfflineExchangeRequest::new(
+                &alpha, [7u8; 32], outputs, &wallet,
+            ),
+        };
+        let back = cbor_roundtrip(&req);
+        assert_eq!(
+            back.redemption.exchange_digest,
+            req.redemption.exchange_digest
+        );
+
+        // A Beta reading the entry off the chain can judge the issuance itself.
+        let amount = cashu::Amount::from(3_u64);
+        back.redemption
+            .verify(&alpha, &wallet.public_key().into(), amount)
+            .expect("entry carries its own proof");
+
+        let mut forged = req.clone();
+        forged.redemption.outputs = wire_exchange::tests_support::sample_outputs(&[1, 2]);
+        assert!(
+            forged
+                .redemption
+                .verify(&alpha, &wallet.public_key().into(), amount)
+                .is_err(),
+            "naming other outputs needs a wallet signature nobody has"
         );
     }
 
