@@ -250,6 +250,31 @@ impl From<MintKeySet> for cashu::MintKeySet {
     }
 }
 
+impl From<MintKeySetInfo> for KeySetInfo {
+    fn from(info: MintKeySetInfo) -> Self {
+        Self {
+            id: info.id,
+            unit: info.unit,
+            active: info.active,
+            input_fee_ppk: info.input_fee_ppk,
+            final_expiry: info.final_expiry,
+        }
+    }
+}
+
+impl From<MintKeySet> for KeySet {
+    fn from(keyset: MintKeySet) -> Self {
+        Self {
+            id: keyset.id,
+            unit: keyset.unit,
+            active: None,
+            keys: keyset.keys.into(),
+            input_fee_ppk: keyset.input_fee_ppk,
+            final_expiry: keyset.final_expiry,
+        }
+    }
+}
+
 impl From<cdk_common::mint::MintKeySetInfo> for MintKeySetInfo {
     fn from(info: cdk_common::mint::MintKeySetInfo) -> Self {
         Self {
