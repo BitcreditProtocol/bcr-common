@@ -4,6 +4,7 @@ use thiserror::Error;
 // ----- local imports
 use crate::{
     client::admin::jsonrpc,
+    ecash,
     wire::{keys as wire_keys, swap as wire_swap},
 };
 
@@ -149,7 +150,7 @@ impl Client {
         &self,
         expiration: Option<chrono::NaiveDate>,
         fees_ppk: u64,
-    ) -> Result<cdk_common::mint::MintKeySetInfo> {
+    ) -> Result<ecash::KeySetInfo> {
         let url = self
             .base
             .join(admin_ep::NEW_KEYSET)
@@ -189,7 +190,7 @@ impl Client {
             }
         }
         let kinfo = self.new_keyset(Some(expiration), 0).await?;
-        Ok(cashu::KeySetInfo::from(kinfo))
+        Ok(kinfo.into())
     }
 
     pub async fn sign(&self, msgs: &[cashu::BlindedMessage]) -> Result<Vec<cashu::BlindSignature>> {
