@@ -159,6 +159,19 @@ impl Client {
         Ok(value)
     }
 
+    pub async fn put<Body: Serialize + ?Sized, T: DeserializeOwned>(
+        &self,
+        url: Url,
+        body: &Body,
+    ) -> Result<T> {
+        let response = self.cl.put(url).json(body).send().await?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(Self::to_error(response).await);
+        }
+        Ok(response.json().await?)
+    }
+
     pub async fn patch_no_response<Body: Serialize + ?Sized>(
         &self,
         url: Url,
