@@ -261,6 +261,7 @@ pub struct AdminInfoReply {
     pub quote: InfoReply,
     pub credit_program_version: Option<String>,
     pub credit_program_digest: Option<String>,
+    pub credit_authorization_receipt: Option<CreditAuthorizationReceipt>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
