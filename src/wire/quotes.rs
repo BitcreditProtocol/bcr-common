@@ -290,6 +290,85 @@ pub enum UpdateQuoteResponse {
     },
 }
 
+/// Exact governed terms signed by AI Credit. Monetary values stay decimal strings so
+/// JavaScript and Rust verify the same bytes without an unsafe number conversion.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreditAuthorizationTerms {
+    pub bill_sum_sat: String,
+    pub discounted_sat: String,
+    pub applied_discount_sat: String,
+    pub operating_cost_sat: String,
+    pub effective_fee_sat: String,
+    pub endorsement_exposure_sat: String,
+    pub maturity_date: String,
+    pub offer_expires_on: String,
+    pub tenor_days: u32,
+    pub annual_discount_bps: u32,
+    pub effective_annual_bps: u32,
+    pub fee_ratio_bps: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreditAuthorizationEnvelope {
+    pub schema_version: String,
+    pub key_id: String,
+    pub mint_id: String,
+    pub mint_quote_id: String,
+    pub credit_program_version: String,
+    pub credit_program_digest: String,
+    pub case_id: String,
+    pub bill_id: String,
+    pub bill_state_digest: String,
+    pub holder_ref: String,
+    pub acceptor_ref: String,
+    pub decision_snapshot_digest: String,
+    pub decision_result_digest: String,
+    pub policy_pack_digest: String,
+    pub policy_pack_version: String,
+    pub calculation_version: String,
+    pub terms: CreditAuthorizationTerms,
+    pub operator_id: String,
+    pub issued_at: String,
+    pub expires_at: String,
+    pub nonce: String,
+    pub action: String,
+    pub synthetic: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SignedCreditAuthorizationEnvelope {
+    pub authorization: CreditAuthorizationEnvelope,
+    pub authorization_digest: String,
+    pub signature_algorithm: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AuthorizedQuoteRequest {
+    pub signed_authorization: SignedCreditAuthorizationEnvelope,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreditAuthorizationReceipt {
+    pub receipt_version: String,
+    pub operation_id: String,
+    pub authorization_digest: String,
+    pub case_id: String,
+    pub status: String,
+    pub mint_id: String,
+    pub bill_id: String,
+    pub action: String,
+    pub effect_id: String,
+    pub result_digest: String,
+    pub completed_at: String,
+    pub synthetic: bool,
+}
+
 /// --------------------------- Resolve quote
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "PascalCase", tag = "action")]
