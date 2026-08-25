@@ -263,6 +263,21 @@ pub struct AdminInfoReply {
     pub credit_program_digest: Option<String>,
     pub credit_authorization_receipt: Option<CreditAuthorizationReceipt>,
     pub credit_evidence: Option<MintCreditEvidence>,
+    pub credit_exposure_reservation: Option<CreditExposureReservation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreditExposureReservation {
+    pub reservation_version: String,
+    pub reservation_id: uuid::Uuid,
+    pub mint_id: String,
+    pub quote_id: uuid::Uuid,
+    pub amount_sat: String,
+    pub capacity_evidence_id: uuid::Uuid,
+    pub state: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -270,6 +285,30 @@ pub struct AdminInfoReply {
 pub struct AcceptorRiskEvidence {
     pub schema_version: String,
     pub evidence_id: uuid::Uuid,
+    pub signed_evidence: SignedAcceptorRiskEvidence,
+    pub operator_id: String,
+    pub written_basis_digest: String,
+    pub recorded_at: DateTime<Utc>,
+    pub verified_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MintCapacityEvidence {
+    pub schema_version: String,
+    pub evidence_id: uuid::Uuid,
+    pub signed_evidence: SignedMintCapacityEvidence,
+    pub operator_id: String,
+    pub written_basis_digest: String,
+    pub recorded_at: DateTime<Utc>,
+    pub verified_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AcceptorRiskAuthorityEvidence {
+    pub schema_version: String,
+    pub key_id: String,
     pub acceptor_ref: String,
     pub probability_of_default_bps: u32,
     pub loss_given_default_bps: u32,
@@ -279,16 +318,14 @@ pub struct AcceptorRiskEvidence {
     pub assessed_at: chrono::NaiveDate,
     pub valid_through: chrono::NaiveDate,
     pub evidence_refs: Vec<String>,
-    pub operator_id: String,
-    pub recorded_at: DateTime<Utc>,
     pub synthetic: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MintCapacityEvidence {
+pub struct MintCapacityAuthorityEvidence {
     pub schema_version: String,
-    pub evidence_id: uuid::Uuid,
+    pub key_id: String,
     pub mint_id: String,
     pub existing_exposure_sat: String,
     pub exposure_limit_sat: String,
@@ -298,9 +335,25 @@ pub struct MintCapacityEvidence {
     pub assessed_at: chrono::NaiveDate,
     pub valid_through: chrono::NaiveDate,
     pub evidence_refs: Vec<String>,
-    pub operator_id: String,
-    pub recorded_at: DateTime<Utc>,
     pub synthetic: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SignedAcceptorRiskEvidence {
+    pub evidence: AcceptorRiskAuthorityEvidence,
+    pub evidence_digest: String,
+    pub signature_algorithm: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SignedMintCapacityEvidence {
+    pub evidence: MintCapacityAuthorityEvidence,
+    pub evidence_digest: String,
+    pub signature_algorithm: String,
+    pub signature: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -316,10 +369,7 @@ pub struct MintCreditEvidence {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AcceptorRiskEvidenceRequest {
-    pub probability_of_default_bps: u32,
-    pub loss_given_default_bps: u32,
-    pub source_reference: String,
-    pub valid_through: chrono::NaiveDate,
+    pub signed_evidence: SignedAcceptorRiskEvidence,
     pub written_basis: String,
 }
 
@@ -333,10 +383,7 @@ pub struct AcceptorRiskEvidenceCommand {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MintCapacityEvidenceRequest {
-    pub existing_exposure_sat: String,
-    pub exposure_limit_sat: String,
-    pub source_reference: String,
-    pub valid_through: chrono::NaiveDate,
+    pub signed_evidence: SignedMintCapacityEvidence,
     pub written_basis: String,
 }
 
