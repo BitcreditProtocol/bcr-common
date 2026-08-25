@@ -30,7 +30,9 @@ pub struct MintOperationStatus {
     #[schema(value_type = String)]
     pub kid: ecash::Id,
     pub quote_id: uuid::Uuid,
+    #[schema(value_type = u64)]
     pub target: cashu::Amount,
+    #[schema(value_type = u64)]
     pub current: cashu::Amount,
 }
 
