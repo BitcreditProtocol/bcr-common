@@ -405,6 +405,37 @@ impl Client {
         Ok(response.id)
     }
 
+    pub async fn enquire_reissue(
+        &self,
+        bill: wire_quotes::SharedBill,
+        minting_pubkey: cashu::PublicKey,
+        signed_permit: wire_quotes::SignedCreditQuoteReissuePermit,
+        signing_key: &bitcoin::secp256k1::Keypair,
+    ) -> Result<Uuid> {
+        let request = wire_quotes::ReissueEnquireRequestV1 {
+            schema_version: wire_quotes::REISSUE_ENQUIRE_SCHEMA_VERSION.to_owned(),
+            action: wire_quotes::REISSUE_ENQUIRE_ACTION.to_owned(),
+            content: bill,
+            minting_pubkey,
+            signed_permit,
+        };
+        let (content, sig) = signature::serialize_n_schnorr_sign_borsh_msg(&request, signing_key)?;
+        let signed = wire_quotes::SignedReissueEnquireRequestV1 {
+            content,
+            signature: sig,
+        };
+        let url = self
+            .base
+            .join(quote::web_ep::REISSUE_ENQUIRE_V1_EXT)
+            .expect("reissue enquire relative path");
+        let response: wire_quotes::EnquireReply = self
+            .cl
+            .post(url, &signed)
+            .await
+            .map_err(quote::Error::from)?;
+        Ok(response.id)
+    }
+
     pub async fn lookup(&self, qid: Uuid) -> Result<wire_quotes::StatusReply> {
         assert!(quote::web_ep::LOOKUP_V1_EXT.contains("{qid}"));
         let url = self

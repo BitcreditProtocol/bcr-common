@@ -21,6 +21,8 @@ pub mod admin_ep {
 pub mod web_ep {
     pub const ENQUIRE_V1: &str = "/v1/ebill";
     pub const ENQUIRE_V1_EXT: &str = "/v1/quote/ebill";
+    pub const REISSUE_ENQUIRE_V1: &str = "/v1/ebill/reissue";
+    pub const REISSUE_ENQUIRE_V1_EXT: &str = "/v1/quote/ebill/reissue";
     pub const LOOKUP_V1: &str = "/v1/ebill/{qid}";
     pub const LOOKUP_V1_EXT: &str = "/v1/quote/ebill/{qid}";
     pub const RESOLVE_V1: &str = "/v1/ebill/{qid}";
