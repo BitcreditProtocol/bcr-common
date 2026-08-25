@@ -11,6 +11,7 @@ pub mod admin_ep {
     pub const LIST: &str = "/admin/quote";
     pub const LOOKUP: &str = "/admin/quote/{qid}";
     pub const UPDATE: &str = "/admin/quote/{qid}";
+    pub const AUTHORIZE: &str = "/admin/quote/{qid}/authorization";
     pub const ENABLE_MINTING: &str = "/admin/quote/enable_mint/{qid}";
     pub const SHARED_EBILL_HISTORY: &str = "/admin/ebill/{qid}/history";
 }
@@ -137,6 +138,20 @@ impl Client {
             .join(&admin_ep::UPDATE.replace("{qid}", &qid.to_string()))
             .expect("offer quote relative path");
         let body = wire_quotes::UpdateQuoteRequest::Offer { discounted, ttl };
+        let response = self.cl.patch(url, &body).await?;
+        Ok(response)
+    }
+
+    pub async fn authorize(
+        &self,
+        qid: Uuid,
+        body: wire_quotes::AuthorizedQuoteRequest,
+    ) -> Result<wire_quotes::CreditAuthorizationReceipt> {
+        assert!(admin_ep::AUTHORIZE.contains("{qid}"));
+        let url = self
+            .base
+            .join(&admin_ep::AUTHORIZE.replace("{qid}", &qid.to_string()))
+            .expect("authorize quote relative path");
         let response = self.cl.patch(url, &body).await?;
         Ok(response)
     }
