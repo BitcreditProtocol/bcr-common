@@ -27,7 +27,9 @@ pub struct NewMintOperationResponse {}
 pub struct MintOperationStatus {
     pub kid: cashu::Id,
     pub quote_id: uuid::Uuid,
+    #[schema(value_type = u64)]
     pub target: cashu::Amount,
+    #[schema(value_type = u64)]
     pub current: cashu::Amount,
 }
 
