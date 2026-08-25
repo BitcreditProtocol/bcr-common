@@ -251,6 +251,18 @@ pub enum InfoReply {
     },
 }
 
+/// Admin quote details plus the immutable Mint-selected credit program binding.
+///
+/// The fields are optional only so pre-binding quote records remain readable.
+/// Operator actions on an unbound quote are rejected by the quote service.
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct AdminInfoReply {
+    #[serde(flatten)]
+    pub quote: InfoReply,
+    pub credit_program_version: Option<String>,
+    pub credit_program_digest: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ListPendingQueryRequest {
     pub since: Option<DateTime<Utc>>,
