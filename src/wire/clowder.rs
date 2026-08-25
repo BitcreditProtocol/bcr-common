@@ -1001,3 +1001,28 @@ pub enum AddReserveStatus {
     },
     FundingMismatch,
 }
+
+///--------------------------- Onchain transaction history
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum OnChainOperationType {
+    Mint,
+    Melt,
+    EbillPayment,
+    AddReserve,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OnChainOperation {
+    pub op_type: OnChainOperationType,
+    #[schema(value_type = String)]
+    pub txid: bitcoin::Txid,
+    #[schema(value_type = i64)]
+    #[serde(with = "bitcoin::amount::serde::as_sat")]
+    pub amount: bitcoin::SignedAmount,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OnchainOperationsResponse {
+    pub operations: Vec<OnChainOperation>,
+}

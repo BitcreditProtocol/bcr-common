@@ -56,6 +56,7 @@ pub mod admin_ep {
     pub const LOCAL_ONCHAIN_TX_ESTIMATE: &str = "/admin/local/onchain_tx_estimate";
     pub const LOCAL_RESERVES: &str = "/admin/local/reserves";
     pub const LOCAL_RESERVE: &str = "/admin/local/reserves/{reserve_id}";
+    pub const LOCAL_ONCHAIN_OPERATIONS: &str = "/admin/local/onchain_operations";
 }
 
 pub mod web_ep {
@@ -799,6 +800,17 @@ impl Client {
             .join(admin_ep::ATTEST_VERIFY)
             .expect("attest verify relative path");
         let response = self.cl.post(url, request).await?;
+        Ok(response)
+    }
+
+    pub async fn get_onchain_operations_history(
+        &self,
+    ) -> Result<wire_clowder::OnchainOperationsResponse> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_ONCHAIN_OPERATIONS)
+            .expect("local onchain operations relative path");
+        let response = self.cl.get(url, &[]).await?;
         Ok(response)
     }
 }
