@@ -141,7 +141,7 @@ impl Client {
         Ok(response)
     }
 
-    pub async fn lookup(&self, qid: Uuid) -> Result<wire_quotes::InfoReply> {
+    pub async fn lookup(&self, qid: Uuid) -> Result<wire_quotes::AdminInfoReply> {
         assert!(admin_ep::LOOKUP.contains("{qid}"));
         let url = self
             .base
