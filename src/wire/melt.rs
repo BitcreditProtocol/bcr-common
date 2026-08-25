@@ -201,6 +201,159 @@ mod tests {
             .expect("valid address")
     }
 
+    // ----- golden vectors -------------------------------------------------------
+    //
+    // `MeltQuoteOnchainResponseBody`'s borsh bytes are signed: `client::mint::
+    // onchain_melt_quote` returns `(content, commitment)` where `content` is this
+    // encoding and `commitment` is a signature over it. `MeltQuoteOnchainRequest`
+    // travels over NATS between services. Either way these bytes are a contract
+    // between processes, so changing them breaks something outside this crate.
+    //
+    // The round-trip tests below cannot catch that: they pass whenever a
+    // `serialize_with`/`deserialize_with` pair changes together, which is exactly what
+    // editing those attributes does.
+    //
+    // The fixtures use literal key material rather than the `sample_*` helpers above,
+    // for two reasons: those generate a random keypair, and `sign_schnorr` mixes in
+    // auxiliary randomness, so even a fixed key would not give fixed bytes. Nothing
+    // verifies the signature while serializing -- it has to be stable, not valid.
+    //
+    // If one of these fails after a dependency bump rather than a local edit, that is
+    // not a flaky test: `Cargo.lock` is not committed and these bytes include `Display`
+    // output from `cashu` and `bitcoin` types, so a change there is a real wire change
+    // arriving through a dependency.
+
+    /// secp256k1 generator point, compressed -- recognisable rather than arbitrary.
+    const FIXED_PUBKEY: &str = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+    /// 64 bytes. Stable, and deliberately not a valid signature over anything.
+    const FIXED_SIGNATURE: &str = concat!(
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    );
+
+    const WIRE_CHANGED: &str = "the wire encoding changed. These bytes are signed and sent \
+                                between services, so signatures from other builds will no \
+                                longer verify and peers on another version will disagree. If \
+                                the change is deliberate, update the constant and treat it as \
+                                a breaking wire change.";
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    fn fixed_attested_fingerprints() -> AttestedFingerprints {
+        AttestedFingerprints {
+            inputs: vec![],
+            attestation: IssuanceAttestation {
+                beta_id: FIXED_PUBKEY.parse().expect("valid public key"),
+                fp_digest: [1u8; 32],
+                coords_mac: [2u8; 32],
+                signature: FIXED_SIGNATURE.parse().expect("64-byte signature"),
+            },
+        }
+    }
+
+    fn fixed_wallet_key() -> cashu::PublicKey {
+        FIXED_PUBKEY.parse().expect("valid cashu key")
+    }
+
+    /// Empty `Vec` length prefix, then the attestation: `beta_id` and `signature` as
+    /// borsh `String`s around two raw `[u8; 32]` arrays, which borsh writes with no
+    /// length prefix of their own.
+    const ATTESTED_FINGERPRINTS_BORSH: &str = concat!(
+        "0000000042000000303237396265363637656639646362626163353561303632",
+        "3935636538373062303730323962666364623264636532386439353966323831",
+        "3562313666383137393801010101010101010101010101010101010101010101",
+        "0101010101010101010102020202020202020202020202020202020202020202",
+        "0202020202020202020280000000616161616161616161616161616161616161",
+        "6161616161616161616161616161616161616161616161616161616161616161",
+        "6161616161616161616161616161626262626262626262626262626262626262",
+        "6262626262626262626262626262626262626262626262626262626262626262",
+        "6262626262626262626262626262",
+    );
+
+    /// `inputs`, the address as a borsh `String` -- `serialize_unchecked_address`
+    /// writes `assume_checked().to_string()`, so the network is not in the bytes --
+    /// then two amounts as little-endian `u64` satoshis, then `wallet_key`.
+    const MELT_QUOTE_ONCHAIN_REQUEST_BORSH: &str = concat!(
+        "0000000042000000303237396265363637656639646362626163353561303632",
+        "3935636538373062303730323962666364623264636532386439353966323831",
+        "3562313666383137393801010101010101010101010101010101010101010101",
+        "0101010101010101010102020202020202020202020202020202020202020202",
+        "0202020202020202020280000000616161616161616161616161616161616161",
+        "6161616161616161616161616161616161616161616161616161616161616161",
+        "6161616161616161616161616161626262626262626262626262626262626262",
+        "6262626262626262626262626262626262626262626262626262626262626262",
+        "62626262626262626262626262622c0000006263727431717735303864367165",
+        "6a7874646734793572337a6172766172793063357877376b796774303830d007",
+        "000000000000fa00000000000000420000003032373962653636376566396463",
+        "6262616335356130363239356365383730623037303239626663646232646365",
+        "3238643935396632383135623136663831373938",
+    );
+
+    /// As the request, plus `quote` first and `melt_fee` and `expiry` before
+    /// `wallet_key`. `expiry` is a plain `u64`, with no custom serializer.
+    const MELT_QUOTE_ONCHAIN_RESPONSE_BODY_BORSH: &str = concat!(
+        "2400000030303030303030302d303030302d303030302d303030302d30303030",
+        "3030303030303261000000004200000030323739626536363765663964636262",
+        "6163353561303632393563653837306230373032396266636462326463653238",
+        "6439353966323831356231366638313739380101010101010101010101010101",
+        "0101010101010101010101010101010101010202020202020202020202020202",
+        "0202020202020202020202020202020202028000000061616161616161616161",
+        "6161616161616161616161616161616161616161616161616161616161616161",
+        "6161616161616161616161616161616161616161616162626262626262626262",
+        "6262626262626262626262626262626262626262626262626262626262626262",
+        "626262626262626262626262626262626262626262622c000000626372743171",
+        "77353038643671656a7874646734793572337a6172766172793063357877376b",
+        "796774303830d007000000000000fa00000000000000140000000000000000f1",
+        "5365000000004200000030323739626536363765663964636262616335356130",
+        "3632393563653837306230373032396266636462326463653238643935396632",
+        "383135623136663831373938",
+    );
+
+    #[test]
+    fn attested_fingerprints_borsh_encoding_is_frozen() {
+        let bytes = borsh::to_vec(&fixed_attested_fingerprints()).expect("borsh serialize");
+        assert_eq!(hex(&bytes), ATTESTED_FINGERPRINTS_BORSH, "{WIRE_CHANGED}");
+    }
+
+    #[test]
+    fn melt_quote_onchain_request_borsh_encoding_is_frozen() {
+        let request = MeltQuoteOnchainRequest {
+            inputs: fixed_attested_fingerprints(),
+            address: sample_address(),
+            amount: Amount::from_sat(2000),
+            network_fee: Amount::from_sat(250),
+            wallet_key: fixed_wallet_key(),
+        };
+        let bytes = borsh::to_vec(&request).expect("borsh serialize");
+        assert_eq!(
+            hex(&bytes),
+            MELT_QUOTE_ONCHAIN_REQUEST_BORSH,
+            "{WIRE_CHANGED}"
+        );
+    }
+
+    #[test]
+    fn melt_quote_onchain_response_body_borsh_encoding_is_frozen() {
+        let body = MeltQuoteOnchainResponseBody {
+            quote: uuid::Uuid::from_u128(42),
+            inputs: fixed_attested_fingerprints(),
+            address: sample_address(),
+            amount: Amount::from_sat(2000),
+            network_fee: Amount::from_sat(250),
+            melt_fee: Amount::from_sat(20),
+            expiry: 1_700_000_000,
+            wallet_key: fixed_wallet_key(),
+        };
+        let bytes = borsh::to_vec(&body).expect("borsh serialize");
+        assert_eq!(
+            hex(&bytes),
+            MELT_QUOTE_ONCHAIN_RESPONSE_BODY_BORSH,
+            "{WIRE_CHANGED}"
+        );
+    }
+
     fn sample_wallet_key() -> cashu::PublicKey {
         let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
         keypair
