@@ -1,4 +1,5 @@
 // ----- standard library imports
+use std::collections::HashSet;
 // ----- extra library imports
 use thiserror::Error;
 // ----- local imports
@@ -167,7 +168,7 @@ impl Client {
     pub async fn get_or_create_keyset_with_expiration(
         &self,
         expiration: chrono::NaiveDate,
-    ) -> Result<cashu::KeySetInfo> {
+    ) -> Result<ecash::KeySetInfo> {
         let unit = Self::currency_unit();
         let filters = wire_keys::KeysetInfoFilters {
             unit: Some(unit.clone()),
@@ -197,10 +198,7 @@ impl Client {
         if msgs.is_empty() {
             return Ok(vec![]);
         }
-        let unique_kids = msgs
-            .iter()
-            .map(|m| m.keyset_id)
-            .collect::<std::collections::HashSet<_>>();
+        let unique_kids = msgs.iter().map(|m| m.keyset_id).collect::<HashSet<_>>();
         if unique_kids.len() > 1 {
             return Err(Error::InvalidRequest(BRError::Generic(String::from(
                 "multiple kids in blinds",
@@ -246,7 +244,7 @@ impl Client {
         Ok(response)
     }
 
-    pub async fn keys(&self, kid: cashu::Id) -> Result<cashu::KeySet> {
+    pub async fn keys(&self, kid: cashu::Id) -> Result<ecash::KeySet> {
         let result = common::keys(&self.cl, &self.base, web_ep::KEYS_V1, kid).await?;
         Ok(result)
     }
@@ -254,7 +252,7 @@ impl Client {
     pub async fn list_keyset_info(
         &self,
         filters: wire_keys::KeysetInfoFilters,
-    ) -> Result<Vec<cashu::KeySetInfo>> {
+    ) -> Result<Vec<ecash::KeySetInfo>> {
         let result =
             common::list_keyset_info(&self.cl, &self.base, web_ep::LIST_KEYSET_INFO_V1, filters)
                 .await?;
@@ -339,7 +337,7 @@ pub(crate) mod common {
         base: &reqwest::Url,
         ep: &'static str,
         filters: wire_keys::KeysetInfoFilters,
-    ) -> Result<Vec<cashu::KeySetInfo>> {
+    ) -> Result<Vec<ecash::KeySetInfo>> {
         let url = base.join(ep).expect("keyset relative path");
         let mut queries: Vec<(&'static str, String)> = vec![];
         if let Some(unit) = filters.unit {
@@ -351,7 +349,7 @@ pub(crate) mod common {
         if let Some(date) = filters.max_expiration {
             queries.push(("max_expiration", date.to_string()));
         }
-        let response: cashu::KeysetResponse = cl.get(url, &queries).await?;
+        let response: wire_keys::KeysetInfoListResponse = cl.get(url, &queries).await?;
         Ok(response.keysets)
     }
 
@@ -361,17 +359,13 @@ pub(crate) mod common {
         base: &reqwest::Url,
         ep: &'static str,
         kid: cashu::Id,
-    ) -> Result<cashu::KeySet> {
+    ) -> Result<ecash::KeySet> {
         assert!(ep.contains("{kid}"));
         let url = base
             .join(&ep.replace("{kid}", &kid.to_string()))
             .expect("keys relative path");
-        let response: cashu::KeysResponse = cl.get(url, &[]).await?;
-        response
-            .keysets
-            .into_iter()
-            .next()
-            .ok_or(Error::ResourceNotFound(RNFError::KeysetId(kid)))
+        let response: ecash::KeySet = cl.get(url, &[]).await?;
+        Ok(response)
     }
 
     #[inline]

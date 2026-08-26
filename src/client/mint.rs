@@ -19,6 +19,7 @@ use crate::{
         BillId,
         signature::{self, BorshMsgSignatureError},
     },
+    ecash,
     wire::{
         attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
         keys as wire_keys, melt as wire_melt, mint as wire_mint, quotes as wire_quotes,
@@ -234,7 +235,7 @@ impl Client {
     // Core service – key / keyset endpoints
     // -------------------------------------------------------------------------
 
-    pub async fn keys(&self, kid: cashu::Id) -> Result<cashu::KeySet> {
+    pub async fn keys(&self, kid: cashu::Id) -> Result<ecash::KeySet> {
         let result =
             core::common::keys(&self.cl, &self.base, core::web_ep::KEYS_V1_EXT, kid).await?;
         Ok(result)
@@ -250,7 +251,7 @@ impl Client {
     pub async fn list_keyset_info(
         &self,
         filters: wire_keys::KeysetInfoFilters,
-    ) -> Result<Vec<cashu::KeySetInfo>> {
+    ) -> Result<Vec<ecash::KeySetInfo>> {
         let result = core::common::list_keyset_info(
             &self.cl,
             &self.base,

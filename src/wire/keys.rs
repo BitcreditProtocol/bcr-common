@@ -115,7 +115,7 @@ pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> cash
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-pub struct KeysetResponse {
+pub struct KeysetInfoListResponse {
     pub keysets: Vec<ecash::KeySetInfo>,
 }
 
@@ -134,7 +134,8 @@ mod tests {
             ],
         };
         let bytes = serde_json::to_vec(&response).expect("serialize");
-        let deserialized: KeysetResponse = serde_json::from_slice(&bytes).expect("deserialize");
+        let deserialized: KeysetInfoListResponse =
+            serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(deserialized.keysets.len(), response.keysets.len());
         assert_eq!(deserialized.keysets[0].id, response.keysets[0].id);
         assert_eq!(deserialized.keysets[1].id, response.keysets[1].id);
