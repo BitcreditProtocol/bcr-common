@@ -24,7 +24,7 @@ ciborium = {version="0.2"}
 frost-secp256k1-tr = { version = "3.0.0", features = ["serde"], optional = true }
 infer = {version="0.22"}
 nostr = {version = "0.43"}
-rand = {version = "0.8"}
+rand = {version = "0.10"}
 reqwest = {version = "0.13", default-features = false, features = ["json", "rustls", "query"]}
 serde = {version = "1.0"}
 serde_json = {version = "1.0"}
