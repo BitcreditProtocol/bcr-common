@@ -39,7 +39,7 @@ jobs:
           df -h
 
       - name: Check out repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: install rust
         run: rustup update stable
@@ -51,7 +51,7 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
 
       - name: Activate cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           prefix-key: "bcr-common"
 
@@ -78,7 +78,7 @@ jobs:
 
 
       - name: Upload analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4
         continue-on-error: true
         with:
           sarif_file: rust-clippy-results.sarif
