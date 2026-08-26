@@ -42,11 +42,12 @@ impl SignatoryNatsClient {
     pub async fn new(
         nats_url: reqwest::Url,
         timeout_override: Option<std::time::Duration>,
+        nkey_seed: Option<&str>,
     ) -> Result<Self> {
         let timeout = timeout_override.unwrap_or(std::time::Duration::from_secs(5));
         let client = async_nats::connect_with_options(
             nats_url.to_string(),
-            async_nats::ConnectOptions::new().request_timeout(Some(timeout)),
+            super::nats_options(timeout, nkey_seed),
         )
         .await?;
 

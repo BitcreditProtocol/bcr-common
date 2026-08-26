@@ -1,7 +1,7 @@
 // ----- standard library imports
 use std::time::Duration;
 // ----- extra library imports
-use async_nats::{Client, ConnectOptions, ServerAddr};
+use async_nats::{Client, ServerAddr};
 use bytes::Bytes;
 // ----- project imports
 use super::Url;
@@ -16,10 +16,10 @@ pub struct ClowderNatsClient {
 }
 
 impl ClowderNatsClient {
-    pub async fn new(nats_url: Url) -> Result<Self> {
+    pub async fn new(nats_url: Url, nkey_seed: Option<&str>) -> Result<Self> {
         let nats_addr = ServerAddr::from_url(nats_url)?;
 
-        let options = ConnectOptions::default().request_timeout(Some(Duration::from_secs(30)));
+        let options = super::nats_options(Duration::from_secs(30), nkey_seed);
         let client = async_nats::connect_with_options(nats_addr, options).await?;
 
         Ok(Self { client })
