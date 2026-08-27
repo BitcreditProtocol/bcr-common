@@ -9,7 +9,8 @@ use bitcoin::{
 use borsh::{BorshDeserialize, BorshSerialize};
 use cashu::{nut10 as cdk10, nut11 as cdk11, nut12 as cdk12, nut14 as cdk14};
 use thiserror::Error;
-// ----- local modules
+// ----- local imports
+use crate::ecash;
 
 // ----- end imports
 
@@ -112,7 +113,7 @@ pub fn sign_ecash(
 }
 
 pub fn unblind_ecash_signature(
-    keys: &cashu::KeySet,
+    keys: &ecash::KeySet,
     premint: cashu::PreMint,
     signature: cashu::BlindSignature,
 ) -> ECashSignatureResult<cashu::Proof> {
@@ -333,7 +334,7 @@ pub fn recompute_blinded_sig(
 /// `B' = Y + r*G`, then DLEQ over `(B', C_)`. Resolving `K` from
 /// `(keyset_id, amount)` is what binds the claimed amount.
 pub fn verify_fingerprint_dleq(
-    keyset: &cashu::KeySet,
+    keyset: &ecash::KeySet,
     fp: &ProofFingerprint,
     dleq: Option<&cashu::ProofDleq>,
 ) -> ECashSignatureResult<()> {

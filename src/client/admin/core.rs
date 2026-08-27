@@ -259,7 +259,7 @@ impl Client {
         Ok(result)
     }
 
-    pub async fn keyset_info(&self, kid: cashu::Id) -> Result<cashu::KeySetInfo> {
+    pub async fn keyset_info(&self, kid: cashu::Id) -> Result<ecash::KeySetInfo> {
         let result = common::keyset_info(&self.cl, &self.base, web_ep::KEYSET_INFO_V1, kid).await?;
         Ok(result)
     }
@@ -374,12 +374,12 @@ pub(crate) mod common {
         base: &reqwest::Url,
         ep: &'static str,
         kid: cashu::Id,
-    ) -> Result<cashu::KeySetInfo> {
+    ) -> Result<ecash::KeySetInfo> {
         assert!(ep.contains("{kid}"));
         let url = base
             .join(&ep.replace("{kid}", &kid.to_string()))
             .expect("keyset relative path");
-        let response: cashu::KeySetInfo = cl.get(url, &[]).await?;
+        let response: ecash::KeySetInfo = cl.get(url, &[]).await?;
         Ok(response)
     }
 

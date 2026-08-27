@@ -83,7 +83,7 @@ impl std::convert::From<ProofFingerprint> for core::signature::ProofFingerprint 
 }
 
 impl ProofFingerprint {
-    pub fn verify_dleq(&self, keyset: &cashu::KeySet) -> core::signature::ECashSignatureResult<()> {
+    pub fn verify_dleq(&self, keyset: &ecash::KeySet) -> core::signature::ECashSignatureResult<()> {
         core::signature::verify_fingerprint_dleq(keyset, &self.into(), self.dleq.as_ref())
     }
 }
