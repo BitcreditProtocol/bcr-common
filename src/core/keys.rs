@@ -1,9 +1,12 @@
 // ----- standard library imports
 // ----- extra library imports
+// local imports
+use crate::ecash;
+
 // ----- end imports
 
 /// Denominations and input fee of a keyset, for splitting amounts.
-pub fn to_fee_and_amounts(keyset: &cashu::KeySet) -> cashu::amount::FeeAndAmounts {
+pub fn to_fee_and_amounts(keyset: &ecash::KeySet) -> cashu::amount::FeeAndAmounts {
     let amounts = keyset
         .keys
         .iter()
@@ -13,8 +16,8 @@ pub fn to_fee_and_amounts(keyset: &cashu::KeySet) -> cashu::amount::FeeAndAmount
 }
 
 /// Build a public KeySet from a MintKeySet.
-pub fn to_keyset(keyset: &cashu::MintKeySet, active: Option<bool>) -> cashu::KeySet {
-    cashu::KeySet {
+pub fn to_keyset(keyset: &cashu::MintKeySet, active: Option<bool>) -> ecash::KeySet {
+    ecash::KeySet {
         id: keyset.id,
         unit: keyset.unit.clone(),
         active,

@@ -241,7 +241,7 @@ impl Client {
         Ok(result)
     }
 
-    pub async fn keyset_info(&self, kid: cashu::Id) -> Result<cashu::KeySetInfo> {
+    pub async fn keyset_info(&self, kid: cashu::Id) -> Result<ecash::KeySetInfo> {
         let result =
             core::common::keyset_info(&self.cl, &self.base, core::web_ep::KEYSET_INFO_V1_EXT, kid)
                 .await?;

@@ -11,6 +11,7 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::{
     core::BillId,
+    ecash,
     wire::{
         attestation::AttestedFingerprints, bill as wire_bill, exchange as wire_exchange,
         keys as wire_keys,
@@ -115,7 +116,7 @@ pub enum WalletEvent {
 ///--------------------------- Redemption activation Event
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RedemptionActivationEvent {
-    pub keyset_id: cashu::KeySetInfo,
+    pub keyset_id: ecash::KeySetInfo,
     pub ebills: Vec<wire_bill::BillShortDescription>,
 }
 
@@ -909,7 +910,7 @@ mod tests {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeysetRequest {
-    pub keyset: cashu::KeySet,
+    pub keyset: ecash::KeySet,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
