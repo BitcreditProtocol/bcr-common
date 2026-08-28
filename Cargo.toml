@@ -23,7 +23,7 @@ chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
 frost-secp256k1-tr = { version = "3.0.0", features = ["serde"], optional = true }
 infer = {version="0.22"}
-nostr = {version = "0.43"}
+nostr = {version = "0.45"}
 rand = {version = "0.8"}
 reqwest = {version = "0.13", default-features = false, features = ["json", "rustls", "query"]}
 serde = {version = "1.0"}
