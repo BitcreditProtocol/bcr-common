@@ -16,7 +16,7 @@ pub fn to_fee_and_amounts(keyset: &ecash::KeySet) -> cashu::amount::FeeAndAmount
 }
 
 /// Build a public KeySet from a MintKeySet.
-pub fn to_keyset(keyset: &cashu::MintKeySet, active: Option<bool>) -> ecash::KeySet {
+pub fn to_keyset(keyset: &ecash::MintKeySet, active: Option<bool>) -> ecash::KeySet {
     ecash::KeySet {
         id: keyset.id,
         unit: keyset.unit.clone(),
