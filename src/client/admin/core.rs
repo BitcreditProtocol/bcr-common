@@ -26,6 +26,8 @@ pub mod web_ep {
     pub const LIST_KEYSET_INFO_V1_EXT: &str = "/v1/core/keysets";
     pub const KEYS_V1: &str = "/v1/keys/{kid}";
     pub const KEYS_V1_EXT: &str = "/v1/core/keys/{kid}";
+    pub const KEYS_V2: &str = "/v2/keys/{kid}";
+    pub const KEYS_V2_EXT: &str = "/v2/core/keys/{kid}";
     pub const KEYSET_INFO_V1: &str = "/v1/keysets/{kid}";
     pub const KEYSET_INFO_V1_EXT: &str = "/v1/core/keysets/{kid}";
     pub const CHECK_STATE_V1: &str = "/v1/checkstate";
@@ -245,7 +247,7 @@ impl Client {
     }
 
     pub async fn keys(&self, kid: cashu::Id) -> Result<ecash::KeySet> {
-        let result = common::keys(&self.cl, &self.base, web_ep::KEYS_V1, kid).await?;
+        let result = common::keys(&self.cl, &self.base, web_ep::KEYS_V2, kid).await?;
         Ok(result)
     }
 
