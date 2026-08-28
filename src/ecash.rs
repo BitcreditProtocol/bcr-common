@@ -170,6 +170,32 @@ pub struct KeySet {
     pub final_expiry: Option<u64>,
 }
 
+impl From<cashu::KeySet> for KeySet {
+    fn from(keyset: cashu::KeySet) -> Self {
+        Self {
+            id: keyset.id,
+            unit: keyset.unit,
+            active: keyset.active,
+            keys: keyset.keys,
+            input_fee_ppk: keyset.input_fee_ppk,
+            final_expiry: keyset.final_expiry,
+        }
+    }
+}
+
+impl From<KeySet> for cashu::KeySet {
+    fn from(keyset: KeySet) -> Self {
+        Self {
+            id: keyset.id,
+            unit: keyset.unit,
+            active: keyset.active,
+            keys: keyset.keys,
+            input_fee_ppk: keyset.input_fee_ppk,
+            final_expiry: keyset.final_expiry,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct KeySetInfo {
     pub id: cashu::Id,
