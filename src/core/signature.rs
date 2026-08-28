@@ -94,7 +94,7 @@ pub enum ECashSignatureError {
 }
 
 pub fn sign_ecash(
-    keyset: &cashu::MintKeySet,
+    keyset: &ecash::MintKeySet,
     blind: &cashu::BlindedMessage,
 ) -> ECashSignatureResult<cashu::BlindSignature> {
     let key = keyset
@@ -440,7 +440,7 @@ mod tests {
     }
 
     fn signed_fingerprint(
-        keyset: &cashu::MintKeySet,
+        keyset: &ecash::MintKeySet,
         amount: cashu::Amount,
     ) -> (ProofFingerprint, cashu::ProofDleq) {
         let keypair = keyset.keys.get(&amount).expect("keys for amount");
