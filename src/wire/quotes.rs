@@ -165,7 +165,7 @@ pub struct EnquireReply {
 
 /// --------------------------- Look up quote
 /// StatusReply for quote status look up by users
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "status")]
 pub enum StatusReply {
     Pending,
@@ -211,6 +211,58 @@ pub enum StatusReply {
         discounted: bitcoin::Amount,
         wallet_pubkey: cashu::PublicKey,
     },
+}
+
+/// Opaque pointer telling the applicant-facing client that governed input is required.
+///
+/// The referenced questions and any access credentials deliberately live outside the public
+/// quote API. The digest lets that client reconcile the exact revision through its separately
+/// authenticated applicant channel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ApplicantActionProjection {
+    pub kind: ApplicantActionKind,
+    pub revision_digest: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ApplicantActionKind {
+    Clarification,
+}
+
+/// Public quote lookup response. `quote` remains the existing lifecycle state machine; the
+/// optional action is an independent projection and therefore cannot introduce a quote status.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QuoteStatusReply {
+    #[serde(flatten)]
+    pub quote: StatusReply,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub applicant_action: Option<ApplicantActionProjection>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CreditApplicantAction {
+    ClarificationRequired,
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreditApplicantActionReceipt {
+    pub schema_version: String,
+    pub operation_id: String,
+    pub mint_quote_id: uuid::Uuid,
+    pub credit_program_version: String,
+    pub credit_program_digest: String,
+    pub revision_digest: String,
+    pub expected_revision_digest: Option<String>,
+    pub applicant_action: CreditApplicantAction,
+    pub action: String,
+    pub status: String,
+    pub completed_at: String,
 }
 
 /// --------------------------- List quotes
@@ -341,21 +393,6 @@ pub struct AdminInfoReply {
     pub credit_program_digest: Option<String>,
     pub credit_authorization_receipt: Option<CreditAuthorizationReceipt>,
     pub credit_evidence: Option<MintCreditEvidence>,
-    pub credit_exposure_reservation: Option<CreditExposureReservation>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CreditExposureReservation {
-    pub reservation_version: String,
-    pub reservation_id: uuid::Uuid,
-    pub mint_id: String,
-    pub quote_id: uuid::Uuid,
-    pub amount_sat: String,
-    pub capacity_evidence_id: uuid::Uuid,
-    pub state: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -364,18 +401,6 @@ pub struct AcceptorRiskEvidence {
     pub schema_version: String,
     pub evidence_id: uuid::Uuid,
     pub signed_evidence: SignedAcceptorRiskEvidence,
-    pub operator_id: String,
-    pub written_basis_digest: String,
-    pub recorded_at: DateTime<Utc>,
-    pub verified_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MintCapacityEvidence {
-    pub schema_version: String,
-    pub evidence_id: uuid::Uuid,
-    pub signed_evidence: SignedMintCapacityEvidence,
     pub operator_id: String,
     pub written_basis_digest: String,
     pub recorded_at: DateTime<Utc>,
@@ -401,34 +426,8 @@ pub struct AcceptorRiskAuthorityEvidence {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MintCapacityAuthorityEvidence {
-    pub schema_version: String,
-    pub key_id: String,
-    pub mint_id: String,
-    pub existing_exposure_sat: String,
-    pub exposure_limit_sat: String,
-    pub evidence_state: String,
-    pub methodology_version: String,
-    pub assessed_by: String,
-    pub assessed_at: chrono::NaiveDate,
-    pub valid_through: chrono::NaiveDate,
-    pub evidence_refs: Vec<String>,
-    pub synthetic: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SignedAcceptorRiskEvidence {
     pub evidence: AcceptorRiskAuthorityEvidence,
-    pub evidence_digest: String,
-    pub signature_algorithm: String,
-    pub signature: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SignedMintCapacityEvidence {
-    pub evidence: MintCapacityAuthorityEvidence,
     pub evidence_digest: String,
     pub signature_algorithm: String,
     pub signature: String,
@@ -441,7 +440,6 @@ pub struct MintCreditEvidence {
     pub mint_id: String,
     pub acceptor_ref: String,
     pub acceptor_risk: Option<AcceptorRiskEvidence>,
-    pub mint_capacity: Option<MintCapacityEvidence>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -456,20 +454,6 @@ pub struct AcceptorRiskEvidenceRequest {
 pub struct AcceptorRiskEvidenceCommand {
     pub operator_id: String,
     pub request: AcceptorRiskEvidenceRequest,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MintCapacityEvidenceRequest {
-    pub signed_evidence: SignedMintCapacityEvidence,
-    pub written_basis: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MintCapacityEvidenceCommand {
-    pub operator_id: String,
-    pub request: MintCapacityEvidenceRequest,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -682,6 +666,65 @@ mod tests {
         assert_eq!(
             decoded.signed_permit.permit.reissued_mint_quote_id,
             uuid::Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap()
+        );
+    }
+
+    #[test]
+    fn public_quote_projection_contains_only_the_opaque_pointer() {
+        let reply = QuoteStatusReply {
+            quote: StatusReply::Pending,
+            applicant_action: Some(ApplicantActionProjection {
+                kind: ApplicantActionKind::Clarification,
+                revision_digest: format!("sha256:{}", "a".repeat(64)),
+            }),
+        };
+
+        let value = serde_json::to_value(reply).unwrap();
+        assert_eq!(value["status"], "Pending");
+        assert_eq!(value["applicantAction"]["kind"], "clarification");
+        assert_eq!(
+            value["applicantAction"]["revisionDigest"],
+            format!("sha256:{}", "a".repeat(64))
+        );
+        assert_eq!(value.as_object().unwrap().len(), 2);
+        assert_eq!(value["applicantAction"].as_object().unwrap().len(), 2);
+        for forbidden in ["questions", "caseId", "token", "applicantId"] {
+            assert!(!value.to_string().contains(forbidden));
+        }
+
+        let decoded: QuoteStatusReply = serde_json::from_value(value).unwrap();
+        assert!(matches!(decoded.quote, StatusReply::Pending));
+        let no_action = serde_json::to_value(QuoteStatusReply {
+            quote: StatusReply::Pending,
+            applicant_action: None,
+        })
+        .unwrap();
+        assert_eq!(no_action, serde_json::json!({ "status": "Pending" }));
+    }
+
+    #[test]
+    fn applicant_action_receipt_matches_the_strict_bridge_shape() {
+        let receipt = CreditApplicantActionReceipt {
+            schema_version: String::from("credit-applicant-action-receipt-v1"),
+            operation_id: format!("sha256:{}", "1".repeat(64)),
+            mint_quote_id: uuid::Uuid::from_u128(1),
+            credit_program_version: String::from("synthetic-v1"),
+            credit_program_digest: format!("sha256:{}", "2".repeat(64)),
+            revision_digest: format!("sha256:{}", "3".repeat(64)),
+            expected_revision_digest: None,
+            applicant_action: CreditApplicantAction::ClarificationRequired,
+            action: String::from("project_applicant_action"),
+            status: String::from("completed"),
+            completed_at: String::from("2026-08-29T10:00:00.000Z"),
+        };
+        let value = serde_json::to_value(&receipt).unwrap();
+        assert_eq!(value["schemaVersion"], "credit-applicant-action-receipt-v1");
+        assert_eq!(value["applicantAction"], "clarification_required");
+        assert!(value["expectedRevisionDigest"].is_null());
+        assert_eq!(value.as_object().unwrap().len(), 11);
+        assert_eq!(
+            serde_json::from_value::<CreditApplicantActionReceipt>(value).unwrap(),
+            receipt
         );
     }
 }

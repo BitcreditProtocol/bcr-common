@@ -436,13 +436,13 @@ impl Client {
         Ok(response.id)
     }
 
-    pub async fn lookup(&self, qid: Uuid) -> Result<wire_quotes::StatusReply> {
+    pub async fn lookup(&self, qid: Uuid) -> Result<wire_quotes::QuoteStatusReply> {
         assert!(quote::web_ep::LOOKUP_V1_EXT.contains("{qid}"));
         let url = self
             .base
             .join(&quote::web_ep::LOOKUP_V1_EXT.replace("{qid}", &qid.to_string()))
             .expect("lookup relative path");
-        let response: wire_quotes::StatusReply =
+        let response: wire_quotes::QuoteStatusReply =
             self.cl.get(url, &[]).await.map_err(quote::Error::from)?;
         Ok(response)
     }

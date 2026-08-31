@@ -13,7 +13,6 @@ pub mod admin_ep {
     pub const UPDATE: &str = "/admin/quote/{qid}";
     pub const AUTHORIZE: &str = "/admin/quote/{qid}/authorization";
     pub const ACCEPTOR_RISK_EVIDENCE: &str = "/admin/quote/{qid}/credit-evidence/acceptor-risk";
-    pub const MINT_CAPACITY_EVIDENCE: &str = "/admin/credit-evidence/mint-capacity";
     pub const ENABLE_MINTING: &str = "/admin/quote/enable_mint/{qid}";
     pub const SHARED_EBILL_HISTORY: &str = "/admin/ebill/{qid}/history";
 }
@@ -169,17 +168,6 @@ impl Client {
             .base
             .join(&admin_ep::ACCEPTOR_RISK_EVIDENCE.replace("{qid}", &qid.to_string()))
             .expect("acceptor risk evidence relative path");
-        Ok(self.cl.put(url, &body).await?)
-    }
-
-    pub async fn record_mint_capacity_evidence(
-        &self,
-        body: wire_quotes::MintCapacityEvidenceCommand,
-    ) -> Result<wire_quotes::MintCapacityEvidence> {
-        let url = self
-            .base
-            .join(admin_ep::MINT_CAPACITY_EVIDENCE)
-            .expect("Mint capacity evidence relative path");
         Ok(self.cl.put(url, &body).await?)
     }
 
