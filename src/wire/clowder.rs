@@ -1026,3 +1026,16 @@ pub struct OnChainOperation {
 pub struct OnchainOperationsResponse {
     pub operations: Vec<OnChainOperation>,
 }
+
+///--------------------------- per-keyset outstanding eCash balance
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct KeysetBalance {
+    pub keyset_id: cashu::Id,
+    pub expiry: u64,
+    pub balance: cashu::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct KeysetsBalanceResponse {
+    pub balances: Vec<KeysetBalance>,
+}
