@@ -57,6 +57,7 @@ pub mod admin_ep {
     pub const LOCAL_RESERVES: &str = "/admin/local/reserves";
     pub const LOCAL_RESERVE: &str = "/admin/local/reserves/{reserve_id}";
     pub const LOCAL_ONCHAIN_OPERATIONS: &str = "/admin/local/onchain_operations";
+    pub const LOCAL_KEYSETS_BALANCE: &str = "/admin/local/keysets_balance";
 }
 
 pub mod web_ep {
@@ -810,6 +811,15 @@ impl Client {
             .base
             .join(admin_ep::LOCAL_ONCHAIN_OPERATIONS)
             .expect("local onchain operations relative path");
+        let response = self.cl.get(url, &[]).await?;
+        Ok(response)
+    }
+
+    pub async fn get_keysets_balance(&self) -> Result<wire_clowder::KeysetsBalanceResponse> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_KEYSETS_BALANCE)
+            .expect("local keysets balance relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
     }
