@@ -1006,20 +1006,35 @@ pub enum AddReserveStatus {
 ///--------------------------- Onchain transaction history
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum OnChainOperationType {
-    Mint,
-    Melt,
-    EbillPayment,
-    AddReserve,
+    Mint {
+        #[schema(value_type = String)]
+        quote_id: uuid::Uuid,
+    },
+    Melt {
+        #[schema(value_type = String)]
+        quote_id: uuid::Uuid,
+    },
+    EbillPayment {
+        #[schema(value_type = String)]
+        bill_id: BillId,
+    },
+    AddReserve {
+        #[schema(value_type = String)]
+        reserve_id: uuid::Uuid,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct OnChainOperation {
     pub op_type: OnChainOperationType,
-    #[schema(value_type = String)]
-    pub txid: bitcoin::Txid,
+    #[schema(value_type = Vec<String>)]
+    /// The txids of the onchain transactions that are part of this operation. For example, a mint operation may have multiple txids if the mint was funded by multiple transactions.
+    pub txids: Vec<bitcoin::Txid>,
     #[schema(value_type = i64)]
     #[serde(with = "bitcoin::amount::serde::as_sat")]
+    /// The amount of the operation in satoshis. For example, for a mint operation, this would be the amount of satoshis that were minted.
     pub amount: bitcoin::SignedAmount,
+    /// The timestamp of the operation in Unix seconds. This is the time when the operation was completed onchain.
     pub timestamp: u64,
 }
 
