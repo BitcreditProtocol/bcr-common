@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn keyset_json_wire_compat() {
-        let mint_keyset = random_mint_keyset().into();
+        let mint_keyset = random_mint_keyset();
         let cashu_keyset = core::keys::to_keyset(&mint_keyset, Some(true));
         let keyset = KeySet {
             id: cashu_keyset.id,

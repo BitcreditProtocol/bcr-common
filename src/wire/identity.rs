@@ -2,7 +2,7 @@
 // ----- extra library imports
 use borsh::{BorshDeserialize, BorshSerialize};
 use chrono::NaiveDate;
-use nostr::ToBech32;
+use nostr::nips::nip19::ToBech32;
 use serde::{Deserialize, Serialize, Serializer};
 use utoipa::ToSchema;
 // ----- local imports
@@ -50,7 +50,7 @@ pub struct Identity {
     pub bitcoin_public_key: bitcoin::PublicKey,
     #[serde(serialize_with = "bech32_nostr_pk_serialize")]
     #[schema(value_type = String)]
-    pub npub: nostr::PublicKey,
+    pub npub: nostr::key::PublicKey,
     pub postal_address: OptionalPostalAddress,
     pub date_of_birth: Option<NaiveDate>,
     pub country_of_birth: Option<String>,
@@ -61,7 +61,10 @@ pub struct Identity {
     pub nostr_relays: Vec<url::Url>,
 }
 
-fn bech32_nostr_pk_serialize<S>(pk: &nostr::PublicKey, serializer: S) -> Result<S::Ok, S::Error>
+fn bech32_nostr_pk_serialize<S>(
+    pk: &nostr::key::PublicKey,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

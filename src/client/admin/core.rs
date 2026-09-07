@@ -193,7 +193,7 @@ impl Client {
             }
         }
         let kinfo = self.new_keyset(Some(expiration), 0).await?;
-        Ok(kinfo.into())
+        Ok(kinfo)
     }
 
     pub async fn sign(&self, msgs: &[cashu::BlindedMessage]) -> Result<Vec<cashu::BlindSignature>> {
@@ -353,6 +353,24 @@ pub(crate) mod common {
         }
         let response: wire_keys::KeysetInfoListResponse = cl.get(url, &queries).await?;
         Ok(response.keysets)
+    }
+
+    #[inline]
+    pub async fn keys_v1(
+        cl: &jsonrpc::Client,
+        base: &reqwest::Url,
+        ep: &'static str,
+        kid: cashu::Id,
+    ) -> Result<cashu::KeySet> {
+        assert!(ep.contains("{kid}"));
+        let url = base
+            .join(&ep.replace("{kid}", &kid.to_string()))
+            .expect("keys relative path");
+        let response: cashu::KeysResponse = cl.get(url, &[]).await?;
+        match response.keysets.first() {
+            Some(ks) => Ok(ks.to_owned()),
+            None => Err(Error::ResourceNotFound(RNFError::KeysetId(kid))),
+        }
     }
 
     #[inline]

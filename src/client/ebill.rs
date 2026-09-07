@@ -34,7 +34,7 @@ pub struct Client {
 impl Client {
     pub fn new(base: reqwest::Url) -> Self {
         Self {
-            cl: reqwest::Client::new(),
+            cl: crate::client::reqwest_client(),
             base,
         }
     }

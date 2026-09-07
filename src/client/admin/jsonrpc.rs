@@ -52,13 +52,13 @@ pub mod retry {
 
 impl Client {
     pub fn new() -> Self {
-        let cl = reqwest::Client::new();
+        let cl = crate::client::reqwest_client();
         Client { cl }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn with_retry(builder: reqwest::retry::Builder) -> Self {
-        let cl = reqwest::Client::builder()
+        let cl = crate::client::reqwest_client_builder()
             .retry(builder)
             .build()
             .expect("failed to build client with retry");
