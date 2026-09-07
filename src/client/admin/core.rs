@@ -1,6 +1,7 @@
 // ----- standard library imports
 use std::collections::HashSet;
 // ----- extra library imports
+use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 // ----- local imports
 use crate::{
@@ -191,7 +192,7 @@ impl Client {
         Ok(kinfo)
     }
 
-    pub async fn sign(&self, msgs: &[cashu::BlindedMessage]) -> Result<Vec<cashu::BlindSignature>> {
+    pub async fn sign(&self, msgs: &[ecash::BlindedMessage]) -> Result<Vec<ecash::BlindSignature>> {
         if msgs.is_empty() {
             return Ok(vec![]);
         }
@@ -206,7 +207,7 @@ impl Client {
         Ok(sigs)
     }
 
-    pub async fn verify_proof(&self, proof: &cashu::Proof) -> Result<()> {
+    pub async fn verify_proof(&self, proof: &ecash::Proof) -> Result<()> {
         let url = self
             .base
             .join(admin_ep::VERIFY_PROOF)
@@ -224,14 +225,14 @@ impl Client {
         Ok(())
     }
 
-    pub async fn burn(&self, proofs: Vec<cashu::Proof>) -> Result<Vec<cashu::PublicKey>> {
+    pub async fn burn(&self, proofs: Vec<ecash::Proof>) -> Result<Vec<secp::PublicKey>> {
         let url = self.base.join(admin_ep::BURN).expect("burn relative path");
         let request = wire_swap::BurnRequest { proofs };
         let burn_resp: wire_swap::BurnResponse = self.cl.post(url, &request).await?;
         Ok(burn_resp.ys)
     }
 
-    pub async fn recover(&self, proofs: Vec<cashu::Proof>) -> Result<wire_swap::RecoverResponse> {
+    pub async fn recover(&self, proofs: Vec<ecash::Proof>) -> Result<wire_swap::RecoverResponse> {
         let url = self
             .base
             .join(admin_ep::RECOVER)
@@ -269,12 +270,12 @@ impl Client {
     pub async fn commit_swap(
         &self,
         inputs: Vec<wire_keys::ProofFingerprint>,
-        outputs: Vec<cashu::BlindedMessage>,
+        outputs: Vec<ecash::BlindedMessage>,
         expiry: u64,
-        wallet_pk: bitcoin::secp256k1::PublicKey,
-        mint_pk: bitcoin::secp256k1::PublicKey,
+        wallet_pk: secp::PublicKey,
+        mint_pk: secp::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
-    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
+    ) -> Result<(String, secp::schnorr::Signature)> {
         let result = common::commit_swap(
             &self.cl,
             &self.base,
@@ -310,7 +311,7 @@ impl Client {
 
     pub async fn reserve(
         &self,
-        ys: Vec<cashu::PublicKey>,
+        ys: Vec<secp::PublicKey>,
         deadline: time::OffsetDateTime,
     ) -> Result<()> {
         let url = self
@@ -433,9 +434,9 @@ pub(crate) mod common {
     #[inline]
     pub fn prepare_swap_commitment_request(
         inputs: Vec<wire_keys::ProofFingerprint>,
-        outputs: Vec<cashu::BlindedMessage>,
+        outputs: Vec<ecash::BlindedMessage>,
         expiry: u64,
-        wallet_pk: bitcoin::secp256k1::PublicKey,
+        wallet_pk: secp::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> wire_swap::SwapCommitmentRequest {
         wire_swap::SwapCommitmentRequest {
@@ -482,12 +483,12 @@ pub(crate) mod common {
         base: &reqwest::Url,
         ep: &'static str,
         inputs: Vec<wire_keys::ProofFingerprint>,
-        outputs: Vec<cashu::BlindedMessage>,
+        outputs: Vec<ecash::BlindedMessage>,
         expiry: u64,
-        wallet_pk: bitcoin::secp256k1::PublicKey,
-        mint_pk: bitcoin::secp256k1::PublicKey,
+        wallet_pk: secp::PublicKey,
+        mint_pk: secp::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
-    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
+    ) -> Result<(String, secp::schnorr::Signature)> {
         let url = base.join(ep).expect("swap commit relative path");
         let request =
             prepare_swap_commitment_request(inputs, outputs, expiry, wallet_pk, attestation);

@@ -49,6 +49,17 @@ pub struct BlindedMessage {
     pub witness: Option<cashu::Witness>,
 }
 
+impl From<cashu::BlindedMessage> for BlindedMessage {
+    fn from(message: cashu::BlindedMessage) -> Self {
+        Self {
+            amount: message.amount,
+            keyset_id: message.keyset_id,
+            blinded_secret: message.blinded_secret,
+            witness: message.witness,
+        }
+    }
+}
+
 #[derive(
     Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize,
 )]
@@ -76,6 +87,17 @@ pub struct BlindSignature {
         deserialize_with = "wire::borsh::deserialize_option_blindsigdleq"
     )]
     pub dleq: Option<cashu::BlindSignatureDleq>,
+}
+
+impl From<BlindSignature> for cashu::BlindSignature {
+    fn from(signature: BlindSignature) -> Self {
+        Self {
+            amount: signature.amount,
+            keyset_id: signature.keyset_id,
+            c: signature.c,
+            dleq: signature.dleq,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -448,7 +470,6 @@ mod tests {
             &[cashu::Amount::from(1u64), cashu::Amount::from(8u64)],
         );
         let proofs: Proofs = cashu_proofs.iter().cloned().map(Into::into).collect();
-
         for (proof, expected) in proofs.iter().zip(cashu_proofs.iter()) {
             assert_eq!(proof.y().unwrap(), expected.y().unwrap());
         }
@@ -469,7 +490,6 @@ mod tests {
                 .remove(0)
                 .into();
         assert_eq!(Proof::from(cashu::Proof::from(proof.clone())), proof);
-
         let info = KeySetInfo {
             id: keyset.id,
             unit: keyset.unit,

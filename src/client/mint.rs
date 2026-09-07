@@ -1,6 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::secp256k1;
+use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
@@ -277,12 +277,12 @@ impl Client {
     pub async fn commit_swap(
         &self,
         inputs: Vec<wire_keys::ProofFingerprint>,
-        outputs: Vec<cashu::BlindedMessage>,
+        outputs: Vec<ecash::BlindedMessage>,
         expiry: u64,
-        wallet_pk: bitcoin::secp256k1::PublicKey,
-        mint_pk: bitcoin::secp256k1::PublicKey,
+        wallet_pk: secp::PublicKey,
+        mint_pk: secp::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
-    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
+    ) -> Result<(String, secp::schnorr::Signature)> {
         let result = core::common::commit_swap(
             &self.cl,
             &self.base,
@@ -301,9 +301,9 @@ impl Client {
     #[cfg(feature = "mint")]
     pub fn prepare_swap_commitment_request(
         inputs: Vec<wire_keys::ProofFingerprint>,
-        outputs: Vec<cashu::BlindedMessage>,
+        outputs: Vec<ecash::BlindedMessage>,
         expiry: u64,
-        wallet_pk: bitcoin::secp256k1::PublicKey,
+        wallet_pk: secp::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> wire_swap::SwapCommitmentRequest {
         core::common::prepare_swap_commitment_request(
@@ -319,9 +319,9 @@ impl Client {
     pub async fn commit_swap_with_signature(
         &self,
         payload: String,
-        signature: bitcoin::secp256k1::schnorr::Signature,
-        mint_pk: bitcoin::secp256k1::PublicKey,
-    ) -> Result<(String, bitcoin::secp256k1::schnorr::Signature)> {
+        signature: secp::schnorr::Signature,
+        mint_pk: secp::PublicKey,
+    ) -> Result<(String, secp::schnorr::Signature)> {
         let original = signature::deserialize_borsh_msg(&payload)?;
         let request = wire_swap::SignedSwapCommitmentRequest { payload, signature };
         let url = self
@@ -341,7 +341,7 @@ impl Client {
         &self,
         inputs: Vec<cashu::Proof>,
         outputs: Vec<cashu::BlindedMessage>,
-        commitment: bitcoin::secp256k1::schnorr::Signature,
+        commitment: secp::schnorr::Signature,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let result = core::common::swap(
             &self.cl,
@@ -390,7 +390,7 @@ impl Client {
         &self,
         bill: wire_quotes::SharedBill,
         minting_pubkey: cashu::PublicKey,
-        signing_key: &bitcoin::secp256k1::Keypair,
+        signing_key: &secp::Keypair,
     ) -> Result<Uuid> {
         let request = wire_quotes::EnquireRequest {
             content: bill,
@@ -467,7 +467,7 @@ impl Client {
     pub async fn exchange_online(
         &self,
         proofs: Vec<cashu::Proof>,
-        exchange_path: Vec<secp256k1::PublicKey>,
+        exchange_path: Vec<secp::PublicKey>,
     ) -> Result<Vec<cashu::Proof>> {
         let response = treasury::common::exchange_online_raw(
             &self.cl,
@@ -485,9 +485,9 @@ impl Client {
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
         wallet_pk: cashu::PublicKey,
-        wallet_signature: secp256k1::schnorr::Signature,
-        mint_pk: secp256k1::PublicKey,
-    ) -> Result<(Vec<cashu::Proof>, secp256k1::schnorr::Signature)> {
+        wallet_signature: secp::schnorr::Signature,
+        mint_pk: secp::PublicKey,
+    ) -> Result<(Vec<cashu::Proof>, secp::schnorr::Signature)> {
         let response = treasury::common::exchange_offline_raw(
             &self.cl,
             &self.base,
@@ -557,9 +557,9 @@ impl Client {
         amount: bitcoin::Amount,
         network_fee: bitcoin::Amount,
         wallet_key: cashu::PublicKey,
-        mint_pk: secp256k1::PublicKey,
+        mint_pk: secp::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
-    ) -> Result<(String, secp256k1::schnorr::Signature)> {
+    ) -> Result<(String, secp::schnorr::Signature)> {
         let url = self
             .base
             .join(treasury::web_ep::MELTQUOTE_ONCHAIN_V1_EXT)
@@ -590,7 +590,7 @@ impl Client {
         &self,
         blinds: Vec<cashu::BlindedMessage>,
         wallet_key: cashu::PublicKey,
-        mint_pk: secp256k1::PublicKey,
+        mint_pk: secp::PublicKey,
     ) -> Result<wire_mint::OnchainMintQuoteResponse> {
         let url = self
             .base
@@ -664,7 +664,7 @@ impl Client {
     pub async fn onchain_mint(
         &self,
         qid: Uuid,
-        mint_id: secp256k1::PublicKey,
+        mint_id: secp::PublicKey,
     ) -> Result<Vec<cashu::BlindSignature>> {
         let url = self
             .base
@@ -688,7 +688,7 @@ impl Client {
 
     pub async fn get_offline(
         &self,
-        alpha_id: &secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
     ) -> Result<wire_clowder::OfflineResponse> {
         let response = clowder::common::get_offline(
             &self.cl,
@@ -702,7 +702,7 @@ impl Client {
 
     pub async fn get_status(
         &self,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
     ) -> Result<wire_clowder::AlphaStateResponse> {
         let response = clowder::common::get_status(
             &self.cl,
@@ -716,7 +716,7 @@ impl Client {
 
     pub async fn get_substitute(
         &self,
-        alpha_id: &secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
     ) -> Result<wire_clowder::ConnectedMintResponse> {
         let response = clowder::common::get_substitute(
             &self.cl,
@@ -730,7 +730,7 @@ impl Client {
 
     pub async fn get_active_keysets(
         &self,
-        alpha_id: &secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
     ) -> Result<cashu::KeysResponse> {
         let response = clowder::common::get_active_keysets(
             &self.cl,
@@ -798,7 +798,7 @@ impl Client {
 
     pub async fn derive_ebill_payment_address(
         &self,
-        alpha_id: secp256k1::PublicKey,
+        alpha_id: secp::PublicKey,
         bill_id: BillId,
         block_id: u64,
         previous_block_hash: bitcoin::hashes::sha256::Hash,

@@ -1,16 +1,17 @@
 // ----- standard library imports
 // ----- extra library imports
+use bitcoin::secp256k1 as secp;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
-use crate::wire::{
-    attestation::AttestedFingerprints,
-    borsh::{
-        deserialize_from_str, deserialize_vecof_blindedmessage, serialize_as_str,
-        serialize_vecof_blindedmessage,
+use crate::{
+    ecash,
+    wire::{
+        attestation::AttestedFingerprints,
+        borsh::{deserialize_from_str, serialize_as_str},
+        common::ProtestStatus,
     },
-    common::ProtestStatus,
 };
 
 // ----- end imports
@@ -18,29 +19,30 @@ use crate::wire::{
 ///--------------------------- Reserve tokens
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ReserveRequest {
-    pub ys: Vec<cashu::PublicKey>,
+    #[schema(value_type = Vec<String>)]
+    pub ys: Vec<secp::PublicKey>,
     #[serde(with = "time::serde::rfc3339")]
     pub deadline: time::OffsetDateTime,
 }
 
 ///--------------------------- Burn tokens
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BurnRequest {
-    pub proofs: Vec<cashu::Proof>,
+    pub proofs: Vec<ecash::Proof>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BurnResponse {
-    pub ys: Vec<cashu::PublicKey>,
+    pub ys: Vec<secp::PublicKey>,
 }
 
 ///--------------------------- Recover tokens
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RecoverRequest {
-    pub proofs: Vec<cashu::Proof>,
+    pub proofs: Vec<ecash::Proof>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RecoverResponse {}
 
 ///--------------------------- Swap Commitment
@@ -49,18 +51,14 @@ pub struct RecoverResponse {}
 )]
 pub struct SwapCommitmentRequest {
     pub inputs: AttestedFingerprints,
-    #[borsh(
-        serialize_with = "serialize_vecof_blindedmessage",
-        deserialize_with = "deserialize_vecof_blindedmessage"
-    )]
-    pub outputs: Vec<cashu::BlindedMessage>,
+    pub outputs: Vec<ecash::BlindedMessage>,
     pub expiry: u64,
     #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub wallet_key: bitcoin::secp256k1::PublicKey,
+    pub wallet_key: secp::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
