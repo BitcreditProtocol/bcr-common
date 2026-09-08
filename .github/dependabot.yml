@@ -18,7 +18,7 @@ updates:
     cooldown:
       default-days: 3
     assignees:
-      - "zupzup"
+      - "codingpeanut157"
 
   - package-ecosystem: "cargo"
     directory: "/"
@@ -41,4 +41,4 @@ updates:
       semver-minor-days: 7
       semver-patch-days: 3
     assignees:
-      - "zupzup"
+      - "codingpeanut157"
