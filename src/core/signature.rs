@@ -465,7 +465,6 @@ mod tests {
         use crate::core::test_utils::generate_random_ecash_keyset;
 
         let (_, mint_keyset) = generate_random_ecash_keyset();
-        let mint_keyset = mint_keyset.into();
         let keyset = crate::core::keys::to_keyset(&mint_keyset, None);
         let (fp, dleq) = signed_fingerprint(&mint_keyset, cashu::Amount::from(8u64));
         verify_fingerprint_dleq(&keyset, &fp, Some(&dleq)).expect("valid fingerprint dleq");

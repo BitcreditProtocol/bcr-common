@@ -235,6 +235,13 @@ impl Client {
     // Core service – key / keyset endpoints
     // -------------------------------------------------------------------------
 
+    #[deprecated(note = "use `keys` instead")]
+    pub async fn keys_v1(&self, kid: cashu::Id) -> Result<ecash::KeySet> {
+        let result =
+            core::common::keys_v1(&self.cl, &self.base, core::web_ep::KEYS_V1_EXT, kid).await?;
+        Ok(result.into())
+    }
+
     pub async fn keys(&self, kid: cashu::Id) -> Result<ecash::KeySet> {
         let result =
             core::common::keys(&self.cl, &self.base, core::web_ep::KEYS_V2_EXT, kid).await?;

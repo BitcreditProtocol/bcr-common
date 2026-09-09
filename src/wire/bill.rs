@@ -1,7 +1,7 @@
 // ----- standard library imports
 // ----- extra library imports
+use bitcoin::secp256k1;
 use borsh::{BorshDeserialize, BorshSerialize};
-use nostr::secp256k1;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports

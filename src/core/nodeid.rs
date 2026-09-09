@@ -35,11 +35,12 @@ impl NodeId {
         self.pub_key
     }
 
-    pub fn npub(&self) -> nostr::PublicKey {
-        nostr::PublicKey::from(self.pub_key.x_only_public_key().0)
+    pub fn npub(&self) -> nostr::key::PublicKey {
+        let (xonly, _) = self.pub_key.x_only_public_key();
+        nostr::key::PublicKey::from_byte_array(xonly.serialize())
     }
 
-    pub fn equals_npub(&self, npub: &nostr::PublicKey) -> bool {
+    pub fn equals_npub(&self, npub: &nostr::key::PublicKey) -> bool {
         self.npub() == *npub
     }
 }
