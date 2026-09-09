@@ -26,9 +26,11 @@ pub struct WildcatInfo {
     #[schema(value_type = String)]
     pub network: bitcoin::Network,
     /// Build timestamp
-    pub build_time: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub build_time: time::OffsetDateTime,
     /// Service uptime, last started
-    pub uptime_timestamp: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub uptime_timestamp: time::OffsetDateTime,
     /// Version information
     pub versions: VersionInfo,
     /// Clowder node id

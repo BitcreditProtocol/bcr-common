@@ -38,7 +38,8 @@ pub struct RequestToPayFromEBillRequest {
     pub ebill_id: BillId,
     #[schema(value_type = u64)]
     pub amount: bitcoin::Amount,
-    pub deadline: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub deadline: time::OffsetDateTime,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -65,7 +66,8 @@ pub struct DeniedMeltOp {
     pub id: uuid::Uuid,
     #[schema(value_type = u64)]
     pub amount: bitcoin::Amount,
-    pub created: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created: time::OffsetDateTime,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]

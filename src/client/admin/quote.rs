@@ -129,7 +129,7 @@ impl Client {
         &self,
         qid: Uuid,
         discounted: bitcoin::Amount,
-        ttl: Option<chrono::DateTime<chrono::Utc>>,
+        ttl: Option<time::OffsetDateTime>,
     ) -> Result<wire_quotes::UpdateQuoteResponse> {
         assert!(admin_ep::UPDATE.contains("{qid}"));
         let url = self

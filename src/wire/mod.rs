@@ -21,3 +21,5 @@ pub mod test_utils;
 pub mod treasury;
 
 // ----- end imports
+
+time::serde::format_description!(pub bill_date, Date, "[year]-[month]-[day]");
