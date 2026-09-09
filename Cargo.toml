@@ -20,7 +20,7 @@ secp256k1 = { version = "0.29", features = ["global-context"] } # needed for glo
 borsh = {version = "1.5", features = ["derive"]}
 bytes = {version = "1", optional = true}
 cashu = {version = "=0.16.0", features = ["swagger"]}
-cdk-common = {version = "=0.16.0"}
+cdk-common = {version = "=0.18.0"}
 chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
 frost-secp256k1-tr = { version = "3.0.0", features = ["serde"], optional = true }
