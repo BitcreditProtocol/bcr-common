@@ -19,7 +19,7 @@ bitcoin = {version = "0.32", features = ["serde"]}
 secp256k1 = { version = "0.29", features = ["global-context"] } # needed for global-context of bitcoin::secp256k1 - in bitcoin 0.33 there will be a feature flag for this
 borsh = {version = "1.5", features = ["derive"]}
 bytes = {version = "1", optional = true}
-cashu = {version = "=0.16.0", features = ["swagger"]}
+cashu = {version = "=0.18.0", features = ["swagger"]}
 cdk-common = {version = "=0.16.0"}
 chrono = {version = "0.4", features = ["serde"]}
 ciborium = {version="0.2"}
