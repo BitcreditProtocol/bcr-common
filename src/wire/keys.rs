@@ -140,9 +140,18 @@ mod tests {
         let deserialized: KeysetInfoListResponse =
             serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(deserialized.keysets.len(), response.keysets.len());
-        assert_eq!(deserialized.keysets[0].id, response.keysets[0].id);
-        assert_eq!(deserialized.keysets[1].id, response.keysets[1].id);
-        assert_eq!(deserialized.keysets[2].id, response.keysets[2].id);
+        assert_eq!(
+            cashu::Id::from(deserialized.keysets[0].id),
+            response.keysets[0].id
+        );
+        assert_eq!(
+            cashu::Id::from(deserialized.keysets[1].id),
+            response.keysets[1].id
+        );
+        assert_eq!(
+            cashu::Id::from(deserialized.keysets[2].id),
+            response.keysets[2].id
+        );
         let deserialized_bytes = serde_json::to_vec(&deserialized).expect("serialize");
         let deserialized2: cashu::KeysetResponse =
             serde_json::from_slice(&deserialized_bytes).expect("deserialize");

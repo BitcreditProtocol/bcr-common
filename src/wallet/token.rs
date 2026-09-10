@@ -5,11 +5,11 @@ use std::str::FromStr;
 // ----- extra library imports
 use bitcoin::base64::engine::{GeneralPurpose, general_purpose};
 use bitcoin::base64::{Engine as _, alphabet};
-use cashu::{Amount, CurrencyUnit, Id, MintUrl, nut02::ShortKeysetId};
+use cashu::{CurrencyUnit, MintUrl, nut02::ShortKeysetId};
 use serde::{Deserialize, Serialize};
 // ----- local modules
 use crate::core::{ID_PREFIX, NodeId, network_char, network_from_char};
-use crate::ecash::{KeySetInfo, Proofs};
+use crate::ecash::{self, KeySetInfo, Proofs};
 use crate::wallet::proof::TokenV4Token;
 use crate::wallet::{Error, Result};
 
@@ -116,7 +116,7 @@ impl Token {
     }
 
     /// Total value of [`Token`]
-    pub fn value(&self) -> Result<Amount> {
+    pub fn value(&self) -> Result<cashu::Amount> {
         match self {
             Self::BitcrV4(token) => token.value(),
             Self::BitcrV5(token) => token.value(),
@@ -271,7 +271,7 @@ impl BitcrTokenV4 {
 
     /// Value - errors if duplicate proofs are found
     #[inline]
-    pub fn value(&self) -> Result<Amount> {
+    pub fn value(&self) -> Result<cashu::Amount> {
         value_of(&self.token)
     }
 
@@ -357,7 +357,7 @@ impl BitcrTokenV5 {
 
     /// Value - errors if duplicate proofs are found
     #[inline]
-    pub fn value(&self) -> Result<Amount> {
+    pub fn value(&self) -> Result<cashu::Amount> {
         value_of(&self.token)
     }
 
@@ -476,10 +476,10 @@ fn decode_base64(s: &str) -> Result<Vec<u8>> {
 
 /// Expands a short keyset id: it only identifies a keyset when exactly one of the
 /// mint's advertised keysets matches it
-fn resolve_keyset_id(short_id: &ShortKeysetId, mint_keysets: &[KeySetInfo]) -> Result<Id> {
+fn resolve_keyset_id(short_id: &ShortKeysetId, mint_keysets: &[KeySetInfo]) -> Result<ecash::Id> {
     let mut matching = mint_keysets
         .iter()
-        .filter(|keyset| ShortKeysetId::from(keyset.id) == *short_id);
+        .filter(|keyset| ShortKeysetId::from(cashu::Id::from(keyset.id)) == *short_id);
     let keyset = matching
         .next()
         .ok_or_else(|| Error::UnknownKeysetId(short_id.clone()))?;
@@ -494,16 +494,16 @@ fn proofs_of(tokens: &[TokenV4Token], mint_keysets: &[KeySetInfo]) -> Result<Pro
     let mut proofs = Proofs::with_capacity(tokens.iter().map(|t| t.proofs.len()).sum());
     for token in tokens {
         let keyset_id = resolve_keyset_id(&token.keyset_id, mint_keysets)?;
-        proofs.extend(token.proofs.iter().map(|p| p.into_proof(&keyset_id)));
+        proofs.extend(token.proofs.iter().map(|p| p.into_proof(keyset_id.into())));
     }
     Ok(proofs)
 }
 
 /// Total value - errors if a secret is carried more than once, whatever amounts
 /// the duplicates claim
-fn value_of(tokens: &[TokenV4Token]) -> Result<Amount> {
+fn value_of(tokens: &[TokenV4Token]) -> Result<cashu::Amount> {
     let mut secrets = HashSet::new();
-    let mut total = Amount::ZERO;
+    let mut total = cashu::Amount::ZERO;
     for proof in tokens.iter().flat_map(|token| &token.proofs) {
         ensure_cdk!(
             secrets.insert(proof.secret.as_bytes()),
@@ -521,14 +521,14 @@ fn value_of(tokens: &[TokenV4Token]) -> Result<Amount> {
 fn group_proofs(proofs: Proofs) -> Vec<TokenV4Token> {
     proofs
         .into_iter()
-        .fold(BTreeMap::<Id, Proofs>::new(), |mut acc, proof| {
+        .fold(BTreeMap::<ecash::Id, Proofs>::new(), |mut acc, proof| {
             acc.entry(proof.keyset_id).or_default().push(proof);
             acc
         })
         .into_iter()
         .map(|(id, mut proofs)| {
             proofs.sort_unstable_by(|a, b| a.secret.cmp(&b.secret));
-            TokenV4Token::new(id, proofs)
+            TokenV4Token::new(id.into(), proofs)
         })
         .collect()
 }
@@ -540,6 +540,7 @@ mod tests {
         NETWORK_MAINNET, NETWORK_REGTEST, NETWORK_SIGNET, NETWORK_TESTNET, NETWORK_TESTNET4,
     };
     use crate::ecash::Proof;
+    use bitcoin::{hex::prelude::*, secp256k1};
 
     const MINT_ID: &str = "02b463e1f803480e0964a1f65b508b77e2e5d1d3054e94ba1d353b9db76e453da5";
     /// Legacy token in the canonical cbor field order, with no memo and no `d`
@@ -572,7 +573,7 @@ mod tests {
         token
     }
 
-    fn keyset_info(id: Id) -> KeySetInfo {
+    fn keyset_info(id: ecash::Id) -> KeySetInfo {
         KeySetInfo {
             id,
             unit: cashu::CurrencyUnit::Sat,
@@ -582,12 +583,13 @@ mod tests {
         }
     }
 
-    fn proof(keyset_id: Id, amount: u64, secret: &str) -> Proof {
+    fn proof(keyset_id: ecash::Id, amount: u64, secret: &str) -> Proof {
+        let pk_raw = <[u8; 33]>::from_hex(MINT_ID).unwrap();
         Proof {
-            amount: Amount::from(amount),
+            amount: bitcoin::Amount::from_sat(amount),
             keyset_id,
             secret: cashu::secret::Secret::new(secret),
-            c: cashu::PublicKey::from_hex(MINT_ID).unwrap(),
+            c: secp256k1::PublicKey::from_slice(&pk_raw).unwrap(),
             witness: None,
             dleq: None,
             p2pk_e: None,
@@ -868,8 +870,8 @@ mod tests {
     /// matches it: zero is as unusable as two
     #[test]
     fn test_keyset_id_must_match_exactly_one_mint_keyset() {
-        let first = Id::from_str(&format!("01aabbccddeeff00{}", "11".repeat(25))).unwrap();
-        let second = Id::from_str(&format!("01aabbccddeeff00{}", "22".repeat(25))).unwrap();
+        let first = cashu::Id::from_str(&format!("01aabbccddeeff00{}", "11".repeat(25))).unwrap();
+        let second = cashu::Id::from_str(&format!("01aabbccddeeff00{}", "22".repeat(25))).unwrap();
         assert_eq!(ShortKeysetId::from(first), ShortKeysetId::from(second));
 
         let token = BitcrTokenV5 {
@@ -879,10 +881,9 @@ mod tests {
             }],
             ..v5(MAINNET_V5)
         };
-
-        assert!(token.proofs(&[keyset_info(first)]).is_ok());
+        assert!(token.proofs(&[keyset_info(first.into())]).is_ok());
         assert!(matches!(
-            token.proofs(&[keyset_info(first), keyset_info(second)]),
+            token.proofs(&[keyset_info(first.into()), keyset_info(second.into())]),
             Err(Error::AmbiguousKeysetId(_))
         ));
         assert!(matches!(token.proofs(&[]), Err(Error::UnknownKeysetId(_))));
@@ -893,8 +894,8 @@ mod tests {
     #[test]
     fn test_v4_keyset_id_must_also_be_advertised() {
         let token = v4(V4_NO_DLEQ);
-        let known = Id::from_str("00ad268c4d1f5826").unwrap();
-        let other = Id::from_str("00ffd48b8f5ecf80").unwrap();
+        let known = ecash::Id::from_str("00ad268c4d1f5826").unwrap();
+        let other = ecash::Id::from_str("00ffd48b8f5ecf80").unwrap();
 
         assert_eq!(token.proofs(&[keyset_info(known)]).unwrap().len(), 1);
         assert!(matches!(
@@ -908,8 +909,8 @@ mod tests {
     /// order, same `y`
     #[test]
     fn test_groups_read_the_same_proofs_offline() {
-        let first = Id::from_str("00ad268c4d1f5826").unwrap();
-        let second = Id::from_str("00ffd48b8f5ecf80").unwrap();
+        let first = ecash::Id::from_str("00ad268c4d1f5826").unwrap();
+        let second = ecash::Id::from_str("00ffd48b8f5ecf80").unwrap();
         let token = Token::from(BitcrTokenV5::new(
             NodeId::new(mint_key(), bitcoin::Network::Bitcoin),
             cashu::CurrencyUnit::Sat,
@@ -940,7 +941,7 @@ mod tests {
     /// Reusing a secret is a duplicate no matter what amounts the copies claim
     #[test]
     fn test_value_rejects_reused_secret() {
-        let id = Id::from_str("00ad268c4d1f5826").unwrap();
+        let id = ecash::Id::from_str("00ad268c4d1f5826").unwrap();
         let mint_id = NodeId::new(mint_key(), bitcoin::Network::Regtest);
         let unit = cashu::CurrencyUnit::Sat;
 
@@ -961,15 +962,15 @@ mod tests {
             unit,
             vec![proof(id, 1, "one"), proof(id, 8, "two")],
         );
-        assert_eq!(token.value().unwrap(), Amount::from(9));
+        assert_eq!(token.value().unwrap(), cashu::Amount::from(9));
     }
 
     /// The encoding of a set of proofs must not depend on the order it was
     /// assembled in, nor on hash map iteration order
     #[test]
     fn test_encoding_is_canonical() {
-        let first = Id::from_str("00ad268c4d1f5826").unwrap();
-        let second = Id::from_str("00ffd48b8f5ecf80").unwrap();
+        let first = ecash::Id::from_str("00ad268c4d1f5826").unwrap();
+        let second = ecash::Id::from_str("00ffd48b8f5ecf80").unwrap();
         let mint_id = NodeId::new(mint_key(), bitcoin::Network::Regtest);
         let proofs = [
             proof(first, 1, "a"),

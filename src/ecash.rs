@@ -106,22 +106,18 @@ impl From<Id> for cashu::Id {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct BlindedMessage {
     #[borsh(
-        serialize_with = "wire::borsh::serialize_as_u64",
-        deserialize_with = "wire::borsh::deserialize_from_u64"
+        serialize_with = "wire::borsh::serialize_btc_amount",
+        deserialize_with = "wire::borsh::deserialize_btc_amount"
     )]
-    pub amount: cashu::Amount,
+    pub amount: bitcoin::Amount,
     #[serde(rename = "id")]
-    #[borsh(
-        serialize_with = "wire::borsh::serialize_as_str",
-        deserialize_with = "wire::borsh::deserialize_from_str"
-    )]
-    pub keyset_id: cashu::Id,
+    pub keyset_id: Id,
     #[serde(rename = "B_")]
     #[borsh(
         serialize_with = "wire::borsh::serialize_as_str",
         deserialize_with = "wire::borsh::deserialize_from_str"
     )]
-    pub blinded_secret: cashu::PublicKey,
+    pub blinded_secret: secp::PublicKey,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[borsh(
         serialize_with = "wire::borsh::serialize_optionproofwitness",
@@ -132,36 +128,31 @@ pub struct BlindedMessage {
 
 impl From<cashu::BlindedMessage> for BlindedMessage {
     fn from(message: cashu::BlindedMessage) -> Self {
+        let blinded_secret = public_key_cashu2secp(&message.blinded_secret);
         Self {
-            amount: message.amount,
-            keyset_id: message.keyset_id,
-            blinded_secret: message.blinded_secret,
+            amount: bitcoin::Amount::from_sat(message.amount.into()),
+            keyset_id: message.keyset_id.into(),
+            blinded_secret,
             witness: message.witness,
         }
     }
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct BlindSignature {
     #[borsh(
-        serialize_with = "wire::borsh::serialize_as_u64",
-        deserialize_with = "wire::borsh::deserialize_from_u64"
+        serialize_with = "wire::borsh::serialize_btc_amount",
+        deserialize_with = "wire::borsh::deserialize_btc_amount"
     )]
-    pub amount: cashu::Amount,
+    pub amount: bitcoin::Amount,
     #[serde(rename = "id")]
-    #[borsh(
-        serialize_with = "wire::borsh::serialize_as_str",
-        deserialize_with = "wire::borsh::deserialize_from_str"
-    )]
-    pub keyset_id: cashu::Id,
+    pub keyset_id: Id,
     #[serde(rename = "C_")]
     #[borsh(
         serialize_with = "wire::borsh::serialize_as_str",
         deserialize_with = "wire::borsh::deserialize_from_str"
     )]
-    pub c: cashu::PublicKey,
+    pub c: secp::PublicKey,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[borsh(
         serialize_with = "wire::borsh::serialize_option_blindsigdleq",
@@ -173,29 +164,28 @@ pub struct BlindSignature {
 impl From<BlindSignature> for cashu::BlindSignature {
     fn from(signature: BlindSignature) -> Self {
         Self {
-            amount: signature.amount,
-            keyset_id: signature.keyset_id,
-            c: signature.c,
+            amount: cashu::Amount::from(signature.amount.to_sat()),
+            keyset_id: signature.keyset_id.into(),
+            c: public_key_secp2cashu(&signature.c),
             dleq: signature.dleq,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Proof {
-    pub amount: cashu::Amount,
+    pub amount: bitcoin::Amount,
     #[serde(rename = "id")]
-    pub keyset_id: cashu::Id,
-    #[schema(value_type = String)]
+    pub keyset_id: Id,
     pub secret: cashu::secret::Secret,
     #[serde(rename = "C")]
-    pub c: cashu::PublicKey,
+    pub c: secp::PublicKey,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub witness: Option<cashu::Witness>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dleq: Option<cashu::ProofDleq>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub p2pk_e: Option<cashu::PublicKey>,
+    pub p2pk_e: Option<secp::PublicKey>,
 }
 
 pub type Proofs = Vec<Proof>;
@@ -224,7 +214,8 @@ pub trait ProofsMethods {
 
 impl ProofsMethods for [Proof] {
     fn total_amount(&self) -> Result<cashu::Amount> {
-        Ok(cashu::Amount::try_sum(self.iter().map(|p| p.amount))?)
+        let btc_amount: bitcoin::Amount = self.iter().map(|p| p.amount).sum();
+        Ok(cashu::Amount::from(btc_amount.to_sat()))
     }
 
     fn ys(&self) -> Result<Vec<cashu::PublicKey>> {
@@ -235,13 +226,13 @@ impl ProofsMethods for [Proof] {
 impl From<cashu::Proof> for Proof {
     fn from(proof: cashu::Proof) -> Self {
         Self {
-            amount: proof.amount,
-            keyset_id: proof.keyset_id,
-            secret: proof.secret,
-            c: proof.c,
+            amount: bitcoin::Amount::from_sat(proof.amount.into()),
+            keyset_id: proof.keyset_id.into(),
+            secret: (proof.secret),
+            c: public_key_cashu2secp(&proof.c),
             witness: proof.witness,
             dleq: proof.dleq,
-            p2pk_e: proof.p2pk_e,
+            p2pk_e: proof.p2pk_e.as_ref().map(public_key_cashu2secp),
         }
     }
 }
@@ -249,13 +240,13 @@ impl From<cashu::Proof> for Proof {
 impl From<Proof> for cashu::Proof {
     fn from(proof: Proof) -> Self {
         Self {
-            amount: proof.amount,
-            keyset_id: proof.keyset_id,
+            amount: cashu::Amount::from(proof.amount.to_sat()),
+            keyset_id: proof.keyset_id.into(),
             secret: proof.secret,
-            c: proof.c,
+            c: public_key_secp2cashu(&proof.c),
             witness: proof.witness,
             dleq: proof.dleq,
-            p2pk_e: proof.p2pk_e,
+            p2pk_e: proof.p2pk_e.as_ref().map(public_key_secp2cashu),
         }
     }
 }
@@ -301,7 +292,8 @@ impl From<KeySet> for cashu::KeySet {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct KeySetInfo {
-    pub id: cashu::Id,
+    #[schema(value_type = String)]
+    pub id: Id,
     pub unit: cashu::CurrencyUnit,
     pub active: bool,
     pub input_fee_ppk: u64,
@@ -312,7 +304,7 @@ pub struct KeySetInfo {
 impl From<cashu::KeySetInfo> for KeySetInfo {
     fn from(info: cashu::KeySetInfo) -> Self {
         Self {
-            id: info.id,
+            id: info.id.into(),
             unit: info.unit,
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
@@ -324,7 +316,7 @@ impl From<cashu::KeySetInfo> for KeySetInfo {
 impl From<KeySetInfo> for cashu::KeySetInfo {
     fn from(info: KeySetInfo) -> Self {
         Self {
-            id: info.id,
+            id: info.id.into(),
             unit: info.unit,
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
@@ -382,7 +374,7 @@ impl From<MintKeySet> for cashu::MintKeySet {
 impl From<MintKeySetInfo> for KeySetInfo {
     fn from(info: MintKeySetInfo) -> Self {
         Self {
-            id: info.id,
+            id: info.id.into(),
             unit: info.unit,
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
@@ -560,51 +552,54 @@ mod tests {
         let (blinded_secret, _) =
             cashu::dhke::blind_message(secret.as_bytes(), None).expect("blind message");
         let message = BlindedMessage {
-            amount: cashu::Amount::from(rand::random::<u16>() as u64),
+            amount: bitcoin::Amount::from_sat(rand::random::<u16>() as u64),
             keyset_id: random_keyset_id(),
-            blinded_secret,
+            blinded_secret: public_key_cashu2secp(&blinded_secret),
             witness: None,
         };
         let bytes = serde_json::to_vec(&message).expect("serialize");
         let deserialized: cashu::BlindedMessage =
             serde_json::from_slice(&bytes).expect("deserialize");
-        assert_eq!(deserialized.amount, message.amount);
-        assert_eq!(deserialized.keyset_id, message.keyset_id);
-        assert_eq!(deserialized.blinded_secret, message.blinded_secret);
+        assert_eq!(u64::from(deserialized.amount), message.amount.to_sat());
+        assert_eq!(Id::from(deserialized.keyset_id), message.keyset_id);
+        assert_eq!(
+            public_key_cashu2secp(&deserialized.blinded_secret),
+            message.blinded_secret
+        );
         assert_eq!(deserialized.witness, message.witness);
     }
 
     #[test]
     fn blindsignature_json_wire_compat() {
         let signature = BlindSignature {
-            amount: cashu::Amount::from(rand::random::<u16>() as u64),
+            amount: bitcoin::Amount::from_sat(rand::random::<u16>() as u64),
             keyset_id: random_keyset_id(),
-            c: random_public_key(),
+            c: core::generate_random_keypair().public_key(),
             dleq: None,
         };
         let bytes = serde_json::to_vec(&signature).expect("serialize");
         let deserialized: cashu::BlindSignature =
             serde_json::from_slice(&bytes).expect("deserialize");
-        assert_eq!(deserialized.amount, signature.amount);
-        assert_eq!(deserialized.keyset_id, signature.keyset_id);
-        assert_eq!(deserialized.c, signature.c);
+        assert_eq!(u64::from(deserialized.amount), signature.amount.to_sat());
+        assert_eq!(Id::from(deserialized.keyset_id), signature.keyset_id);
+        assert_eq!(public_key_cashu2secp(&deserialized.c), signature.c);
         assert_eq!(deserialized.dleq, signature.dleq);
     }
 
     #[test]
     fn proof_json_wire_compat() {
-        let keyset = random_mint_keyset();
+        let keyset = core_tests::generate_random_ecash_keyset().1;
         let cashu_proof =
             core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
                 .remove(0);
         let proof = Proof {
-            amount: cashu_proof.amount,
-            keyset_id: cashu_proof.keyset_id,
+            amount: bitcoin::Amount::from_sat(cashu_proof.amount.into()),
+            keyset_id: cashu_proof.keyset_id.into(),
             secret: cashu_proof.secret,
-            c: cashu_proof.c,
+            c: public_key_cashu2secp(&cashu_proof.c),
             witness: cashu_proof.witness,
             dleq: cashu_proof.dleq,
-            p2pk_e: cashu_proof.p2pk_e,
+            p2pk_e: cashu_proof.p2pk_e.as_ref().map(public_key_cashu2secp),
         };
         let bytes = serde_json::to_vec(&proof).expect("serialize");
         let deserialized: cashu::Proof = serde_json::from_slice(&bytes).expect("deserialize");
@@ -613,7 +608,7 @@ mod tests {
 
     #[test]
     fn keyset_json_wire_compat() {
-        let mint_keyset = random_mint_keyset();
+        let mint_keyset = core_tests::generate_random_ecash_keyset().1;
         let cashu_keyset = core::keys::to_keyset(&mint_keyset, Some(true));
         let keyset = KeySet {
             id: cashu_keyset.id,
@@ -630,7 +625,7 @@ mod tests {
 
     #[test]
     fn mintkeyset_json_wire_compat() {
-        let cashu_mint_keyset = random_mint_keyset();
+        let cashu_mint_keyset = core_tests::generate_random_ecash_keyset().1;
         let mint_keyset = MintKeySet {
             id: cashu_mint_keyset.id,
             unit: cashu_mint_keyset.unit,
@@ -647,7 +642,7 @@ mod tests {
     /// checking both
     #[test]
     fn proof_utilities_match_cashu() {
-        let keyset = random_mint_keyset();
+        let keyset = core_tests::generate_random_ecash_keyset().1;
         let cashu_proofs = core_tests::generate_random_ecash_proofs(
             &keyset,
             &[cashu::Amount::from(1u64), cashu::Amount::from(8u64)],
@@ -667,14 +662,14 @@ mod tests {
 
     #[test]
     fn cashu_conversions_round_trip() {
-        let keyset = random_mint_keyset();
+        let keyset = core_tests::generate_random_ecash_keyset().1;
         let proof: Proof =
             core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
                 .remove(0)
                 .into();
         assert_eq!(Proof::from(cashu::Proof::from(proof.clone())), proof);
         let info = KeySetInfo {
-            id: keyset.id,
+            id: keyset.id.into(),
             unit: keyset.unit,
             active: true,
             input_fee_ppk: keyset.input_fee_ppk,
@@ -690,7 +685,7 @@ mod tests {
     fn keyset_info_json_wire_compat() {
         let (_, mint_keyset) = core_tests::generate_random_ecash_keyset();
         let keyset_info = KeySetInfo {
-            id: mint_keyset.id,
+            id: mint_keyset.id.into(),
             unit: mint_keyset.unit,
             active: true,
             input_fee_ppk: mint_keyset.input_fee_ppk,
@@ -698,6 +693,6 @@ mod tests {
         };
         let bytes = serde_json::to_vec(&keyset_info).expect("serialize");
         let deserialized: cashu::KeySetInfo = serde_json::from_slice(&bytes).expect("deserialize");
-        assert_eq!(deserialized.id, keyset_info.id);
+        assert_eq!(Id::from(deserialized.id), keyset_info.id);
     }
 }

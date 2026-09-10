@@ -46,14 +46,11 @@ pub struct RecoverRequest {
 pub struct RecoverResponse {}
 
 ///--------------------------- Swap Commitment
-#[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct SwapCommitmentRequest {
     pub inputs: AttestedFingerprints,
     pub outputs: Vec<ecash::BlindedMessage>,
     pub expiry: u64,
-    #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
