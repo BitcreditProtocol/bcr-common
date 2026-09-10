@@ -1,9 +1,9 @@
 // ----- standard library imports
 // ----- extra library imports
-use cashu::{Amount, Id, PublicKey, nut02::ShortKeysetId, secret::Secret};
+use cashu::{nut02::ShortKeysetId, secret::Secret};
 use serde::{Deserialize, Serialize};
 // ----- local modules
-use crate::ecash::{Proof, Proofs};
+use crate::ecash::{self, Proof, Proofs};
 
 // ----- end imports
 
@@ -20,7 +20,7 @@ pub struct TokenV4Token {
 
 impl TokenV4Token {
     /// Create new [`TokenV4Token`]
-    pub fn new(keyset_id: Id, proofs: Proofs) -> Self {
+    pub fn new(keyset_id: cashu::Id, proofs: Proofs) -> Self {
         Self {
             keyset_id: ShortKeysetId::from(keyset_id),
             proofs: proofs.into_iter().map(Into::into).collect(),
@@ -36,13 +36,13 @@ impl TokenV4Token {
 pub struct ProofV4 {
     /// Amount
     #[serde(rename = "a")]
-    pub amount: Amount,
+    pub amount: cashu::Amount,
     /// Secret message
     #[serde(rename = "s")]
     pub secret: Secret,
     /// Unblinded signature
     #[serde(with = "crate::wallet::cbor")]
-    pub c: PublicKey,
+    pub c: cashu::PublicKey,
     /// Witness
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub witness: Option<cashu::Witness>,
@@ -51,25 +51,25 @@ pub struct ProofV4 {
     pub dleq: Option<cashu::ProofDleq>,
     /// P2BK Ephemeral Public Key (NUT-28)
     #[serde(rename = "pe", default, skip_serializing_if = "Option::is_none")]
-    pub p2pk_e: Option<PublicKey>,
+    pub p2pk_e: Option<cashu::PublicKey>,
 }
 
 impl ProofV4 {
     /// `y`, available without resolving the short keyset id
-    pub fn y(&self) -> crate::ecash::Result<PublicKey> {
+    pub fn y(&self) -> crate::ecash::Result<cashu::PublicKey> {
         crate::ecash::y_of(&self.secret)
     }
 
     /// [`ProofV4`] into [`Proof`]
-    pub fn into_proof(&self, keyset_id: &Id) -> Proof {
+    pub fn into_proof(&self, keyset_id: cashu::Id) -> Proof {
         Proof {
-            amount: self.amount,
-            keyset_id: *keyset_id,
+            amount: bitcoin::Amount::from_sat(self.amount.into()),
+            keyset_id: keyset_id.into(),
             secret: self.secret.clone(),
-            c: self.c,
+            c: ecash::public_key_cashu2secp(&self.c),
             witness: self.witness.clone(),
             dleq: self.dleq.clone(),
-            p2pk_e: self.p2pk_e,
+            p2pk_e: self.p2pk_e.as_ref().map(ecash::public_key_cashu2secp),
         }
     }
 }
@@ -86,12 +86,12 @@ impl From<Proof> for ProofV4 {
             ..
         } = proof;
         Self {
-            amount,
+            amount: cashu::Amount::from(amount.to_sat()),
             secret,
-            c,
+            c: ecash::public_key_secp2cashu(&c),
             witness,
             dleq,
-            p2pk_e,
+            p2pk_e: p2pk_e.as_ref().map(ecash::public_key_secp2cashu),
         }
     }
 }
