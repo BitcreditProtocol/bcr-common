@@ -88,7 +88,15 @@ pub struct NewIdentityPayload {
 }
 
 #[derive(
-    Debug, Default, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize, ToSchema,
+    Debug,
+    PartialEq,
+    Default,
+    Clone,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+    ToSchema,
 )]
 pub struct PostalAddress {
     pub country: String,

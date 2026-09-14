@@ -182,7 +182,9 @@ pub struct BillParticipants {
     pub all_participant_node_ids: Vec<NodeId>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize, ToSchema)]
+#[derive(
+    Debug, PartialEq, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize, ToSchema,
+)]
 pub enum BillParticipant {
     Anon(BillAnonParticipant),
     Ident(BillIdentParticipant),
@@ -197,7 +199,9 @@ impl BillParticipant {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize, ToSchema)]
+#[derive(
+    Debug, PartialEq, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize, ToSchema,
+)]
 pub struct BillAnonParticipant {
     #[schema(value_type = String)]
     pub node_id: NodeId,
@@ -209,7 +213,9 @@ pub struct BillAnonParticipant {
     pub nostr_relays: Vec<url::Url>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize, ToSchema)]
+#[derive(
+    Debug, PartialEq, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize, ToSchema,
+)]
 pub struct BillIdentParticipant {
     #[serde(rename = "type")]
     pub t: ContactType,
