@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
 use crate::wire::borsh::{
-    deserialize_btc_amount, deserialize_from_str, deserialize_vec_of_jsons, serialize_as_str,
-    serialize_btc_amount, serialize_vec_of_jsons,
+    deserialize_btc_amount, deserialize_from_str, deserialize_vec_of_jsons,
+    deserialize_vecof_blindedmessage, serialize_as_str, serialize_btc_amount,
+    serialize_vec_of_jsons, serialize_vecof_blindedmessage,
 };
 // ----- end imports
 
@@ -27,6 +28,40 @@ pub struct OnchainMintQuoteRequest {
 /// Onchain Mint quote response body
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
 pub struct OnchainMintQuoteResponseBody {
+    /// Quote ID
+    #[schema(value_type = String)]
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub quote: uuid::Uuid,
+    /// Bitcoin address to send payment
+    pub address: String,
+    /// Amount to pay including fees
+    #[schema(value_type = u64)]
+    #[borsh(
+        serialize_with = "serialize_btc_amount",
+        deserialize_with = "deserialize_btc_amount"
+    )]
+    pub payment_amount: Amount,
+    /// Quote expiry timestamp
+    pub expiry: u64,
+    /// Blinded messages committed to
+    #[borsh(
+        serialize_with = "serialize_vecof_blindedmessage",
+        deserialize_with = "deserialize_vecof_blindedmessage"
+    )]
+    pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
+    #[schema(value_type = String)]
+    #[borsh(
+        serialize_with = "serialize_as_str",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub wallet_key: cashu::PublicKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+pub struct OnchainMintQuoteResponseBodyV1 {
     /// Quote ID
     #[schema(value_type = String)]
     #[borsh(
