@@ -418,8 +418,10 @@ pub struct AcceptorRiskEvidence {
     pub signed_evidence: SignedAcceptorRiskEvidence,
     pub operator_id: String,
     pub written_basis_digest: String,
-    pub recorded_at: DateTime<Utc>,
-    pub verified_at: DateTime<Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub recorded_at: time::OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub verified_at: time::OffsetDateTime,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -433,8 +435,10 @@ pub struct AcceptorRiskAuthorityEvidence {
     pub evidence_state: String,
     pub methodology_version: String,
     pub assessed_by: String,
-    pub assessed_at: chrono::NaiveDate,
-    pub valid_through: chrono::NaiveDate,
+    #[serde(with = "crate::wire::bill_date")]
+    pub assessed_at: time::Date,
+    #[serde(with = "crate::wire::bill_date")]
+    pub valid_through: time::Date,
     pub evidence_refs: Vec<String>,
     pub synthetic: bool,
 }
@@ -615,6 +619,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn credit_risk_dates_preserve_json_wire_format() {
+        let evidence = serde_json::json!({
+            "schemaVersion": "acceptor-risk-evidence-v1",
+            "keyId": "synthetic-key",
+            "acceptorRef": "synthetic-acceptor",
+            "probabilityOfDefaultBps": 100,
+            "lossGivenDefaultBps": 5000,
+            "evidenceState": "verified",
+            "methodologyVersion": "synthetic-v1",
+            "assessedBy": "synthetic-reviewer",
+            "assessedAt": "2026-08-03",
+            "validThrough": "2026-09-03",
+            "evidenceRefs": [],
+            "synthetic": true
+        });
+        let record = serde_json::json!({
+            "schemaVersion": "acceptor-risk-record-v1",
+            "evidenceId": "11111111-1111-4111-8111-111111111111",
+            "signedEvidence": {
+                "evidence": evidence,
+                "evidenceDigest": "synthetic-digest",
+                "signatureAlgorithm": "Ed25519",
+                "signature": "synthetic-signature"
+            },
+            "operatorId": "synthetic-reviewer",
+            "writtenBasisDigest": "synthetic-digest",
+            "recordedAt": "2026-08-03T12:00:00.123Z",
+            "verifiedAt": "2026-08-03T12:01:00Z"
+        });
+        let parsed: AcceptorRiskEvidence = serde_json::from_value(record.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), record);
+    }
+
+    #[test]
     fn tstamp_json_wire_compat() {
         let reply = StatusReply::Canceled {
             tstamp: time::macros::datetime!(2026-08-03 12:00:00 UTC),
@@ -676,7 +714,6 @@ mod tests {
     use std::str::FromStr;
 
     use bitcoin::hashes::{Hash as _, sha256};
-
 
     fn reissue_request_fixture() -> ReissueEnquireRequestV1 {
         ReissueEnquireRequestV1 {
