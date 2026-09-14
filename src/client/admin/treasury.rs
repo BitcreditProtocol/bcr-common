@@ -44,6 +44,8 @@ pub mod web_ep {
     pub const MELT_ONCHAIN_ESTIMATE_V1_EXT: &str = "/v1/treasury/melt/onchain/estimate";
     pub const MINTQUOTE_ONCHAIN_V1: &str = "/v1/mint/onchain/quote";
     pub const MINTQUOTE_ONCHAIN_V1_EXT: &str = "/v1/treasury/mint/onchain/quote";
+    pub const MINTQUOTE_ONCHAIN_V2: &str = "/v2/mint/onchain/quote";
+    pub const MINTQUOTE_ONCHAIN_V2_EXT: &str = "/v2/treasury/mint/onchain/quote";
     pub const MINT_ONCHAIN_V1: &str = "/v1/mint/onchain";
     pub const MINT_ONCHAIN_V1_EXT: &str = "/v1/treasury/mint/onchain";
 }

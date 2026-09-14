@@ -594,6 +594,34 @@ impl Client {
     ) -> Result<wire_mint::OnchainMintQuoteResponse> {
         let url = self
             .base
+            .join(treasury::web_ep::MINTQUOTE_ONCHAIN_V2_EXT)
+            .expect("onchain mint quote relative path");
+        let msg = wire_mint::OnchainMintQuoteRequest {
+            blinded_messages: blinds,
+            wallet_key,
+        };
+        let response: wire_mint::OnchainMintQuoteResponse = self
+            .cl
+            .post(url, &msg)
+            .await
+            .map_err(treasury::Error::from)?;
+        signature::schnorr_verify_b64(
+            &response.content,
+            &response.commitment,
+            &mint_pk.x_only_public_key().0,
+        )?;
+        Ok(response)
+    }
+
+    #[deprecated(note = "use `onchain_mint_quote` instead")]
+    pub async fn onchain_mint_quote_v1(
+        &self,
+        blinds: Vec<cashu::BlindedMessage>,
+        wallet_key: cashu::PublicKey,
+        mint_pk: secp::PublicKey,
+    ) -> Result<wire_mint::OnchainMintQuoteResponse> {
+        let url = self
+            .base
             .join(treasury::web_ep::MINTQUOTE_ONCHAIN_V1_EXT)
             .expect("onchain mint quote relative path");
         let msg = wire_mint::OnchainMintQuoteRequest {
