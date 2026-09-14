@@ -60,6 +60,17 @@ impl From<cashu::BlindedMessage> for BlindedMessage {
     }
 }
 
+impl From<BlindedMessage> for cashu::BlindedMessage {
+    fn from(message: BlindedMessage) -> Self {
+        Self {
+            amount: message.amount,
+            keyset_id: message.keyset_id,
+            blinded_secret: message.blinded_secret,
+            witness: message.witness,
+        }
+    }
+}
+
 #[derive(
     Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize,
 )]
@@ -348,6 +359,77 @@ impl From<MintKeySetInfo> for cashu::KeySetInfo {
             input_fee_ppk: info.input_fee_ppk,
             final_expiry: info.final_expiry,
         }
+    }
+}
+
+#[cfg(feature = "test-utils")]
+pub mod test_utils {
+    use super::*;
+
+    pub fn generate_random_proofs(keyset: &MintKeySet, amounts: &[cashu::Amount]) -> Vec<Proof> {
+        let mut proofs: Vec<Proof> = Vec::new();
+        for amount in amounts {
+            let keypair = keyset.keys.get(amount).expect("keys for amount");
+            let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+            let (b_, r) = cashu::dhke::blind_message(secret.as_bytes(), None)
+                .expect("cdk_dhke::blind_message");
+            let c_ = cashu::dhke::sign_message(&keypair.secret_key, &b_)
+                .expect("cdk_dhke::sign_message");
+            let c = cashu::dhke::unblind_message(&c_, &r, &keypair.public_key)
+                .expect("unblind_message");
+            let p = Proof {
+                amount: *amount,
+                keyset_id: keyset.id,
+                secret,
+                c,
+                witness: None,
+                dleq: None,
+                p2pk_e: None,
+            };
+            proofs.push(p);
+        }
+        proofs
+    }
+
+    pub fn generate_random_blindedmessages(
+        kid: cashu::Id,
+        amounts: &[cashu::Amount],
+    ) -> Vec<(BlindedMessage, cashu::secret::Secret, cashu::SecretKey)> {
+        let mut blinds: Vec<(BlindedMessage, cashu::secret::Secret, cashu::SecretKey)> = Vec::new();
+        for amount in amounts {
+            let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+            let (b_, r) = cashu::dhke::blind_message(secret.as_bytes(), None)
+                .expect("cdk_dhke::blind_message");
+            let b = BlindedMessage {
+                amount: *amount,
+                keyset_id: kid,
+                blinded_secret: b_,
+                witness: None,
+            };
+            blinds.push((b, secret, r));
+        }
+        blinds
+    }
+
+    pub fn generate_signatures(
+        keyset: &MintKeySet,
+        amounts: &[cashu::Amount],
+    ) -> Vec<BlindSignature> {
+        let a_pk = cashu::PublicKey::from_hex(
+            "0244e4420934530b2bdf5161f4c88b3c4f923db158741da51f3bb22b579495862e",
+        )
+        .unwrap();
+        let mut signatures: Vec<BlindSignature> = Vec::new();
+        for amount in amounts {
+            let s = BlindSignature {
+                keyset_id: keyset.id,
+                amount: *amount,
+                c: a_pk,
+                dleq: None,
+            };
+            signatures.push(s);
+        }
+        signatures
     }
 }
 
