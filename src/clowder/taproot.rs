@@ -131,9 +131,12 @@ pub fn derive_ebill_mint_req_to_pay_tweak(
     clowder_tagged_hash(purpose, aggregated_key, &payload)
 }
 
-pub fn derive_eiou_tweak(aggregated_key: &XOnlyPublicKey) -> [u8; 32] {
+/// Derives the tweak for eIOU addresses
+/// `Some(request_id)` yields a per-request address, `None` the eIOU change address
+fn derive_eiou_tweak(aggregated_key: &XOnlyPublicKey, request_id: Option<&Uuid>) -> [u8; 32] {
     let purpose = b"eiou";
-    clowder_tagged_hash(purpose, aggregated_key, &[])
+    let payload = request_id.map_or(&[][..], |id| id.as_bytes());
+    clowder_tagged_hash(purpose, aggregated_key, payload)
 }
 
 pub fn build_beta_script(frost_agg_key: &XOnlyPublicKey) -> ScriptBuf {
@@ -232,8 +235,20 @@ pub fn derive_ebill_mint_req_to_pay_address(
     Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
 }
 
-pub fn derive_eiou_address(frost_agg_key: &XOnlyPublicKey, network: Network) -> Result<Address> {
-    let tweak = derive_eiou_tweak(frost_agg_key);
+pub fn derive_eiou_address(
+    frost_agg_key: &XOnlyPublicKey,
+    request_id: &Uuid,
+    network: Network,
+) -> Result<Address> {
+    let tweak = derive_eiou_tweak(frost_agg_key, Some(request_id));
+    Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
+}
+
+pub fn derive_eiou_change_address(
+    frost_agg_key: &XOnlyPublicKey,
+    network: Network,
+) -> Result<Address> {
+    let tweak = derive_eiou_tweak(frost_agg_key, None);
     Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
 }
 
@@ -328,6 +343,36 @@ mod tests {
             derive_add_reserve_tweak(&frost, &reserve_id),
             derive_receive_tweak(&frost, &reserve_id)
         );
+    }
+
+    #[test]
+    fn test_eiou_address_derivation_is_deterministic_and_domain_separated() {
+        let mut rng = bitcoin::secp256k1::rand::thread_rng();
+        let frost = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
+        let frost2 = SECP256K1.generate_keypair(&mut rng).1.x_only_public_key().0;
+        let request_id = Uuid::from_u128(1);
+        let net = Network::Regtest;
+
+        let eiou = derive_eiou_address(&frost, &request_id, net).unwrap();
+        let eiou_again = derive_eiou_address(&frost, &request_id, net).unwrap();
+        let other_request = derive_eiou_address(&frost, &Uuid::from_u128(2), net).unwrap();
+        let other_key = derive_eiou_address(&frost2, &request_id, net).unwrap();
+        let reserve = derive_add_reserve_address(&frost, &request_id, net).unwrap();
+        let change = derive_eiou_change_address(&frost, net).unwrap();
+        let change_again = derive_eiou_change_address(&frost, net).unwrap();
+
+        assert_eq!(eiou, eiou_again);
+        assert_ne!(eiou, other_request);
+        assert_ne!(eiou, other_key);
+        assert_ne!(eiou, reserve);
+        assert_eq!(change, change_again);
+        assert_ne!(change, eiou);
+        assert_ne!(change, derive_eiou_change_address(&frost2, net).unwrap());
+        assert_ne!(
+            derive_eiou_tweak(&frost, None),
+            derive_eiou_tweak(&frost, Some(&request_id))
+        );
+        assert!(eiou.to_string().starts_with("bcrt1p"));
     }
 
     #[test]
