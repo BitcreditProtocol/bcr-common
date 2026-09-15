@@ -439,6 +439,29 @@ pub struct ResyncBillPayload {
     pub from_nostr: Option<bool>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CheckBillPaymentPayload {
+    #[schema(value_type = String)]
+    pub bill_id: BillId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BillBalanceResponse {
+    pub bills: Vec<BillBalanceEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BillBalanceEntry {
+    #[schema(value_type = String)]
+    pub id: BillId,
+    #[serde(with = "crate::wire::bill_date")]
+    pub issue_date: time::Date,
+    #[serde(with = "crate::wire::bill_date")]
+    pub maturity_date: time::Date,
+    pub sum: String,
+    pub paid: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
