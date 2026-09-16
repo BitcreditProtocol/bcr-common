@@ -31,14 +31,14 @@ pub struct BlindedMessage {
     pub amount: cashu::Amount,
     #[serde(rename = "id")]
     #[borsh(
-        serialize_with = "wire::borsh::serialize_as_str",
-        deserialize_with = "wire::borsh::deserialize_from_str"
+        serialize_with = "wire::borsh::serialize_id_bytes",
+        deserialize_with = "wire::borsh::deserialize_id_bytes"
     )]
     pub keyset_id: cashu::Id,
     #[serde(rename = "B_")]
     #[borsh(
-        serialize_with = "wire::borsh::serialize_as_str",
-        deserialize_with = "wire::borsh::deserialize_from_str"
+        serialize_with = "wire::borsh::serialize_pubkey_bytes",
+        deserialize_with = "wire::borsh::deserialize_pubkey_bytes"
     )]
     pub blinded_secret: cashu::PublicKey,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -451,6 +451,28 @@ mod tests {
     fn random_mint_keyset() -> MintKeySet {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
         keyset
+    }
+
+    #[test]
+    fn blindedmessage_borsh_matches_legacy_wrapper() {
+        let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+        let (blinded_secret, _) =
+            cashu::dhke::blind_message(secret.as_bytes(), None).expect("blind message");
+        let message = BlindedMessage {
+            amount: cashu::Amount::from(rand::random::<u16>() as u64),
+            keyset_id: random_keyset_id(),
+            blinded_secret,
+            witness: Some(cashu::Witness::P2PKWitness(cashu::P2PKWitness {
+                signatures: vec![String::from("sig")],
+            })),
+        };
+        let bytes = borsh::to_vec(&message).expect("serialize");
+        let mut legacy = Vec::new();
+        wire::borsh::serialize_blindedmessage(&message.clone().into(), &mut legacy)
+            .expect("legacy serialize");
+        assert_eq!(bytes, legacy, "old wallets decode the wrapper layout");
+        let deserialized: BlindedMessage = borsh::from_slice(&bytes).expect("deserialize");
+        assert_eq!(deserialized, message);
     }
 
     #[test]
