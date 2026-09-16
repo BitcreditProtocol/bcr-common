@@ -502,7 +502,7 @@ pub fn deserialize_unchecked_address(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{core, core_tests};
+    use crate::{core, core_tests, ecash};
 
     #[test]
     fn serialize_deserialize_bill_date() {
@@ -649,7 +649,7 @@ mod tests {
                 let (b_, _) = cashu::dhke::blind_message(secret.as_bytes(), None).unwrap();
                 cashu::BlindedMessage {
                     amount: *a,
-                    keyset_id: keyset.id,
+                    keyset_id: keyset.id.into(),
                     blinded_secret: b_,
                     witness: None,
                 }
@@ -684,6 +684,47 @@ mod tests {
     }
 
     #[test]
+    fn blindedmessage_borsh_matches_ecash_blindedmessage() {
+        let (_, keyset) = core_tests::generate_random_ecash_keyset();
+        let witnesses = [
+            None,
+            Some(cashu::Witness::P2PKWitness(cashu::P2PKWitness {
+                signatures: vec![String::from("sig")],
+            })),
+        ];
+
+        for witness in witnesses {
+            let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+            let (blinded_secret, _) = cashu::dhke::blind_message(secret.as_bytes(), None).unwrap();
+            let msg = cashu::BlindedMessage {
+                amount: cashu::Amount::from(512u64),
+                keyset_id: keyset.id.into(),
+                blinded_secret,
+                witness,
+            };
+            let mirror = ecash::BlindedMessage::from(msg.clone());
+
+            let mut wrapper_buf = Vec::new();
+            borsh::BorshSerialize::serialize(
+                &BlindedMessageBorsh::from(msg.clone()),
+                &mut wrapper_buf,
+            )
+            .unwrap();
+            let mut mirror_buf = Vec::new();
+            borsh::BorshSerialize::serialize(&mirror, &mut mirror_buf).unwrap();
+            assert_eq!(wrapper_buf, mirror_buf);
+
+            let deser_mirror: ecash::BlindedMessage =
+                borsh::BorshDeserialize::deserialize_reader(&mut wrapper_buf.as_slice()).unwrap();
+            assert_eq!(deser_mirror, mirror);
+
+            let deser_wrapper: BlindedMessageBorsh =
+                borsh::BorshDeserialize::deserialize_reader(&mut mirror_buf.as_slice()).unwrap();
+            assert_eq!(cashu::BlindedMessage::try_from(deser_wrapper).unwrap(), msg);
+        }
+    }
+
+    #[test]
     fn serialize_deserialize_blinded_message() {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
 
@@ -692,7 +733,7 @@ mod tests {
 
         let msg = cashu::BlindedMessage {
             amount: cashu::Amount::from(512u64),
-            keyset_id: keyset.id,
+            keyset_id: keyset.id.into(),
             blinded_secret,
             witness: None,
         };

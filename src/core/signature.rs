@@ -105,7 +105,7 @@ pub fn sign_ecash(
     let mut signature = cashu::BlindSignature {
         amount: blind.amount,
         c: raw_signature,
-        keyset_id: keyset.id,
+        keyset_id: keyset.id.into(),
         dleq: None,
     };
     signature.add_dleq_proof(&blind.blinded_secret, &key.secret_key)?;
@@ -117,16 +117,16 @@ pub fn unblind_ecash_signature(
     premint: cashu::PreMint,
     signature: cashu::BlindSignature,
 ) -> ECashSignatureResult<cashu::Proof> {
-    if signature.keyset_id != keys.id {
+    if signature.keyset_id != cashu::Id::from(keys.id) {
         return Err(ECashSignatureError::MismatchedKid(
             signature.keyset_id,
-            keys.id,
+            keys.id.into(),
         ));
     }
-    if premint.blinded_message.keyset_id != keys.id {
+    if premint.blinded_message.keyset_id != cashu::Id::from(keys.id) {
         return Err(ECashSignatureError::MismatchedKid(
             premint.blinded_message.keyset_id,
-            keys.id,
+            keys.id.into(),
         ));
     }
     if premint.amount != cashu::Amount::ZERO && premint.amount != signature.amount {
@@ -139,7 +139,7 @@ pub fn unblind_ecash_signature(
         return Err(ECashSignatureError::NoKeyForAmount(signature.amount));
     };
     let c = cashu::dhke::unblind_message(&signature.c, &premint.r, &key)?;
-    let mut proof = cashu::Proof::new(signature.amount, keys.id, premint.secret, c);
+    let mut proof = cashu::Proof::new(signature.amount, keys.id.into(), premint.secret, c);
     if let Some(dleq) = signature.dleq {
         proof.dleq = Some(cashu::ProofDleq::new(dleq.e, dleq.s, premint.r));
     }
@@ -338,8 +338,11 @@ pub fn verify_fingerprint_dleq(
     fp: &ProofFingerprint,
     dleq: Option<&cashu::ProofDleq>,
 ) -> ECashSignatureResult<()> {
-    if fp.keyset_id != keyset.id {
-        return Err(ECashSignatureError::MismatchedKid(keyset.id, fp.keyset_id));
+    if fp.keyset_id != cashu::Id::from(keyset.id) {
+        return Err(ECashSignatureError::MismatchedKid(
+            keyset.id.into(),
+            fp.keyset_id,
+        ));
     }
     let Some(mint_pub) = keyset.keys.amount_key(fp.amount) else {
         return Err(ECashSignatureError::NoKeyForAmount(fp.amount));
@@ -446,13 +449,13 @@ mod tests {
         let keypair = keyset.keys.get(&amount).expect("keys for amount");
         let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
         let (b_, r) = cashu::dhke::blind_message(secret.as_bytes(), None).expect("blind_message");
-        let blinded = cashu::BlindedMessage::new(amount, keyset.id, b_);
+        let blinded = cashu::BlindedMessage::new(amount, keyset.id.into(), b_);
         let mut signature = sign_ecash(keyset, &blinded).expect("sign_ecash");
         let c = cashu::dhke::unblind_message(&signature.c, &r, &keypair.public_key)
             .expect("unblind_message");
         let dleq = signature.dleq.take().expect("dleq");
         let fp = ProofFingerprint {
-            keyset_id: keyset.id,
+            keyset_id: keyset.id.into(),
             amount,
             y: *cashu::dhke::hash_to_curve(secret.as_bytes()).expect("hash_to_curve"),
             c: *c,
@@ -480,7 +483,7 @@ mod tests {
 
         let (_, other) = generate_random_ecash_keyset();
         let foreign = ProofFingerprint {
-            keyset_id: other.id,
+            keyset_id: other.id.into(),
             ..fp
         };
         assert!(matches!(
@@ -522,7 +525,7 @@ mod tests {
 
         let mut proof = cashu::Proof::new(
             cashu::Amount::from(1u64),
-            keyset.id,
+            keyset.id.into(),
             secret,
             wallet.public_key(),
         );
@@ -583,7 +586,7 @@ mod tests {
         let mk_htlc = |secret: cashu::secret::Secret, preimage: &str| -> cashu::Proof {
             let mut p = cashu::Proof::new(
                 cashu::Amount::from(1u64),
-                keyset.id,
+                keyset.id.into(),
                 secret,
                 wallet.public_key(),
             );

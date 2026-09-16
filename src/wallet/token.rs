@@ -5,11 +5,11 @@ use std::str::FromStr;
 // ----- extra library imports
 use bitcoin::base64::engine::{GeneralPurpose, general_purpose};
 use bitcoin::base64::{Engine as _, alphabet};
-use cashu::{Amount, CurrencyUnit, Id, MintUrl, nut02::ShortKeysetId};
+use cashu::{Amount, CurrencyUnit, MintUrl, nut02::ShortKeysetId};
 use serde::{Deserialize, Serialize};
 // ----- local modules
 use crate::core::{ID_PREFIX, NodeId, network_char, network_from_char};
-use crate::ecash::{KeySetInfo, Proofs};
+use crate::ecash::{Id, KeySetInfo, Proofs};
 use crate::wallet::proof::TokenV4Token;
 use crate::wallet::{Error, Result};
 
@@ -479,7 +479,7 @@ fn decode_base64(s: &str) -> Result<Vec<u8>> {
 fn resolve_keyset_id(short_id: &ShortKeysetId, mint_keysets: &[KeySetInfo]) -> Result<Id> {
     let mut matching = mint_keysets
         .iter()
-        .filter(|keyset| ShortKeysetId::from(keyset.id) == *short_id);
+        .filter(|keyset| ShortKeysetId::from(cashu::Id::from(keyset.id)) == *short_id);
     let keyset = matching
         .next()
         .ok_or_else(|| Error::UnknownKeysetId(short_id.clone()))?;
@@ -870,11 +870,14 @@ mod tests {
     fn test_keyset_id_must_match_exactly_one_mint_keyset() {
         let first = Id::from_str(&format!("01aabbccddeeff00{}", "11".repeat(25))).unwrap();
         let second = Id::from_str(&format!("01aabbccddeeff00{}", "22".repeat(25))).unwrap();
-        assert_eq!(ShortKeysetId::from(first), ShortKeysetId::from(second));
+        assert_eq!(
+            ShortKeysetId::from(cashu::Id::from(first)),
+            ShortKeysetId::from(cashu::Id::from(second))
+        );
 
         let token = BitcrTokenV5 {
             token: vec![TokenV4Token {
-                keyset_id: ShortKeysetId::from(first),
+                keyset_id: ShortKeysetId::from(cashu::Id::from(first)),
                 proofs: v5(MAINNET_V5).token[0].proofs.clone(),
             }],
             ..v5(MAINNET_V5)

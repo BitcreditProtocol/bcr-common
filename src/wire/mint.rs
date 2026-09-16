@@ -201,7 +201,7 @@ mod tests {
             cashu::Amount::from(16),
             cashu::Amount::from(32),
         ];
-        let blinds = core_tests::generate_random_ecash_blindedmessages(kinfo.id, &amounts)
+        let blinds = core_tests::generate_random_ecash_blindedmessages(kinfo.id.into(), &amounts)
             .into_iter()
             .map(|(b, _, _)| b)
             .collect();
@@ -230,7 +230,7 @@ mod tests {
         let response = EbillMintResponse {
             signatures: vec![cashu::BlindSignature {
                 amount: cashu::Amount::from(rand::random::<u16>() as u64),
-                keyset_id: kinfo.id,
+                keyset_id: kinfo.id.into(),
                 c: pk,
                 dleq: None,
             }],
@@ -248,7 +248,7 @@ mod tests {
         let response = OnchainMintResponse {
             signatures: vec![cashu::BlindSignature {
                 amount: cashu::Amount::from(rand::random::<u16>() as u64),
-                keyset_id: kinfo.id,
+                keyset_id: kinfo.id.into(),
                 c: pk,
                 dleq: None,
             }],

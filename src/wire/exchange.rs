@@ -349,7 +349,7 @@ pub mod tests_support {
     pub fn sample_outputs(amounts: &[u64]) -> Vec<cashu::BlindedMessage> {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts: Vec<cashu::Amount> = amounts.iter().map(|a| cashu::Amount::from(*a)).collect();
-        core_tests::generate_random_ecash_blindedmessages(keyset.id, &amounts)
+        core_tests::generate_random_ecash_blindedmessages(keyset.id.into(), &amounts)
             .into_iter()
             .map(|(msg, _, _)| msg)
             .collect()
