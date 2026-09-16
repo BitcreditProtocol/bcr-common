@@ -432,6 +432,43 @@ impl Client {
         response.error_for_status()?;
         Ok(())
     }
+
+    pub const GET_BILLS_BALANCE_EP_V1: &'static str = "/v1/admin/bill/balance";
+    pub async fn get_bills_balance_history(&self) -> Result<wire_bill::BillBalanceResponse> {
+        let url = self
+            .base
+            .join(Self::GET_BILLS_BALANCE_EP_V1)
+            .expect("get bills balance relative path");
+        let request = self.cl.get(url);
+        let response = request.send().await?;
+        let res: wire_bill::BillBalanceResponse = response
+            .error_for_status()?
+            .json::<wire_bill::BillBalanceResponse>()
+            .await?;
+        Ok(res)
+    }
+
+    pub const CHECK_BILL_PAYMENT_EP_V1: &'static str = "/v1/admin/bill/check_payment";
+    pub async fn check_bill_payment(&self, bill_id: BillId) -> Result<()> {
+        let url = self
+            .base
+            .join(Self::CHECK_BILL_PAYMENT_EP_V1)
+            .expect("check bill payment relative path");
+        let payload = wire_bill::CheckBillPaymentPayload {
+            bill_id: bill_id.clone(),
+        };
+        let request = self.cl.post(url).json(&payload);
+        let response = request.send().await?;
+
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            return Err(Error::InvalidRequest);
+        }
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::ResourceNotFound(payload.bill_id.to_string()));
+        }
+        response.error_for_status()?;
+        Ok(())
+    }
 }
 
 pub fn detect_extension_for_bytes(bytes: &[u8]) -> Option<String> {
