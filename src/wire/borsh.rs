@@ -50,6 +50,22 @@ where
     Ok(t)
 }
 
+pub fn serialize_id_bytes(id: &cashu::Id, writer: &mut impl Write) -> Result<()> {
+    borsh::BorshSerialize::serialize(&id.to_bytes(), writer)
+}
+pub fn deserialize_id_bytes(reader: &mut impl Read) -> Result<cashu::Id> {
+    let bytes: Vec<u8> = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    cashu::Id::from_bytes(&bytes).map_err(|e| BorshError::new(ErrorKind::InvalidData, e))
+}
+pub fn serialize_pubkey_bytes(pk: &cashu::PublicKey, writer: &mut impl Write) -> Result<()> {
+    borsh::BorshSerialize::serialize(&pk.to_bytes(), writer)
+}
+pub fn deserialize_pubkey_bytes(reader: &mut impl Read) -> Result<cashu::PublicKey> {
+    let bytes: [u8; secp256k1::constants::PUBLIC_KEY_SIZE] =
+        borsh::BorshDeserialize::deserialize_reader(reader)?;
+    cashu::PublicKey::from_slice(&bytes).map_err(|e| BorshError::new(ErrorKind::InvalidData, e))
+}
+
 pub fn serialize_tstamp(t: &crate::TStamp, writer: &mut impl Write) -> Result<()> {
     borsh::BorshSerialize::serialize(&t.unix_timestamp(), writer)?;
     Ok(())
