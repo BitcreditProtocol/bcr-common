@@ -574,7 +574,7 @@ mod test {
         let result = prepare_payment(&proofs, target, &kinfos);
         assert!(matches!(
                 result,
-                Err(WalletError::UnknownKeyset(kid)) if kid == keyset.id
+                Err(WalletError::UnknownKeyset(kid)) if kid == cashu::Id::from(keyset.id)
         ));
     }
 
@@ -597,7 +597,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert!(selected.is_empty());
@@ -609,7 +609,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos);
         assert!(matches!(result, Err(WalletError::InsufficientBalance(..))));
     }
@@ -620,7 +620,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(1), Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(selected, vec![Amount::from(1), Amount::from(4)]);
@@ -632,7 +632,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(selected, vec![Amount::from(1), Amount::from(2)]);
@@ -649,7 +649,7 @@ mod test {
             Amount::from(4),
         ];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(selected, vec![Amount::from(1), Amount::from(2)]);
@@ -661,7 +661,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(selected, vec![Amount::from(4)]);
@@ -674,7 +674,7 @@ mod test {
         kinfo.input_fee_ppk = 1;
         let amounts = vec![Amount::from(1), Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(selected, vec![Amount::from(1), Amount::from(4)]);
@@ -688,7 +688,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(selected, vec![Amount::from(4)]);
@@ -702,7 +702,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(2), Amount::from(4), Amount::from(8)]; // 14
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(
@@ -720,7 +720,7 @@ mod test {
         kinfo.input_fee_ppk = 1;
         let amounts = vec![Amount::from(2), Amount::from(4), Amount::from(8)]; // 14
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(
@@ -737,7 +737,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::ONE];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(selected, vec![Amount::ONE]);
@@ -749,7 +749,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::ONE];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos);
         assert!(matches!(result, Err(WalletError::InsufficientBalance(..))));
     }
@@ -760,7 +760,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(128)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(selected, vec![Amount::from(128)]);
@@ -779,7 +779,7 @@ mod test {
             Amount::from(4),
         ];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(
@@ -794,7 +794,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(
@@ -811,7 +811,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::ONE; super::MAX_PAYMENT_INPUTS];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(selected, vec![Amount::ONE; super::MAX_PAYMENT_INPUTS]);
@@ -824,7 +824,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::ONE; input_count];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(selected, vec![Amount::ONE; input_count]);
@@ -839,7 +839,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::ONE; input_count];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(selected.len(), 900);
@@ -862,7 +862,7 @@ mod test {
             Amount::from(64),
         ];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(
@@ -890,7 +890,7 @@ mod test {
             Amount::from(64),
         ];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(
@@ -924,7 +924,7 @@ mod test {
             Amount::from(512),
         ];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(
@@ -963,7 +963,7 @@ mod test {
             Amount::from(512),
         ];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(
@@ -989,7 +989,7 @@ mod test {
         kinfo.input_fee_ppk = 1;
         let amounts = vec![Amount::from(128)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(selected, vec![Amount::from(128)]);
@@ -1002,7 +1002,7 @@ mod test {
         kinfo.input_fee_ppk = 1;
         let amounts = vec![Amount::from(128)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(selected, vec![Amount::from(128)]);
@@ -1016,7 +1016,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::ONE, Amount::ONE, Amount::ONE];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let selected = assert_ready(result, target);
         assert_eq!(selected, vec![Amount::ONE, Amount::ONE, Amount::ONE]);
@@ -1029,7 +1029,7 @@ mod test {
         kinfo.input_fee_ppk = 1;
         let amounts = vec![Amount::ONE; super::MAX_PAYMENT_INPUTS + 1];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos);
         assert!(matches!(
             result,
@@ -1046,7 +1046,7 @@ mod test {
         let amounts = vec![Amount::from(128)];
         let mut proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
         proofs[0].secret = cashu::secret::Secret::new("x".repeat(11 * 1024));
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(selected, vec![Amount::from(128)]);
@@ -1060,7 +1060,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(2), Amount::from(4), Amount::from(8)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_payment(&proofs, target, &kinfos).unwrap();
         let (selected, payment, fee) = assert_needswap(result, target);
         assert_eq!(
@@ -1087,9 +1087,15 @@ mod test {
         let proofs_debit = core_tests::generate_random_ecash_proofs(&keyset_debit, &amounts);
         let proofs_credit = core_tests::generate_random_ecash_proofs(&keyset_credit, &amounts);
         let kinfos = HashMap::from([
-            (keyset_expired.id, ecash::KeySetInfo::from(kinfo_expired)),
-            (keyset_debit.id, ecash::KeySetInfo::from(kinfo_debit)),
-            (keyset_credit.id, ecash::KeySetInfo::from(kinfo_credit)),
+            (
+                keyset_expired.id.into(),
+                ecash::KeySetInfo::from(kinfo_expired),
+            ),
+            (keyset_debit.id.into(), ecash::KeySetInfo::from(kinfo_debit)),
+            (
+                keyset_credit.id.into(),
+                ecash::KeySetInfo::from(kinfo_credit),
+            ),
         ]);
         let mut proofs =
             Vec::with_capacity(proofs_expired.len() + proofs_debit.len() + proofs_credit.len());
@@ -1099,8 +1105,8 @@ mod test {
         proofs.sort_by_key(|p| p.amount);
         let result = prepare_melt(&proofs, &kinfos, Amount::from(5), now).unwrap();
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].keyset_id, keyset_expired.id);
-        assert_eq!(result[1].keyset_id, keyset_expired.id);
+        assert_eq!(result[0].keyset_id, cashu::Id::from(keyset_expired.id));
+        assert_eq!(result[1].keyset_id, cashu::Id::from(keyset_expired.id));
     }
 
     #[test]
@@ -1119,9 +1125,15 @@ mod test {
         let amounts = [Amount::from(1), Amount::from(2), Amount::from(4)];
         let proofs_debit = core_tests::generate_random_ecash_proofs(&keyset_debit, &amounts);
         let kinfos = HashMap::from([
-            (keyset_expired.id, ecash::KeySetInfo::from(kinfo_expired)),
-            (keyset_debit.id, ecash::KeySetInfo::from(kinfo_debit)),
-            (keyset_credit.id, ecash::KeySetInfo::from(kinfo_credit)),
+            (
+                keyset_expired.id.into(),
+                ecash::KeySetInfo::from(kinfo_expired),
+            ),
+            (keyset_debit.id.into(), ecash::KeySetInfo::from(kinfo_debit)),
+            (
+                keyset_credit.id.into(),
+                ecash::KeySetInfo::from(kinfo_credit),
+            ),
         ]);
         let mut proofs =
             Vec::with_capacity(proofs_expired.len() + proofs_debit.len() + proofs_credit.len());
@@ -1131,8 +1143,8 @@ mod test {
         proofs.sort_by_key(|p| p.amount);
         let result = prepare_melt(&proofs, &kinfos, Amount::from(5), now).unwrap();
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].keyset_id, keyset_expired.id);
-        assert_eq!(result[1].keyset_id, keyset_debit.id);
+        assert_eq!(result[0].keyset_id, cashu::Id::from(keyset_expired.id));
+        assert_eq!(result[1].keyset_id, cashu::Id::from(keyset_debit.id));
     }
 
     #[test]
@@ -1150,9 +1162,15 @@ mod test {
         let proofs_credit = core_tests::generate_random_ecash_proofs(&keyset_credit, &amounts);
         let proofs_debit = core_tests::generate_random_ecash_proofs(&keyset_debit, &amounts);
         let kinfos = HashMap::from([
-            (keyset_expired.id, ecash::KeySetInfo::from(kinfo_expired)),
-            (keyset_debit.id, ecash::KeySetInfo::from(kinfo_debit)),
-            (keyset_credit.id, ecash::KeySetInfo::from(kinfo_credit)),
+            (
+                keyset_expired.id.into(),
+                ecash::KeySetInfo::from(kinfo_expired),
+            ),
+            (keyset_debit.id.into(), ecash::KeySetInfo::from(kinfo_debit)),
+            (
+                keyset_credit.id.into(),
+                ecash::KeySetInfo::from(kinfo_credit),
+            ),
         ]);
         let mut proofs =
             Vec::with_capacity(proofs_expired.len() + proofs_debit.len() + proofs_credit.len());
@@ -1172,11 +1190,11 @@ mod test {
         let output_amounts = vec![Amount::from(2), Amount::from(1)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &input_amounts);
         let outputs: Vec<_> =
-            core_tests::generate_random_ecash_blindedmessages(keyset.id, &output_amounts)
+            core_tests::generate_random_ecash_blindedmessages(keyset.id.into(), &output_amounts)
                 .into_iter()
                 .map(|(b, _, _)| b)
                 .collect();
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = verify_swap(&proofs, &outputs, &kinfos, FeePolicy::Apply);
         assert!(matches!(
             result,
@@ -1192,11 +1210,11 @@ mod test {
         let output_amounts = vec![Amount::from(2), Amount::from(1)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &input_amounts);
         let outputs: Vec<_> =
-            core_tests::generate_random_ecash_blindedmessages(keyset.id, &output_amounts)
+            core_tests::generate_random_ecash_blindedmessages(keyset.id.into(), &output_amounts)
                 .into_iter()
                 .map(|(b, _, _)| b)
                 .collect();
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         verify_swap(&proofs, &outputs, &kinfos, FeePolicy::Ignore).unwrap();
     }
 
@@ -1210,7 +1228,7 @@ mod test {
         let mut proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
         proofs[0].secret =
             cashu::secret::Secret::new(String::from_utf8(vec![0; 9 * 1024]).unwrap());
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let fees = required_fees(&proofs, &kinfos).unwrap();
         assert_eq!(fees, Amount::ONE);
     }
@@ -1224,7 +1242,7 @@ mod test {
         let mut proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
         proofs[0].secret =
             cashu::secret::Secret::new(String::from_utf8(vec![0; 11 * 1024]).unwrap());
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let fees = required_fees(&proofs, &kinfos).unwrap();
         assert_eq!(fees, Amount::from(2));
     }
@@ -1234,7 +1252,7 @@ mod test {
         let (kinfo, keyset) = core_tests::generate_random_ecash_keyset();
         let amounts = vec![Amount::from(2), Amount::from(2), Amount::from(4)];
         let proofs = core_tests::generate_random_ecash_proofs(&keyset, &amounts);
-        let kinfos = HashMap::from([(keyset.id, ecash::KeySetInfo::from(kinfo))]);
+        let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let result = prepare_melt(
             &proofs,
             &kinfos,

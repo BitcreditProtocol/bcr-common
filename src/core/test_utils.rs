@@ -41,7 +41,7 @@ pub fn generate_random_ecash_keyset() -> (ecash::MintKeySetInfo, ecash::MintKeyS
         cdk02::KeySetVersion::Version01,
     );
     let info = ecash::MintKeySetInfo {
-        id: set.id,
+        id: set.id.into(),
         active: true,
         unit: cashu::CurrencyUnit::Sat,
         amounts,
@@ -68,7 +68,7 @@ pub fn generate_random_ecash_proofs(
             cashu::dhke::sign_message(&keypair.secret_key, &b_).expect("cdk_dhke::sign_message");
         let c =
             cashu::dhke::unblind_message(&c_, &r, &keypair.public_key).expect("unblind_message");
-        proofs.push(cashu::Proof::new(*amount, keyset.id, secret, c));
+        proofs.push(cashu::Proof::new(*amount, keyset.id.into(), secret, c));
     }
     proofs
 }
@@ -106,7 +106,7 @@ pub fn generate_ecash_signatures(
     let mut signatures: Vec<cashu::BlindSignature> = Vec::new();
     for amount in amounts {
         signatures.push(cashu::BlindSignature {
-            keyset_id: keyset.id,
+            keyset_id: keyset.id.into(),
             amount: *amount,
             c: a_pk,
             dleq: None,

@@ -33,6 +33,27 @@ pub enum Id {
     V2([u8; 32]),
 }
 
+impl Id {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            Self::V1(body) => [&[0u8][..], body].concat(),
+            Self::V2(body) => [&[1u8][..], body].concat(),
+        }
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        match bytes.split_first() {
+            Some((0, body)) => Ok(Self::V1(
+                body.try_into().map_err(|_| Error::InvalidKeysetId)?,
+            )),
+            Some((1, body)) => Ok(Self::V2(
+                body.try_into().map_err(|_| Error::InvalidKeysetId)?,
+            )),
+            _ => Err(Error::InvalidKeysetId),
+        }
+    }
+}
+
 impl std::fmt::Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -79,15 +100,16 @@ impl<'de> serde::Deserialize<'de> for Id {
 
 impl BorshSerialize for Id {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        let id_str = self.to_string();
-        BorshSerialize::serialize(&id_str, writer)
+        let id_bytes = self.to_bytes();
+        BorshSerialize::serialize(&id_bytes, writer)
     }
 }
 
 impl BorshDeserialize for Id {
     fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        let id_str: String = BorshDeserialize::deserialize_reader(reader)?;
-        Id::from_str(&id_str).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+        let id_bytes: Vec<u8> = BorshDeserialize::deserialize_reader(reader)?;
+        Id::from_bytes(&id_bytes)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 }
 
@@ -111,11 +133,7 @@ pub struct BlindedMessage {
     )]
     pub amount: cashu::Amount,
     #[serde(rename = "id")]
-    #[borsh(
-        serialize_with = "wire::borsh::serialize_id_bytes",
-        deserialize_with = "wire::borsh::deserialize_id_bytes"
-    )]
-    pub keyset_id: cashu::Id,
+    pub keyset_id: Id,
     #[serde(rename = "B_")]
     #[borsh(
         serialize_with = "wire::borsh::serialize_pubkey_bytes",
@@ -134,7 +152,7 @@ impl From<cashu::BlindedMessage> for BlindedMessage {
     fn from(message: cashu::BlindedMessage) -> Self {
         Self {
             amount: message.amount,
-            keyset_id: message.keyset_id,
+            keyset_id: message.keyset_id.into(),
             blinded_secret: message.blinded_secret,
             witness: message.witness,
         }
@@ -145,7 +163,7 @@ impl From<BlindedMessage> for cashu::BlindedMessage {
     fn from(message: BlindedMessage) -> Self {
         Self {
             amount: message.amount,
-            keyset_id: message.keyset_id,
+            keyset_id: cashu::Id::from(message.keyset_id),
             blinded_secret: message.blinded_secret,
             witness: message.witness,
         }
@@ -162,11 +180,8 @@ pub struct BlindSignature {
     )]
     pub amount: cashu::Amount,
     #[serde(rename = "id")]
-    #[borsh(
-        serialize_with = "wire::borsh::serialize_as_str",
-        deserialize_with = "wire::borsh::deserialize_from_str"
-    )]
-    pub keyset_id: cashu::Id,
+    #[schema(value_type = String)]
+    pub keyset_id: Id,
     #[serde(rename = "C_")]
     #[borsh(
         serialize_with = "wire::borsh::serialize_as_str",
@@ -185,7 +200,18 @@ impl From<BlindSignature> for cashu::BlindSignature {
     fn from(signature: BlindSignature) -> Self {
         Self {
             amount: signature.amount,
-            keyset_id: signature.keyset_id,
+            keyset_id: signature.keyset_id.into(),
+            c: signature.c,
+            dleq: signature.dleq,
+        }
+    }
+}
+
+impl From<cashu::BlindSignature> for BlindSignature {
+    fn from(signature: cashu::BlindSignature) -> Self {
+        Self {
+            amount: signature.amount,
+            keyset_id: signature.keyset_id.into(),
             c: signature.c,
             dleq: signature.dleq,
         }
@@ -196,7 +222,8 @@ impl From<BlindSignature> for cashu::BlindSignature {
 pub struct Proof {
     pub amount: cashu::Amount,
     #[serde(rename = "id")]
-    pub keyset_id: cashu::Id,
+    #[schema(value_type = String)]
+    pub keyset_id: Id,
     #[schema(value_type = String)]
     pub secret: cashu::secret::Secret,
     #[serde(rename = "C")]
@@ -247,7 +274,7 @@ impl From<cashu::Proof> for Proof {
     fn from(proof: cashu::Proof) -> Self {
         Self {
             amount: proof.amount,
-            keyset_id: proof.keyset_id,
+            keyset_id: proof.keyset_id.into(),
             secret: proof.secret,
             c: proof.c,
             witness: proof.witness,
@@ -261,7 +288,7 @@ impl From<Proof> for cashu::Proof {
     fn from(proof: Proof) -> Self {
         Self {
             amount: proof.amount,
-            keyset_id: proof.keyset_id,
+            keyset_id: proof.keyset_id.into(),
             secret: proof.secret,
             c: proof.c,
             witness: proof.witness,
@@ -273,7 +300,8 @@ impl From<Proof> for cashu::Proof {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct KeySet {
-    pub id: cashu::Id,
+    #[schema(value_type = String)]
+    pub id: Id,
     pub unit: cashu::CurrencyUnit,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active: Option<bool>,
@@ -287,7 +315,7 @@ pub struct KeySet {
 impl From<cashu::KeySet> for KeySet {
     fn from(keyset: cashu::KeySet) -> Self {
         Self {
-            id: keyset.id,
+            id: keyset.id.into(),
             unit: keyset.unit,
             active: keyset.active,
             keys: keyset.keys,
@@ -300,7 +328,7 @@ impl From<cashu::KeySet> for KeySet {
 impl From<KeySet> for cashu::KeySet {
     fn from(keyset: KeySet) -> Self {
         Self {
-            id: keyset.id,
+            id: keyset.id.into(),
             unit: keyset.unit,
             active: keyset.active,
             keys: keyset.keys,
@@ -312,7 +340,8 @@ impl From<KeySet> for cashu::KeySet {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct KeySetInfo {
-    pub id: cashu::Id,
+    #[schema(value_type = String)]
+    pub id: Id,
     pub unit: cashu::CurrencyUnit,
     pub active: bool,
     pub input_fee_ppk: u64,
@@ -323,7 +352,7 @@ pub struct KeySetInfo {
 impl From<cashu::KeySetInfo> for KeySetInfo {
     fn from(info: cashu::KeySetInfo) -> Self {
         Self {
-            id: info.id,
+            id: info.id.into(),
             unit: info.unit,
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
@@ -335,7 +364,7 @@ impl From<cashu::KeySetInfo> for KeySetInfo {
 impl From<KeySetInfo> for cashu::KeySetInfo {
     fn from(info: KeySetInfo) -> Self {
         Self {
-            id: info.id,
+            id: info.id.into(),
             unit: info.unit,
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
@@ -346,7 +375,7 @@ impl From<KeySetInfo> for cashu::KeySetInfo {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MintKeySet {
-    pub id: cashu::Id,
+    pub id: Id,
     pub unit: cashu::CurrencyUnit,
     pub keys: cashu::nut01::MintKeys,
     pub input_fee_ppk: u64,
@@ -355,7 +384,7 @@ pub struct MintKeySet {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MintKeySetInfo {
-    pub id: cashu::Id,
+    pub id: Id,
     pub unit: cashu::CurrencyUnit,
     pub active: bool,
     pub valid_from: u64,
@@ -369,7 +398,7 @@ pub struct MintKeySetInfo {
 impl From<cashu::MintKeySet> for MintKeySet {
     fn from(keyset: cashu::MintKeySet) -> Self {
         Self {
-            id: keyset.id,
+            id: keyset.id.into(),
             unit: keyset.unit,
             keys: keyset.keys,
             input_fee_ppk: keyset.input_fee_ppk,
@@ -381,7 +410,7 @@ impl From<cashu::MintKeySet> for MintKeySet {
 impl From<MintKeySet> for cashu::MintKeySet {
     fn from(keyset: MintKeySet) -> Self {
         Self {
-            id: keyset.id,
+            id: keyset.id.into(),
             unit: keyset.unit,
             keys: keyset.keys,
             input_fee_ppk: keyset.input_fee_ppk,
@@ -418,7 +447,7 @@ impl From<MintKeySet> for KeySet {
 impl From<cdk_common::mint::MintKeySetInfo> for MintKeySetInfo {
     fn from(info: cdk_common::mint::MintKeySetInfo) -> Self {
         Self {
-            id: info.id,
+            id: info.id.into(),
             unit: info.unit,
             active: info.active,
             valid_from: info.valid_from,
@@ -434,7 +463,7 @@ impl From<cdk_common::mint::MintKeySetInfo> for MintKeySetInfo {
 impl From<MintKeySetInfo> for cashu::KeySetInfo {
     fn from(info: MintKeySetInfo) -> Self {
         Self {
-            id: info.id,
+            id: info.id.into(),
             unit: info.unit,
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
@@ -493,7 +522,7 @@ pub mod test_utils {
                 .expect("cdk_dhke::blind_message");
             let b = BlindedMessage {
                 amount: *amount,
-                keyset_id: kid,
+                keyset_id: kid.into(),
                 blinded_secret: b_,
                 witness: None,
             };
@@ -567,17 +596,53 @@ mod tests {
             let mut buf = Vec::new();
             BorshSerialize::serialize(&id, &mut buf).expect("serialize");
             let mut upstream = Vec::new();
-            wire::borsh::serialize_as_str(&kid, &mut upstream).expect("serialize");
+            wire::borsh::serialize_id_bytes(&kid, &mut upstream).expect("serialize");
             assert_eq!(buf, upstream);
-            assert_eq!(buf[..4], (s.len() as u32).to_le_bytes());
+            assert_eq!(buf[..4], (id.to_bytes().len() as u32).to_le_bytes());
 
             let deserialized: Id = BorshDeserialize::deserialize_reader(&mut upstream.as_slice())
                 .expect("deserialize");
             assert_eq!(deserialized, id);
             let upstream_back: cashu::Id =
-                wire::borsh::deserialize_from_str(&mut buf.as_slice()).expect("deserialize");
+                wire::borsh::deserialize_id_bytes(&mut buf.as_slice()).expect("deserialize");
             assert_eq!(upstream_back, kid);
         }
+    }
+
+    #[test]
+    fn id_bytes_wire_compat() {
+        for s in id_fixtures() {
+            let id = Id::from_str(&s).expect("parse");
+            let kid = cashu::Id::from(id);
+
+            assert_eq!(id.to_bytes(), kid.to_bytes());
+            assert_eq!(Id::from_bytes(&kid.to_bytes()).expect("deserialize"), id);
+            assert_eq!(
+                cashu::Id::from_bytes(&id.to_bytes()).expect("deserialize"),
+                kid
+            );
+        }
+    }
+
+    #[test]
+    fn id_bytes_accept_reject_matches_cashu() {
+        let refused = vec![
+            vec![0u8],
+            vec![0u8; 7],
+            vec![0u8; 9],
+            vec![1u8; 32],
+            vec![1u8; 34],
+            [vec![2u8], vec![0u8; 7]].concat(),
+            [vec![255u8], vec![0u8; 32]].concat(),
+        ];
+        for bytes in refused {
+            assert!(Id::from_bytes(&bytes).is_err(), "should refuse {bytes:?}");
+            assert!(
+                cashu::Id::from_bytes(&bytes).is_err(),
+                "cashu refuses {bytes:?} too"
+            );
+        }
+        assert!(Id::from_bytes(&[]).is_err());
     }
 
     #[test]
@@ -630,10 +695,14 @@ mod tests {
         );
     }
 
+    fn random_public_key() -> cashu::PublicKey {
+        cashu::PublicKey::from(core::generate_random_keypair().public_key())
+    }
+
     fn random_keyset_id() -> Id {
         let mut bytes = [0; 8];
         bytes[1..].copy_from_slice(&rand::random::<[u8; 7]>());
-        cashu::Id::from_bytes(&bytes).expect("keyset id").into()
+        Id::from_bytes(&bytes).expect("keyset id")
     }
 
     #[test]
@@ -673,7 +742,7 @@ mod tests {
         let deserialized: cashu::BlindedMessage =
             serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(deserialized.amount, message.amount);
-        assert_eq!(deserialized.keyset_id, message.keyset_id);
+        assert_eq!(Id::from(deserialized.keyset_id), message.keyset_id);
         assert_eq!(deserialized.blinded_secret, message.blinded_secret);
         assert_eq!(deserialized.witness, message.witness);
     }
@@ -690,20 +759,20 @@ mod tests {
         let deserialized: cashu::BlindSignature =
             serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(deserialized.amount, signature.amount);
-        assert_eq!(deserialized.keyset_id, signature.keyset_id);
+        assert_eq!(Id::from(deserialized.keyset_id), signature.keyset_id);
         assert_eq!(deserialized.c, signature.c);
         assert_eq!(deserialized.dleq, signature.dleq);
     }
 
     #[test]
     fn proof_json_wire_compat() {
-        let keyset = random_mint_keyset();
+        let keyset = core_tests::generate_random_ecash_keyset().1;
         let cashu_proof =
             core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
                 .remove(0);
         let proof = Proof {
             amount: cashu_proof.amount,
-            keyset_id: cashu_proof.keyset_id,
+            keyset_id: cashu_proof.keyset_id.into(),
             secret: cashu_proof.secret,
             c: cashu_proof.c,
             witness: cashu_proof.witness,
@@ -717,7 +786,7 @@ mod tests {
 
     #[test]
     fn keyset_json_wire_compat() {
-        let mint_keyset = random_mint_keyset();
+        let mint_keyset = core_tests::generate_random_ecash_keyset().1;
         let cashu_keyset = core::keys::to_keyset(&mint_keyset, Some(true));
         let keyset = KeySet {
             id: cashu_keyset.id,
@@ -729,12 +798,12 @@ mod tests {
         };
         let bytes = serde_json::to_vec(&keyset).expect("serialize");
         let deserialized: cashu::KeySet = serde_json::from_slice(&bytes).expect("deserialize");
-        assert_eq!(deserialized.id, keyset.id);
+        assert_eq!(Id::from(deserialized.id), keyset.id);
     }
 
     #[test]
     fn mintkeyset_json_wire_compat() {
-        let cashu_mint_keyset = random_mint_keyset();
+        let cashu_mint_keyset = core_tests::generate_random_ecash_keyset().1;
         let mint_keyset = MintKeySet {
             id: cashu_mint_keyset.id,
             unit: cashu_mint_keyset.unit,
@@ -751,7 +820,7 @@ mod tests {
     /// checking both
     #[test]
     fn proof_utilities_match_cashu() {
-        let keyset = random_mint_keyset();
+        let keyset = core_tests::generate_random_ecash_keyset().1;
         let cashu_proofs = core_tests::generate_random_ecash_proofs(
             &keyset,
             &[cashu::Amount::from(1u64), cashu::Amount::from(8u64)],
@@ -771,7 +840,7 @@ mod tests {
 
     #[test]
     fn cashu_conversions_round_trip() {
-        let keyset = random_mint_keyset();
+        let keyset = core_tests::generate_random_ecash_keyset().1;
         let proof: Proof =
             core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
                 .remove(0)
@@ -802,6 +871,6 @@ mod tests {
         };
         let bytes = serde_json::to_vec(&keyset_info).expect("serialize");
         let deserialized: cashu::KeySetInfo = serde_json::from_slice(&bytes).expect("deserialize");
-        assert_eq!(deserialized.id, keyset_info.id);
+        assert_eq!(Id::from(deserialized.id), keyset_info.id);
     }
 }

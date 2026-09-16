@@ -1,9 +1,9 @@
 // ----- standard library imports
 // ----- extra library imports
-use cashu::{Amount, Id, PublicKey, nut02::ShortKeysetId, secret::Secret};
+use cashu::{Amount, PublicKey, nut02::ShortKeysetId, secret::Secret};
 use serde::{Deserialize, Serialize};
 // ----- local modules
-use crate::ecash::{Proof, Proofs};
+use crate::ecash::{Id, Proof, Proofs};
 
 // ----- end imports
 
@@ -22,7 +22,7 @@ impl TokenV4Token {
     /// Create new [`TokenV4Token`]
     pub fn new(keyset_id: Id, proofs: Proofs) -> Self {
         Self {
-            keyset_id: ShortKeysetId::from(keyset_id),
+            keyset_id: ShortKeysetId::from(cashu::Id::from(keyset_id)),
             proofs: proofs.into_iter().map(Into::into).collect(),
         }
     }
