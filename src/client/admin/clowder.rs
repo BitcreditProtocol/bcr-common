@@ -58,6 +58,8 @@ pub mod admin_ep {
     pub const LOCAL_RESERVE: &str = "/admin/local/reserves/{reserve_id}";
     pub const LOCAL_ONCHAIN_OPERATIONS: &str = "/admin/local/onchain_operations";
     pub const LOCAL_KEYSETS_BALANCE: &str = "/admin/local/keysets_balance";
+    pub const LOCAL_EIOUS: &str = "/admin/local/eious";
+    pub const LOCAL_EIOU: &str = "/admin/local/eious/{request_id}";
 }
 
 pub mod web_ep {
@@ -820,6 +822,29 @@ impl Client {
             .base
             .join(admin_ep::LOCAL_KEYSETS_BALANCE)
             .expect("local keysets balance relative path");
+        let response = self.cl.get(url, &[]).await?;
+        Ok(response)
+    }
+
+    pub async fn add_eiou(
+        &self,
+        request: &wire_clowder::EiouDepositRequest,
+    ) -> Result<wire_clowder::EiouDepositResponse> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_EIOUS)
+            .expect("local add eiou relative path");
+        let response = self.cl.post(url, request).await?;
+        Ok(response)
+    }
+
+    pub async fn get_eiou(
+        &self,
+        request_id: uuid::Uuid,
+    ) -> Result<wire_clowder::EiouDepositResponse> {
+        assert!(admin_ep::LOCAL_EIOU.contains("{request_id}"));
+        let path = admin_ep::LOCAL_EIOU.replace("{request_id}", &request_id.to_string());
+        let url = self.base.join(&path).expect("local get eiou relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
     }
