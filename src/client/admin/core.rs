@@ -6,6 +6,7 @@ use thiserror::Error;
 // ----- local imports
 use crate::{
     client::admin::jsonrpc,
+    core::maturity,
     ecash,
     wire::{keys as wire_keys, swap as wire_swap},
 };
@@ -131,7 +132,7 @@ pub struct Client {
 
 impl Client {
     pub fn currency_unit() -> cashu::CurrencyUnit {
-        crate::client::CURRENCY_UNIT
+        crate::core::CURRENCY_UNIT
     }
 
     pub fn new(base: reqwest::Url) -> Self {
@@ -160,7 +161,7 @@ impl Client {
             .join(admin_ep::NEW_KEYSET)
             .expect("new keys relative path");
         let request = wire_keys::NewKeysetRequest {
-            unit: crate::client::CURRENCY_UNIT,
+            unit: crate::core::CURRENCY_UNIT,
             expiration,
             fees_ppk,
         };
@@ -181,8 +182,7 @@ impl Client {
         let kinfos =
             common::list_keyset_info(&self.cl, &self.base, web_ep::LIST_KEYSET_INFO_V1, filters)
                 .await?;
-        let expiration_tstamp =
-            u64::try_from(expiration.midnight().assume_utc().unix_timestamp()).unwrap_or(0);
+        let expiration_tstamp = maturity::credit_expires_at(expiration);
         for kinfo in kinfos {
             if kinfo.unit == unit && kinfo.final_expiry == Some(expiration_tstamp) {
                 return Ok(kinfo);
@@ -494,15 +494,5 @@ pub(crate) mod common {
             prepare_swap_commitment_request(inputs, outputs, expiry, wallet_pk, attestation);
         let response: wire_swap::SwapCommitmentResponse = cl.post(url, &request).await?;
         verify_commitment(request, response, &mint_pk)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn keyset_expiration_midnight_utc_timestamp() {
-        let expiration = time::macros::date!(2026 - 08 - 03);
-        let tstamp = u64::try_from(expiration.midnight().assume_utc().unix_timestamp()).unwrap();
-        assert_eq!(tstamp, 1_785_715_200);
     }
 }

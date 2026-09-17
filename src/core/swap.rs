@@ -13,6 +13,7 @@ pub mod wallet {
     use thiserror::Error;
     // ----- local imports
     use crate::{
+        core::maturity::is_matured,
         core::swap::{FEE_RATE_PPK_MULTIPLIER, MAX_PAYMENT_INPUTS},
         ecash,
     };
@@ -224,7 +225,7 @@ pub mod wallet {
                 .ok_or(Error::UnknownKeyset(p.keyset_id))?;
             match kinfo.final_expiry {
                 None => pure_debits.push(p),
-                Some(expiry) if expiry < now => expire_credits.push(p),
+                Some(_) if is_matured(kinfo.final_expiry, now) => expire_credits.push(p),
                 Some(_) => credits.push(p),
             }
         }
@@ -1078,8 +1079,7 @@ mod test {
         let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
         let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
         let now = time::OffsetDateTime::now_utc();
-        kinfo_expired.final_expiry =
-            Some((now - time::Duration::seconds(3600)).unix_timestamp() as u64);
+        kinfo_expired.final_expiry = Some((now - time::Duration::days(1)).unix_timestamp() as u64);
         kinfo_credit.final_expiry =
             Some((now + time::Duration::seconds(3600)).unix_timestamp() as u64);
         let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];
@@ -1115,8 +1115,7 @@ mod test {
         let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
         let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
         let now = time::OffsetDateTime::now_utc();
-        kinfo_expired.final_expiry =
-            Some((now - time::Duration::seconds(3600)).unix_timestamp() as u64);
+        kinfo_expired.final_expiry = Some((now - time::Duration::days(1)).unix_timestamp() as u64);
         kinfo_credit.final_expiry =
             Some((now + time::Duration::seconds(3600)).unix_timestamp() as u64);
         let amounts = vec![Amount::from(2), Amount::from(4), Amount::from(8)];
@@ -1153,8 +1152,7 @@ mod test {
         let (kinfo_debit, keyset_debit) = core_tests::generate_random_ecash_keyset();
         let (mut kinfo_credit, keyset_credit) = core_tests::generate_random_ecash_keyset();
         let now = time::OffsetDateTime::now_utc();
-        kinfo_expired.final_expiry =
-            Some((now - time::Duration::seconds(3600)).unix_timestamp() as u64);
+        kinfo_expired.final_expiry = Some((now - time::Duration::days(1)).unix_timestamp() as u64);
         kinfo_credit.final_expiry =
             Some((now + time::Duration::seconds(3600)).unix_timestamp() as u64);
         let amounts = vec![Amount::from(1), Amount::from(2), Amount::from(4)];

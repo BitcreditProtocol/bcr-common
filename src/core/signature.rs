@@ -156,7 +156,17 @@ pub fn verify_ecash_proof(
             proof.keyset_id,
         ));
     }
-    // ref: https://docs.rs/cdk/latest/cdk/mint/struct.Mint.html#method.verify_proofs
+    verify_spending_conditions(proof)?;
+    let keypair = keyset
+        .keys
+        .get(&proof.amount)
+        .ok_or(ECashSignatureError::NoKeyForAmount(proof.amount))?;
+    cashu::dhke::verify_message(&keypair.secret_key, proof.c, proof.secret.as_bytes())?;
+    Ok(())
+}
+
+// ref: https://docs.rs/cdk/latest/cdk/mint/struct.Mint.html#method.verify_proofs
+pub fn verify_spending_conditions(proof: &cashu::Proof) -> ECashSignatureResult<()> {
     if let Ok(secret) = <&cashu::secret::Secret as TryInto<cdk10::Secret>>::try_into(&proof.secret)
     {
         match secret.kind() {
@@ -168,11 +178,6 @@ pub fn verify_ecash_proof(
             }
         }
     }
-    let keypair = keyset
-        .keys
-        .get(&proof.amount)
-        .ok_or(ECashSignatureError::NoKeyForAmount(proof.amount))?;
-    cashu::dhke::verify_message(&keypair.secret_key, proof.c, proof.secret.as_bytes())?;
     Ok(())
 }
 
@@ -265,7 +270,7 @@ pub fn verify_offline_exchange_htlc(proof: &cashu::Proof) -> ECashSignatureResul
         }
     }
 
-    let preimage_hash = Sha256::hash(htlc_witness.preimage.as_bytes());
+    let preimage_hash = crate::core::htlc::offline_hash_lock(&htlc_witness.preimage);
     if hash_lock != preimage_hash {
         return Err(cdk14::Error::Preimage.into());
     }
