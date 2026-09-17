@@ -12,8 +12,8 @@ pub fn utc_start_of_day(secs: u64) -> u64 {
     (secs / SECS_PER_DAY) * SECS_PER_DAY
 }
 
-/// Midnight UTC of `date` in unix seconds: the day-aligned instant at which credit backed by a
-/// bill maturing on `date` stops being credit.
+/// Midnight UTC of `date` in unix seconds. A keyset with this `final_expiry` is credit through
+/// `date` and debit from the following day, see `is_matured`.
 pub fn credit_expires_at(date: BillDate) -> u64 {
     u64::try_from(date.midnight().assume_utc().unix_timestamp()).unwrap_or(0)
 }
@@ -24,7 +24,8 @@ pub fn is_matured(final_expiry: Option<u64>, now: u64) -> bool {
     !matches!(final_expiry, Some(e) if e >= utc_start_of_day(now))
 }
 
-/// Returns the active keyset of the requested maturity (matured = debit-like), earliest expiry first.
+/// Returns the active keyset of the requested maturity (matured = debit-like): no expiry first,
+/// then the earliest expiry.
 pub fn active_keyset(
     infos: &[ecash::KeySetInfo],
     matured: bool,
