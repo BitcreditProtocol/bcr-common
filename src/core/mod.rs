@@ -4,7 +4,9 @@ use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 // ----- local modules
 mod billid;
+pub mod htlc;
 pub mod keys;
+pub mod maturity;
 mod nodeid;
 pub mod signature;
 #[cfg(any(feature = "wallet", feature = "mint"))]
@@ -28,6 +30,7 @@ pub use billid::BillId;
 pub use nodeid::NodeId;
 
 pub const ID_PREFIX: &str = "bitcr";
+pub const CURRENCY_UNIT: cashu::CurrencyUnit = cashu::CurrencyUnit::Sat;
 pub const NETWORK_MAINNET: char = 'm';
 pub const NETWORK_TESTNET: char = 't';
 pub const NETWORK_TESTNET4: char = 'T';

@@ -16,8 +16,6 @@ pub use admin::core;
 pub use admin::quote;
 pub use admin::treasury;
 
-const CURRENCY_UNIT: cashu::CurrencyUnit = cashu::CurrencyUnit::Sat;
-
 // This is a workaround for Android targets, since reqwest 0.13 added complexity and issues by using
 // rust-platform-verifier (https://github.com/rustls/rustls-platform-verifier#android)
 #[cfg(all(feature = "webpki-roots", not(target_arch = "wasm32")))]
