@@ -1047,7 +1047,8 @@ pub struct OnchainOperationsResponse {
 ///--------------------------- per-keyset outstanding eCash balance
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct KeysetBalance {
-    pub keyset_id: cashu::Id,
+    #[schema(value_type = String)]
+    pub keyset_id: ecash::Id,
     pub expiry: u64,
     pub balance: cashu::Amount,
 }
