@@ -1057,3 +1057,32 @@ pub struct KeysetBalance {
 pub struct KeysetsBalanceResponse {
     pub balances: Vec<KeysetBalance>,
 }
+
+///--------------------------- e-iou deposits
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+pub struct EiouDepositRequest {
+    #[schema(value_type = String)]
+    pub request_id: uuid::Uuid,
+    /// Whole brc-20 tokens, not sats: the eIOU ticker is deployed with `dec = 0`.
+    pub amount: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+pub struct EiouDepositResponse {
+    #[schema(value_type = String)]
+    pub request_id: uuid::Uuid,
+    #[schema(value_type = String)]
+    pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+    /// The declared amount — what gets credited as collateral.
+    pub amount: u64,
+    pub status: EiouDepositStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+pub enum EiouDepositStatus {
+    Pending,
+    Completed {
+        /// The indexer's tip watermark when the credit was observed.
+        block_height: u64,
+    },
+}
