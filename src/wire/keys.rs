@@ -36,20 +36,18 @@ pub struct KeysetInfoFilters {
 ///--------------------------- Pre-sign blinded message
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SignRequest {
-    pub kid: cashu::Id,
-    pub msg: cashu::BlindedMessage,
+    pub kid: ecash::Id,
+    pub msg: ecash::BlindedMessage,
 }
 
 ///--------------------------- Proof fingerprint validation
-#[derive(
-    Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize, ToSchema, PartialEq,
-)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize, PartialEq)]
 pub struct ProofFingerprint {
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub keyset_id: cashu::Id,
+    pub keyset_id: ecash::Id,
     pub amount: u64,
     #[borsh(
         serialize_with = "serialize_as_str",
@@ -71,7 +69,7 @@ pub struct ProofFingerprint {
 impl std::convert::From<&ProofFingerprint> for core::signature::ProofFingerprint {
     fn from(fp: &ProofFingerprint) -> Self {
         core::signature::ProofFingerprint {
-            keyset_id: fp.keyset_id,
+            keyset_id: fp.keyset_id.into(),
             amount: cashu::Amount::from(fp.amount),
             y: *fp.y,
             c: *fp.c,
@@ -91,9 +89,9 @@ impl ProofFingerprint {
     }
 }
 
-impl std::convert::TryFrom<cashu::Proof> for ProofFingerprint {
-    type Error = cashu::nut00::Error;
-    fn try_from(proof: cashu::Proof) -> std::result::Result<Self, Self::Error> {
+impl std::convert::TryFrom<ecash::Proof> for ProofFingerprint {
+    type Error = ecash::Error;
+    fn try_from(proof: ecash::Proof) -> std::result::Result<Self, Self::Error> {
         let y = proof.y()?;
         Ok(ProofFingerprint {
             keyset_id: proof.keyset_id,
@@ -105,9 +103,35 @@ impl std::convert::TryFrom<cashu::Proof> for ProofFingerprint {
     }
 }
 
-pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> cashu::Proof {
-    cashu::Proof {
+impl std::convert::TryFrom<cashu::Proof> for ProofFingerprint {
+    type Error = cashu::nut00::Error;
+    fn try_from(proof: cashu::Proof) -> std::result::Result<Self, Self::Error> {
+        let y = proof.y()?;
+        Ok(ProofFingerprint {
+            keyset_id: proof.keyset_id.into(),
+            amount: proof.amount.into(),
+            y,
+            c: proof.c,
+            dleq: proof.dleq,
+        })
+    }
+}
+
+pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> ecash::Proof {
+    ecash::Proof {
         keyset_id: fp.keyset_id,
+        amount: cashu::Amount::from(fp.amount),
+        c: fp.c,
+        dleq: fp.dleq.clone(),
+        witness: None,
+        secret,
+        p2pk_e: None,
+    }
+}
+
+pub fn fp_to_cashu_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> cashu::Proof {
+    cashu::Proof {
+        keyset_id: fp.keyset_id.into(),
         amount: cashu::Amount::from(fp.amount),
         c: fp.c,
         dleq: fp.dleq.clone(),
