@@ -16,31 +16,27 @@ use crate::wire::{
 // ----- end imports
 
 ///--------------------------- Melt Quote Onchain Request
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct MeltQuoteOnchainRequest {
     pub inputs: AttestedFingerprints,
     /// Bitcoin address the wallet wants the mint to pay
-    #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_unchecked_address",
         deserialize_with = "deserialize_unchecked_address"
     )]
     pub address: bitcoin::Address<NetworkUnchecked>,
     /// the amount the user wants the mint to pay to the address
-    #[schema(value_type = u64)]
     #[borsh(
         serialize_with = "serialize_btc_amount",
         deserialize_with = "deserialize_btc_amount"
     )]
     pub amount: Amount,
     /// total tx fee in sats the user pays for the onchain transaction
-    #[schema(value_type = u64)]
     #[borsh(
         serialize_with = "serialize_btc_amount",
         deserialize_with = "deserialize_btc_amount"
     )]
     pub network_fee: Amount,
-    #[schema(value_type = String)]
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"

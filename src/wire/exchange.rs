@@ -100,14 +100,12 @@ pub struct OnlineExchangeResponse {
 }
 
 ///--------------------------- Offline ExchangeRequest (Wallet -> Substitute)
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OfflineExchangeRequest {
     pub fingerprints: Vec<wire_keys::ProofFingerprint>,
-    #[schema(value_type = Vec<String>)]
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
     pub wallet_pk: cashu::PublicKey,
     /// Over the exchange digest; only wallet-signed reports can spend its proofs.
-    #[schema(value_type = String)]
     pub wallet_signature: secp256k1::schnorr::Signature,
 }
 
