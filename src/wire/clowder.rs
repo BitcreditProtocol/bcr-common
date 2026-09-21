@@ -640,7 +640,7 @@ pub struct CheckStateRequest {
 
 ///--------------------------- Reply envelope
 
-#[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum ClowderRejection {
     #[error("proof at index {index} already spent")]
     AlreadySpent { index: u32 },
@@ -660,8 +660,35 @@ pub enum ClowderRejection {
     InvalidFees,
     #[error("mint lease expired")]
     LeaseExpired,
+    #[error("request could not be decoded")]
+    Malformed,
+    #[error("proof failed verification")]
+    InvalidProof,
+    #[error("{0}")]
+    InvalidRequest(String),
+    #[error("{0} not found")]
+    NotFound(String),
+    #[error("{0}")]
+    Conflict(String),
+    #[error("signing service unavailable, retry later")]
+    SigningUnavailable,
+    #[error("ledger busy, retry later")]
+    LedgerBusy,
+    #[error("storage unavailable, retry later")]
+    StorageUnavailable,
+    #[error("mint is syncing, retry later")]
+    Syncing,
     #[error("internal error: {0}")]
     Internal(String),
+}
+
+impl ClowderRejection {
+    pub fn is_transient(&self) -> bool {
+        matches!(
+            self,
+            Self::SigningUnavailable | Self::LedgerBusy | Self::StorageUnavailable | Self::Syncing
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -701,6 +728,50 @@ mod tests {
         match cbor_roundtrip(&reply) {
             ClowderReply::Err(ClowderRejection::AlreadySpent { index }) => assert_eq!(index, 3),
             other => panic!("expected AlreadySpent, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn clowder_rejection_variants_roundtrip() {
+        let rejections = [
+            ClowderRejection::Malformed,
+            ClowderRejection::InvalidProof,
+            ClowderRejection::InvalidRequest("expiry is more than 24h ahead".into()),
+            ClowderRejection::NotFound("reserve 1".into()),
+            ClowderRejection::Conflict("proof already spent".into()),
+            ClowderRejection::SigningUnavailable,
+            ClowderRejection::LedgerBusy,
+            ClowderRejection::StorageUnavailable,
+            ClowderRejection::Syncing,
+            ClowderRejection::Internal("boom".into()),
+        ];
+        for rejection in rejections {
+            assert_eq!(cbor_roundtrip(&rejection), rejection);
+        }
+    }
+
+    #[test]
+    fn only_retry_later_rejections_are_transient() {
+        let transient = [
+            ClowderRejection::SigningUnavailable,
+            ClowderRejection::LedgerBusy,
+            ClowderRejection::StorageUnavailable,
+            ClowderRejection::Syncing,
+        ];
+        let verdicts = [
+            ClowderRejection::Malformed,
+            ClowderRejection::InvalidProof,
+            ClowderRejection::InvalidRequest(String::new()),
+            ClowderRejection::NotFound(String::new()),
+            ClowderRejection::Conflict(String::new()),
+            ClowderRejection::Expired,
+            ClowderRejection::LeaseExpired,
+            ClowderRejection::Internal(String::new()),
+        ];
+        assert!(transient.iter().all(ClowderRejection::is_transient));
+        assert!(!verdicts.iter().any(ClowderRejection::is_transient));
+        for rejection in transient {
+            assert!(rejection.to_string().ends_with("retry later"));
         }
     }
 
