@@ -339,10 +339,10 @@ impl Client {
 
     pub async fn swap(
         &self,
-        inputs: Vec<cashu::Proof>,
-        outputs: Vec<cashu::BlindedMessage>,
+        inputs: Vec<ecash::Proof>,
+        outputs: Vec<ecash::BlindedMessage>,
         commitment: secp::schnorr::Signature,
-    ) -> Result<Vec<cashu::BlindSignature>> {
+    ) -> Result<Vec<ecash::BlindSignature>> {
         let result = core::common::swap(
             &self.cl,
             &self.base,
