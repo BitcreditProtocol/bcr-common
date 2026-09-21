@@ -7,7 +7,7 @@ const MAX_PAYMENT_INPUTS: usize = 32;
 #[cfg(any(feature = "wallet", test))]
 pub mod wallet {
     // ----- standard library imports
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{BTreeMap, BTreeSet, HashMap};
     // ----- extra library imports
     use cashu::{Amount, Id, Proof};
     use thiserror::Error;
@@ -124,7 +124,7 @@ pub mod wallet {
         inputs: &[Proof],
         kinfos: &HashMap<Id, ecash::KeySetInfo>,
     ) -> Result<cashu::Amount> {
-        let input_kids: HashSet<cashu::Id> = inputs.iter().map(|p| p.keyset_id).collect();
+        let input_kids: BTreeSet<cashu::Id> = inputs.iter().map(|p| p.keyset_id).collect();
         let mut max_fee_rate_ppk = 0;
         for kid in input_kids {
             if !kinfos.contains_key(&kid) {
@@ -162,7 +162,7 @@ pub mod wallet {
         kinfos: &HashMap<Id, ecash::KeySetInfo>,
         no_fees: bool,
     ) -> Result<SwapPlan> {
-        let mut sum_by_id: HashMap<Id, Amount> = HashMap::new();
+        let mut sum_by_id: BTreeMap<Id, Amount> = BTreeMap::new();
         let mut total_inputs_size = 0;
         for input in inputs {
             if !kinfos.contains_key(&input.keyset_id) {
@@ -512,7 +512,10 @@ pub mod mint {
 mod test {
     use super::{
         mint::{FeePolicy, VerificationError, verify_swap},
-        wallet::{Error as WalletError, PaymentPlan, prepare_melt, prepare_payment, required_fees},
+        wallet::{
+            Error as WalletError, PaymentPlan, SwapPlan, prepare_melt, prepare_payment,
+            prepare_swap, required_fees,
+        },
     };
     use crate::{core_tests, ecash};
     use cashu::Amount;
@@ -1243,6 +1246,44 @@ mod test {
         let kinfos = HashMap::from([(keyset.id.into(), ecash::KeySetInfo::from(kinfo))]);
         let fees = required_fees(&proofs, &kinfos).unwrap();
         assert_eq!(fees, Amount::from(2));
+    }
+
+    #[test]
+    fn prepare_swap_is_deterministic_across_calls_and_rebuilt_kinfos() {
+        const SECRET_LEN: usize = 10;
+        const FEE_PPK: u64 = 1;
+        let mut keysets: Vec<_> = (0..3)
+            .map(|_| {
+                let (mut kinfo, keyset) = core_tests::generate_random_ecash_keyset();
+                kinfo.input_fee_ppk = FEE_PPK;
+                (cashu::Id::from(keyset.id), kinfo, keyset)
+            })
+            .collect();
+        keysets.sort_by_key(|(kid, _, _)| *kid);
+        let amounts = [Amount::from(2), Amount::from(2), Amount::from(8)];
+        let inputs: Vec<cashu::Proof> = keysets
+            .iter()
+            .zip(amounts)
+            .map(|((_, _, keyset), amount)| {
+                core_tests::generate_random_ecash_proofs(keyset, &[amount])
+                    .pop()
+                    .unwrap()
+            })
+            .collect();
+        let expected = SwapPlan::from([
+            (keysets[0].0, Amount::from(1)),
+            (keysets[1].0, Amount::from(2)),
+            (keysets[2].0, Amount::from(8)),
+        ]);
+        for i in 0..32 {
+            let mut kinfos: HashMap<cashu::Id, ecash::KeySetInfo> = HashMap::new();
+            for offset in 0..keysets.len() {
+                let (kid, kinfo, _) = &keysets[(i + offset) % keysets.len()];
+                kinfos.insert(*kid, ecash::KeySetInfo::from(kinfo.clone()));
+            }
+            let plan = prepare_swap(&inputs, &kinfos).unwrap();
+            assert_eq!(plan, expected, "plan changed on iteration {i}");
+        }
     }
 
     #[test]
