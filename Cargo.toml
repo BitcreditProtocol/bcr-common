@@ -14,7 +14,7 @@ webpki-roots = ["dep:webpki-root-certs", "reqwest/rustls"]
 
 [dependencies]
 async-nats = {version = "0.50", optional = true}
-bip39 = {version = "2.2"}
+bip39 = {version = "3.0"}
 bitcoin = {version = "0.32", features = ["serde"]}
 secp256k1 = { version = "0.29", features = ["global-context"] } # needed for global-context of bitcoin::secp256k1 - in bitcoin 0.33 there will be a feature flag for this
 borsh = {version = "1.5", features = ["derive"]}
