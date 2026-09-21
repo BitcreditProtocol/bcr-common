@@ -1050,7 +1050,8 @@ pub struct KeysetBalance {
     #[schema(value_type = String)]
     pub keyset_id: ecash::Id,
     pub expiry: u64,
-    pub balance: cashu::Amount,
+    #[schema(value_type = u64)]
+    pub balance: bitcoin::Amount,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
