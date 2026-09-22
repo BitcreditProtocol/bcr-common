@@ -23,6 +23,7 @@ pub mod admin_ep {
     pub const FEES_TOKEN: &str = "/admin/fees/token";
     pub const DENIED_MELTOPS: &str = "/admin/onchain/melt/denied";
     pub const DENIED_MELTOP: &str = "/admin/onchain/melt/denied/{qid}";
+    pub const FOREIGN_BALANCE: &str = "/admin/foreign/balance";
 }
 
 pub mod web_ep {
@@ -293,6 +294,15 @@ impl Client {
             .expect("denied melt operations relative path");
         self.cl.delete(url, &[]).await?;
         Ok(())
+    }
+
+    pub async fn foreign_balance(&self) -> Result<wire_treasury::ForeignBalanceResponse> {
+        let url = self
+            .base
+            .join(admin_ep::FOREIGN_BALANCE)
+            .expect("foreign balance relative path");
+        let response = self.cl.get(url, &[]).await?;
+        Ok(response)
     }
 }
 
