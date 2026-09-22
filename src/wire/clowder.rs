@@ -128,6 +128,17 @@ pub enum MintState {
     Interim,
     Rabid,
 }
+/// One outage as the alpha's Betas collectively hold it against the alpha.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq, Default)]
+pub struct PendingOutage {
+    pub evidence_digest: [u8; 32],
+    #[schema(value_type = Option<String>)]
+    pub substitute: Option<bitcoin::secp256k1::PublicKey>,
+    pub betas_holding: usize,
+    pub pending_exchanges: usize,
+    pub pending_amount: u64,
+}
+
 /// Reflects what the majority of Beta mints think about the current Alpha mint
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PerceivedState {
@@ -136,6 +147,9 @@ pub struct PerceivedState {
     pub alpha_state: MintState,
     /// Earliest beta-reported offline onset, Unix seconds; `Some` iff `alpha_state != Online`.
     pub offline_since: Option<u64>,
+    /// Outages the Betas still hold against this alpha; empty once it is online.
+    #[serde(default)]
+    pub pending_outages: Vec<PendingOutage>,
 }
 
 ///--------------------------- Accounting
