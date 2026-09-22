@@ -1,10 +1,10 @@
 // ----- standard library imports
 // ----- extra library imports
+use bitcoin::secp256k1;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-
-use crate::core::BillId;
 // ----- local imports
+use crate::core::BillId;
 
 // ----- end imports
 
@@ -73,4 +73,18 @@ pub struct DeniedMeltOp {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct DeniedMeltOperations {
     pub ops: Vec<DeniedMeltOp>,
+}
+
+///--------------------------- foreign eCash balance
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ForeignBalanceEntry {
+    #[schema(value_type = String)]
+    pub mint_id: secp256k1::PublicKey,
+    pub settled: cashu::Amount,
+    pub unsettled: cashu::Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ForeignBalanceResponse {
+    pub balances: Vec<ForeignBalanceEntry>,
 }
