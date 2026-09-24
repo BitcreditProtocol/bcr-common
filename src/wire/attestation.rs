@@ -19,9 +19,8 @@ pub const DOMAIN_TAG_ATTEST: &[u8] = b"bcr/attest/issuance/v1";
 pub const DOMAIN_TAG_VERIFY: &[u8] = b"bcr/attest/verify/v1";
 
 ///--------------------------- Issuance Attestation Request (Wallet -> Beta)
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IssuanceAttestationRequest {
-    #[schema(value_type = String)]
     pub alpha_id: bitcoin::secp256k1::PublicKey,
     /// Inputs whose ancestry the Beta must attest to. `dleq` (with `r`) must
     /// be populated on every entry so the Beta can reblind `C_ <- C + r*K` and ensure C_ is signed correctly.
@@ -54,9 +53,7 @@ pub struct IssuanceAttestation {
 }
 
 ///--------------------------- Attested Fingerprints (input set + its issuance attestation)
-#[derive(
-    Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize, PartialEq,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize, PartialEq)]
 pub struct AttestedFingerprints {
     pub inputs: Vec<ProofFingerprint>,
     pub attestation: IssuanceAttestation,

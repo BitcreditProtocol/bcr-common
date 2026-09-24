@@ -74,38 +74,34 @@ pub struct SwapCommitmentResponse {
 }
 
 ///--------------------------- Swap Request
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapRequest {
-    pub inputs: Vec<cashu::Proof>,
-    pub outputs: Vec<cashu::BlindedMessage>,
-    #[schema(value_type = String)]
+    pub inputs: Vec<ecash::Proof>,
+    pub outputs: Vec<ecash::BlindedMessage>,
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
 }
 
 ///--------------------------- Swap Response
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SwapResponse {
-    pub signatures: Vec<cashu::BlindSignature>,
+    pub signatures: Vec<ecash::BlindSignature>,
 }
 
 ///--------------------------- Swap Protest Request
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SwapProtestRequest {
-    #[schema(value_type = String)]
     pub alpha_id: bitcoin::secp256k1::PublicKey,
-    pub proofs: Vec<cashu::Proof>,
+    pub proofs: Vec<ecash::Proof>,
     pub content: String,
-    #[schema(value_type = String)]
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
-    #[schema(value_type = String)]
     pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub blind_signatures: Option<Vec<cashu::BlindSignature>>,
+    pub blind_signatures: Option<Vec<ecash::BlindSignature>>,
 }
 
 ///--------------------------- Swap Protest Response
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SwapProtestResponse {
     pub status: ProtestStatus,
-    pub signatures: Option<Vec<cashu::BlindSignature>>,
+    pub signatures: Option<Vec<ecash::BlindSignature>>,
 }
