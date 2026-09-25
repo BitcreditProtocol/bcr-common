@@ -80,7 +80,9 @@ pub struct DeniedMeltOperations {
 pub struct ForeignBalanceEntry {
     #[schema(value_type = String)]
     pub mint_id: secp256k1::PublicKey,
+    #[schema(value_type = u64)]
     pub settled: cashu::Amount,
+    #[schema(value_type = u64)]
     pub unsettled: cashu::Amount,
 }
 
