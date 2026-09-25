@@ -131,8 +131,6 @@ pub fn derive_ebill_mint_req_to_pay_tweak(
     clowder_tagged_hash(purpose, aggregated_key, &payload)
 }
 
-/// Derives the tweak for eIOU addresses
-/// `Some(request_id)` yields a per-request address, `None` the eIOU change address
 fn derive_eiou_tweak(aggregated_key: &XOnlyPublicKey, request_id: Option<&Uuid>) -> [u8; 32] {
     let purpose = b"eiou";
     let payload = request_id.map_or(&[][..], |id| id.as_bytes());
@@ -239,9 +237,10 @@ pub fn derive_eiou_address(
     frost_agg_key: &XOnlyPublicKey,
     request_id: &Uuid,
     network: Network,
-) -> Result<Address> {
+) -> Result<(Address, [u8; 32])> {
     let tweak = derive_eiou_tweak(frost_agg_key, Some(request_id));
-    Ok(build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network))
+    let address = build_tap_tree_for_tweak(frost_agg_key, &tweak)?.address(network);
+    Ok((address, tweak))
 }
 
 pub fn derive_eiou_change_address(
@@ -353,10 +352,12 @@ mod tests {
         let request_id = Uuid::from_u128(1);
         let net = Network::Regtest;
 
-        let eiou = derive_eiou_address(&frost, &request_id, net).unwrap();
-        let eiou_again = derive_eiou_address(&frost, &request_id, net).unwrap();
-        let other_request = derive_eiou_address(&frost, &Uuid::from_u128(2), net).unwrap();
-        let other_key = derive_eiou_address(&frost2, &request_id, net).unwrap();
+        let eiou = derive_eiou_address(&frost, &request_id, net).unwrap().0;
+        let eiou_again = derive_eiou_address(&frost, &request_id, net).unwrap().0;
+        let other_request = derive_eiou_address(&frost, &Uuid::from_u128(2), net)
+            .unwrap()
+            .0;
+        let other_key = derive_eiou_address(&frost2, &request_id, net).unwrap().0;
         let reserve = derive_add_reserve_address(&frost, &request_id, net).unwrap();
         let change = derive_eiou_change_address(&frost, net).unwrap();
         let change_again = derive_eiou_change_address(&frost, net).unwrap();
