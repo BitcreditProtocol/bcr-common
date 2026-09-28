@@ -4,10 +4,12 @@ use cashu::nut02::ShortKeysetId;
 use thiserror::Error;
 // ----- local modules
 mod cbor;
+mod payment_request;
 mod proof;
 mod token;
 // ----- end imports
 
+pub use payment_request::*;
 pub use proof::*;
 pub use token::*;
 
