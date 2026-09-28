@@ -35,7 +35,7 @@ thiserror = {version = "2.0"}
 time = {version = "0.3", features = ["serde", "formatting", "parsing", "macros"]}
 tracing = {version = "0.1"}
 url = {version = "2.5"}
-utoipa = {version = "5.5", features = ["time", "uuid", "url"]}
+utoipa = {version = "6.0", features = ["time", "uuid", "url"]}
 uuid = {version = "1", features = ["serde"]}
 webpki-root-certs = {version = "1", optional = true}
 
