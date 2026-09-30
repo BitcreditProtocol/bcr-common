@@ -1,17 +1,20 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::{Amount, address::NetworkUnchecked};
+use bitcoin::{Amount, address::NetworkUnchecked, secp256k1};
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
-use crate::wire::{
-    attestation::AttestedFingerprints,
-    borsh::{
-        deserialize_btc_amount, deserialize_from_str, deserialize_unchecked_address,
-        serialize_as_str, serialize_btc_amount, serialize_unchecked_address,
+use crate::{
+    ecash,
+    wire::{
+        attestation::AttestedFingerprints,
+        borsh::{
+            deserialize_btc_amount, deserialize_from_str, deserialize_unchecked_address,
+            serialize_as_str, serialize_btc_amount, serialize_unchecked_address,
+        },
+        common::ProtestStatus,
     },
-    common::ProtestStatus,
 };
 // ----- end imports
 
@@ -41,7 +44,7 @@ pub struct MeltQuoteOnchainRequest {
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub wallet_key: cashu::PublicKey,
+    pub wallet_key: secp256k1::PublicKey,
 }
 
 ///--------------------------- Melt Quote Onchain Response Body
@@ -82,7 +85,7 @@ pub struct MeltQuoteOnchainResponseBody {
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub wallet_key: cashu::PublicKey,
+    pub wallet_key: secp256k1::PublicKey,
 }
 
 ///--------------------------- Melt Quote Onchain Response
@@ -98,7 +101,7 @@ pub struct MeltQuoteOnchainResponse {
 pub struct MeltOnchainRequest {
     #[schema(value_type = String)]
     pub quote: uuid::Uuid,
-    pub inputs: Vec<cashu::Proof>,
+    pub inputs: Vec<ecash::Proof>,
 }
 
 ///--------------------------- Melt Onchain Response
@@ -268,7 +271,7 @@ mod tests {
         }
     }
 
-    fn fixed_wallet_key() -> cashu::PublicKey {
+    fn fixed_wallet_key() -> secp::PublicKey {
         FIXED_PUBKEY.parse().expect("valid cashu key")
     }
 
@@ -406,13 +409,9 @@ mod tests {
         );
     }
 
-    fn sample_wallet_key() -> cashu::PublicKey {
+    fn sample_wallet_key() -> secp256k1::PublicKey {
         let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
-        keypair
-            .public_key()
-            .to_string()
-            .parse()
-            .expect("valid cashu key")
+        keypair.public_key()
     }
 
     #[test]

@@ -8,6 +8,7 @@ use crate::{
     cashu,
     client::admin::jsonrpc,
     core::BillId,
+    ecash,
     wire::{exchange as wire_exchange, keys as wire_keys, treasury as wire_treasury},
 };
 
@@ -164,8 +165,8 @@ impl Client {
     pub async fn new_ebill_mint_operation(
         &self,
         qid: uuid::Uuid,
-        kid: cashu::Id,
-        pk: cashu::PublicKey,
+        kid: ecash::Id,
+        pk: secp256k1::PublicKey,
         target: cashu::Amount,
         bill_id: BillId,
     ) -> Result<()> {
@@ -257,7 +258,7 @@ impl Client {
         Ok(result.proofs)
     }
 
-    pub async fn fees_store_proofs(&self, proofs: Vec<cashu::Proof>) -> Result<()> {
+    pub async fn fees_store_proofs(&self, proofs: Vec<ecash::Proof>) -> Result<()> {
         let url = self
             .base
             .join(admin_ep::FEES_STORE_PROOFS)
