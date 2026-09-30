@@ -4,7 +4,7 @@ use bitcoin::secp256k1;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
-use crate::core::BillId;
+use crate::{ecash, core::BillId};
 
 // ----- end imports
 
@@ -12,8 +12,10 @@ use crate::core::BillId;
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
 pub struct NewMintOperationRequest {
     pub quote_id: uuid::Uuid,
-    pub kid: cashu::Id,
-    pub pub_key: cashu::PublicKey,
+    #[schema(value_type = String)]
+    pub kid: ecash::Id,
+    #[schema(value_type = String)]
+    pub pub_key: secp256k1::PublicKey,
     pub target: cashu::Amount,
     #[schema(value_type = String)]
     pub bill_id: crate::core::BillId,
@@ -25,7 +27,8 @@ pub struct NewMintOperationResponse {}
 ///--------------------------- Mint operation status
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
 pub struct MintOperationStatus {
-    pub kid: cashu::Id,
+    #[schema(value_type = String)]
+    pub kid: ecash::Id,
     pub quote_id: uuid::Uuid,
     pub target: cashu::Amount,
     pub current: cashu::Amount,
@@ -48,7 +51,7 @@ pub struct RequestToPayFromEBillResponse {}
 /// --------------------------- collecting fees
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct StoreProofsRequest {
-    pub proofs: Vec<cashu::Proof>,
+    pub proofs: Vec<ecash::Proof>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]

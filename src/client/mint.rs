@@ -556,7 +556,7 @@ impl Client {
         recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
         amount: bitcoin::Amount,
         network_fee: bitcoin::Amount,
-        wallet_key: cashu::PublicKey,
+        wallet_key: secp256k1::PublicKey,
         mint_pk: secp::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<(String, secp::schnorr::Signature)> {
@@ -674,7 +674,7 @@ impl Client {
     pub async fn onchain_melt(
         &self,
         qid: Uuid,
-        inputs: Vec<cashu::Proof>,
+        inputs: Vec<ecash::Proof>,
     ) -> Result<bitcoin::Txid> {
         let url = self
             .base
