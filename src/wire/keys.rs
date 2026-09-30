@@ -1,5 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
+use bitcoin::secp256k1 as secp;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -53,12 +54,12 @@ pub struct ProofFingerprint {
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub y: cashu::PublicKey, // Y = hash_to_curve(secret)
+    pub y: secp::PublicKey, // Y = hash_to_curve(secret)
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub c: cashu::PublicKey, // unblinded signature
+    pub c: secp::PublicKey, // unblinded signature
     #[borsh(
         serialize_with = "serialize_optionproofdleq",
         deserialize_with = "deserialize_optionproofdleq"
@@ -71,8 +72,8 @@ impl std::convert::From<&ProofFingerprint> for core::signature::ProofFingerprint
         core::signature::ProofFingerprint {
             keyset_id: fp.keyset_id.into(),
             amount: cashu::Amount::from(fp.amount),
-            y: *fp.y,
-            c: *fp.c,
+            y: fp.y,
+            c: fp.c,
         }
     }
 }
@@ -96,8 +97,8 @@ impl std::convert::TryFrom<ecash::Proof> for ProofFingerprint {
         Ok(ProofFingerprint {
             keyset_id: proof.keyset_id,
             amount: proof.amount.into(),
-            y,
-            c: proof.c,
+            y: ecash::public_key_cashu2secp(&y),
+            c: ecash::public_key_cashu2secp(&proof.c),
             dleq: proof.dleq,
         })
     }
@@ -110,8 +111,8 @@ impl std::convert::TryFrom<cashu::Proof> for ProofFingerprint {
         Ok(ProofFingerprint {
             keyset_id: proof.keyset_id.into(),
             amount: proof.amount.into(),
-            y,
-            c: proof.c,
+            y: ecash::public_key_cashu2secp(&y),
+            c: ecash::public_key_cashu2secp(&proof.c),
             dleq: proof.dleq,
         })
     }
@@ -121,7 +122,7 @@ pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> ecas
     ecash::Proof {
         keyset_id: fp.keyset_id,
         amount: cashu::Amount::from(fp.amount),
-        c: fp.c,
+        c: ecash::public_key_secp2cashu(&fp.c),
         dleq: fp.dleq.clone(),
         witness: None,
         secret,
@@ -133,7 +134,7 @@ pub fn fp_to_cashu_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -
     cashu::Proof {
         keyset_id: fp.keyset_id.into(),
         amount: cashu::Amount::from(fp.amount),
-        c: fp.c,
+        c: ecash::public_key_secp2cashu(&fp.c),
         dleq: fp.dleq.clone(),
         witness: None,
         secret,
