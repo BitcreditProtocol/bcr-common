@@ -107,7 +107,7 @@ pub fn canonical_fingerprint(fp: &ProofFingerprint) -> ProofFingerprint {
 /// `y` makes the digest order-independent.
 pub fn fp_digest(fps: &[ProofFingerprint]) -> [u8; 32] {
     let mut canonical: Vec<ProofFingerprint> = fps.iter().map(canonical_fingerprint).collect();
-    canonical.sort_unstable_by_key(|a| a.y.to_bytes());
+    canonical.sort_unstable_by_key(|a| a.y);
     let bytes = borsh::to_vec(&canonical).expect("borsh serialization of canonical fingerprints");
     Sha256::hash(&bytes).to_byte_array()
 }
