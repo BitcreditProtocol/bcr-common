@@ -293,10 +293,10 @@ impl Client {
 
     pub async fn swap(
         &self,
-        inputs: Vec<cashu::Proof>,
-        outputs: Vec<cashu::BlindedMessage>,
+        inputs: Vec<ecash::Proof>,
+        outputs: Vec<ecash::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
-    ) -> Result<Vec<cashu::BlindSignature>> {
+    ) -> Result<Vec<ecash::BlindSignature>> {
         let result = common::swap(
             &self.cl,
             &self.base,
@@ -417,10 +417,10 @@ pub(crate) mod common {
         cl: &jsonrpc::Client,
         base: &reqwest::Url,
         ep: &'static str,
-        inputs: Vec<cashu::Proof>,
-        outputs: Vec<cashu::BlindedMessage>,
+        inputs: Vec<ecash::Proof>,
+        outputs: Vec<ecash::BlindedMessage>,
         commitment: bitcoin::secp256k1::schnorr::Signature,
-    ) -> Result<Vec<cashu::BlindSignature>> {
+    ) -> Result<Vec<ecash::BlindSignature>> {
         let url = base.join(ep).expect("swap relative path");
         let request = wire_swap::SwapRequest {
             inputs,
