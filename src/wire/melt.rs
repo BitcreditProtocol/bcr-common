@@ -201,10 +201,12 @@ mod tests {
     //
     // `MeltQuoteOnchainResponseBody`'s borsh bytes are signed: `client::mint::
     // onchain_melt_quote` returns `(content, commitment)` where `content` is this
-    // encoding and `commitment` is a signature over it. `MeltQuoteOnchainRequest`
-    // is posted as borsh over HTTP by `client::mint`; the NATS path sends the separate
-    // `wire::clowder::MeltQuoteOnchainRequest` as CBOR. Either way these bytes are a
-    // contract between processes, so changing them breaks something outside this crate.
+    // encoding and `commitment` is a signature over it, so changing these bytes, or
+    // those of the `AttestedFingerprints` inside them, breaks something outside this
+    // crate. `MeltQuoteOnchainRequest` itself goes over HTTP as JSON (`client::mint`
+    // posts through `jsonrpc::Client`) and the NATS path sends the separate
+    // `wire::clowder::MeltQuoteOnchainRequest` as CBOR, so its borsh bytes are on no
+    // wire today; its vector only keeps the derive stable for whoever signs it next.
     //
     // The round-trip tests below cannot catch that: they pass whenever a
     // `serialize_with`/`deserialize_with` pair changes together, which is exactly what
