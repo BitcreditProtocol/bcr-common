@@ -13,6 +13,7 @@ pub mod info;
 pub mod keys;
 pub mod melt;
 pub mod mint;
+pub mod notification;
 pub mod quotes;
 pub mod signatures;
 pub mod swap;
