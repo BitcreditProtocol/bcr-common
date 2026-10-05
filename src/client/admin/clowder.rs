@@ -60,6 +60,7 @@ pub mod admin_ep {
     pub const LOCAL_KEYSETS_BALANCE: &str = "/admin/local/keysets_balance";
     pub const LOCAL_EIOUS: &str = "/admin/local/eious";
     pub const LOCAL_EIOU: &str = "/admin/local/eious/{request_id}";
+    pub const LOCAL_EIOU_OPERATIONS: &str = "/admin/local/eiou_operations";
 }
 
 pub mod web_ep {
@@ -845,6 +846,17 @@ impl Client {
         assert!(admin_ep::LOCAL_EIOU.contains("{request_id}"));
         let path = admin_ep::LOCAL_EIOU.replace("{request_id}", &request_id.to_string());
         let url = self.base.join(&path).expect("local get eiou relative path");
+        let response = self.cl.get(url, &[]).await?;
+        Ok(response)
+    }
+
+    pub async fn get_eiou_operations_history(
+        &self,
+    ) -> Result<wire_clowder::EiouOperationsResponse> {
+        let url = self
+            .base
+            .join(admin_ep::LOCAL_EIOU_OPERATIONS)
+            .expect("local eiou operations relative path");
         let response = self.cl.get(url, &[]).await?;
         Ok(response)
     }
