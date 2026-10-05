@@ -1172,3 +1172,28 @@ pub enum EiouDepositStatus {
         block_height: u64,
     },
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "type")]
+pub enum EiouOperationType {
+    Deposit {
+        #[schema(value_type = String)]
+        request_id: uuid::Uuid,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct EiouOperation {
+    pub op_type: EiouOperationType,
+    /// Whole brc-20 tokens, not sats: the eIOU ticker is deployed with `dec = 0`.
+    pub amount: u64,
+    /// The bitcoin block the credit landed in, as recorded on the ledger entry.
+    pub block_height: u64,
+    /// Unix seconds, from that block's header.
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct EiouOperationsResponse {
+    pub operations: Vec<EiouOperation>,
+}
