@@ -13,6 +13,9 @@ permissions:
   security-events: write
   actions: read
 
+env:
+  CARGO_PROFILE_DEV_DEBUG: "0"
+
 jobs:
   test:
     timeout-minutes: 15
@@ -42,6 +45,7 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           prefix-key: "bcr-common"
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Run tests
         run: cargo test --verbose
