@@ -24,6 +24,14 @@ pub fn is_matured(final_expiry: Option<u64>, now: u64) -> bool {
     !matches!(final_expiry, Some(e) if e >= utc_start_of_day(now))
 }
 
+pub fn credit_ends_at(date: BillDate) -> u64 {
+    credit_expires_at(date) + SECS_PER_DAY
+}
+
+pub fn bill_is_matured(maturity_date: BillDate, now: u64) -> bool {
+    is_matured(Some(credit_expires_at(maturity_date)), now)
+}
+
 /// Returns the active keyset of the requested maturity (matured = debit-like): no expiry first,
 /// then the earliest expiry.
 pub fn active_keyset(
@@ -99,6 +107,17 @@ mod tests {
             credit_expires_at(maturity.next_day().unwrap()),
             expiry + SECS_PER_DAY
         );
+    }
+
+    #[test]
+    fn bill_is_credit_through_its_maturity_day() {
+        let maturity = time::macros::date!(2026 - 10 - 08);
+        let ends = credit_ends_at(maturity);
+        assert!(!bill_is_matured(maturity, credit_expires_at(maturity) - 1));
+        assert!(!bill_is_matured(maturity, credit_expires_at(maturity)));
+        assert!(!bill_is_matured(maturity, ends - 1));
+        assert!(bill_is_matured(maturity, ends));
+        assert_eq!(ends, credit_expires_at(maturity.next_day().unwrap()));
     }
 
     #[test]
