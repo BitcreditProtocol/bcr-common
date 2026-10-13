@@ -99,7 +99,7 @@ pub fn validate_wallet_conditions(
         .refund_keys
         .as_ref()
         .ok_or(LockError::RefundKey)?;
-    if conditions.num_sigs.unwrap_or_default() == 0 {
+    if conditions.num_sigs != Some(pubkeys.len() as u64) {
         return Err(LockError::NumSigs);
     }
     if refund_keys.len() != 1 {
@@ -339,6 +339,20 @@ mod tests {
             Err(LockError::RefundKey),
             "without the issuer's refund key anyone can spend it after the locktime"
         );
+        let refunds = cashu::Conditions::new(
+            Some(locktime),
+            Some(vec![recipient]),
+            Some(vec![issuer, stranger]),
+            Some(1),
+            None,
+            Some(1),
+        )
+        .expect("conditions");
+        assert_eq!(
+            validate_exchange_conditions(&recipient, &issuer, &refunds, margin, now),
+            Err(LockError::RefundKey),
+            "only the issuer may reclaim"
+        );
     }
 
     #[test]
@@ -364,6 +378,20 @@ mod tests {
         assert_eq!(
             validate_wallet_conditions(&node, &ok, 0, locktime + 1),
             Err(LockError::LockTime)
+        );
+        let one_of_two = cashu::Conditions::new(
+            Some(locktime),
+            Some(vec![other, node]),
+            Some(vec![wallet]),
+            Some(1),
+            None,
+            Some(1),
+        )
+        .expect("conditions");
+        assert_eq!(
+            validate_wallet_conditions(&node, &one_of_two, margin, now),
+            Err(LockError::NumSigs),
+            "every mint on the path must sign"
         );
     }
 
