@@ -77,6 +77,8 @@ pub enum LockError {
     LockTime,
     #[error("invalid number of signatures")]
     NumSigs,
+    #[error("unsupported signature flag")]
+    SigFlag,
     #[error("invalid pubkeys")]
     Pubkeys,
     #[error("invalid refund key")]
@@ -102,6 +104,9 @@ pub fn validate_wallet_conditions(
     if conditions.num_sigs != Some(pubkeys.len() as u64) {
         return Err(LockError::NumSigs);
     }
+    if conditions.sig_flag != cashu::SigFlag::SigInputs {
+        return Err(LockError::SigFlag);
+    }
     if refund_keys.len() != 1 {
         return Err(LockError::RefundKey);
     }
@@ -126,6 +131,9 @@ pub fn validate_exchange_conditions(
     let locktime = conditions.locktime.ok_or(LockError::LockTime)?;
     if conditions.num_sigs != Some(1) {
         return Err(LockError::NumSigs);
+    }
+    if conditions.sig_flag != cashu::SigFlag::SigInputs {
+        return Err(LockError::SigFlag);
     }
     if conditions.pubkeys.as_deref() != Some(std::slice::from_ref(recipient)) {
         return Err(LockError::Pubkeys);
@@ -353,6 +361,15 @@ mod tests {
             Err(LockError::RefundKey),
             "only the issuer may reclaim"
         );
+        let sig_all = cashu::Conditions {
+            sig_flag: cashu::SigFlag::SigAll,
+            ..ok
+        };
+        assert_eq!(
+            validate_exchange_conditions(&recipient, &issuer, &sig_all, margin, now),
+            Err(LockError::SigFlag),
+            "sign_htlc signs only the proof secret"
+        );
     }
 
     #[test]
@@ -392,6 +409,15 @@ mod tests {
             validate_wallet_conditions(&node, &one_of_two, margin, now),
             Err(LockError::NumSigs),
             "every mint on the path must sign"
+        );
+        let sig_all = cashu::Conditions {
+            sig_flag: cashu::SigFlag::SigAll,
+            ..ok
+        };
+        assert_eq!(
+            validate_wallet_conditions(&node, &sig_all, margin, now),
+            Err(LockError::SigFlag),
+            "sign_htlc signs only the proof secret"
         );
     }
 
