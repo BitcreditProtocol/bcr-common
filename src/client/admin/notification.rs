@@ -1,4 +1,5 @@
 // ----- standard library imports
+use std::time::Duration;
 // ----- extra library imports
 use thiserror::Error;
 // ----- local imports
@@ -43,9 +44,9 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(base: reqwest::Url) -> Self {
+    pub fn new(base: reqwest::Url, timeout: Duration) -> Self {
         Self {
-            cl: jsonrpc::Client::new(),
+            cl: jsonrpc::Client::with_timeout(timeout),
             base,
         }
     }
@@ -57,5 +58,34 @@ impl Client {
             .expect("notify relative path");
         let _: wire_notification::NotificationResponse = self.cl.post(url, &notification).await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_notify_timeout() {
+        let mut server = mockito::Server::new_async().await;
+        server
+            .mock("POST", admin_ep::NOTIFY_V1)
+            .with_status(200)
+            .with_chunked_body(|w| {
+                std::thread::sleep(Duration::from_millis(500));
+                w.write_all(b"{}")
+            })
+            .create_async()
+            .await;
+        let base = reqwest::Url::parse(&server.url()).unwrap();
+        let client = Client::new(base, Duration::from_millis(50));
+        let notification = wire_notification::NotificationRequest::NewEbillQuote {
+            fields: Default::default(),
+        };
+        let result = client.notify(notification).await;
+        let Err(Error::Reqwest(e)) = result else {
+            panic!("expected a reqwest error");
+        };
+        assert!(e.is_timeout());
     }
 }
