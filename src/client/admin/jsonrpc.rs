@@ -65,6 +65,15 @@ impl Client {
         Client { cl }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn with_timeout(timeout: std::time::Duration) -> Self {
+        let cl = crate::client::reqwest_client_builder()
+            .timeout(timeout)
+            .build()
+            .expect("failed to build client with timeout");
+        Client { cl }
+    }
+
     async fn to_error(response: reqwest::Response) -> Error {
         let status = response.status();
         match status {
