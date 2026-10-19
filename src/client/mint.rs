@@ -4,8 +4,6 @@ use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
-#[cfg(feature = "mint")]
-use crate::wire::swap as wire_swap;
 use crate::{
     cashu,
     client::{
@@ -21,8 +19,10 @@ use crate::{
     },
     ecash,
     wire::{
-        attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
-        keys as wire_keys, melt as wire_melt, mint as wire_mint, quotes as wire_quotes,
+        attestation as wire_attestation, clowder as wire_clowder,
+        common::{ProtestOutcome, ProtestOutcomeError},
+        exchange as wire_exchange, keys as wire_keys, melt as wire_melt, mint as wire_mint,
+        quotes as wire_quotes, swap as wire_swap,
     },
 };
 
@@ -47,6 +47,8 @@ pub enum Error {
     Cdk20(#[from] cashu::nut20::Error),
     #[error("borsh sign error {0}")]
     BorshSign(#[from] BorshMsgSignatureError),
+    #[error("protest outcome {0}")]
+    ProtestOutcome(#[from] ProtestOutcomeError),
 }
 
 #[derive(Debug, Error)]
@@ -822,6 +824,53 @@ impl Client {
         )
         .await?;
         Ok(response)
+    }
+
+    // -------------------------------------------------------------------------
+    // Clowder – protests, answered by a beta of the accused alpha
+    // -------------------------------------------------------------------------
+
+    pub async fn protest_mint(
+        &self,
+        request: &wire_mint::MintProtestRequest,
+    ) -> Result<ProtestOutcome<Vec<cashu::BlindSignature>>> {
+        self.protest::<_, wire_mint::MintProtestResponse, _>(web_ep::PROTEST_MINT_V1_EXT, request)
+            .await
+    }
+
+    pub async fn protest_swap(
+        &self,
+        request: &wire_swap::SwapProtestRequest,
+    ) -> Result<ProtestOutcome<Vec<ecash::BlindSignature>>> {
+        self.protest::<_, wire_swap::SwapProtestResponse, _>(web_ep::PROTEST_SWAP_V1_EXT, request)
+            .await
+    }
+
+    pub async fn protest_melt(
+        &self,
+        request: &wire_melt::MeltProtestRequest,
+    ) -> Result<ProtestOutcome<bitcoin::Txid>> {
+        self.protest::<_, wire_melt::MeltProtestResponse, _>(web_ep::PROTEST_MELT_V1_EXT, request)
+            .await
+    }
+
+    async fn protest<Request, Response, T>(
+        &self,
+        ep: &str,
+        request: &Request,
+    ) -> Result<ProtestOutcome<T>>
+    where
+        Request: serde::Serialize,
+        Response:
+            serde::de::DeserializeOwned + TryInto<ProtestOutcome<T>, Error = ProtestOutcomeError>,
+    {
+        let url = self.base.join(ep).expect("protest relative path");
+        let response: Response = self
+            .cl
+            .post(url, request)
+            .await
+            .map_err(clowder::Error::from)?;
+        Ok(response.try_into()?)
     }
 
     pub async fn derive_ebill_payment_address(

@@ -13,7 +13,7 @@ use crate::{
             deserialize_btc_amount, deserialize_from_str, deserialize_unchecked_address,
             serialize_as_str, serialize_btc_amount, serialize_unchecked_address,
         },
-        common::ProtestStatus,
+        common::{ProtestOutcome, ProtestOutcomeError, ProtestStatus},
     },
 };
 // ----- end imports
@@ -131,6 +131,20 @@ pub struct MeltProtestResponse {
     pub status: ProtestStatus,
     #[schema(value_type = Option<String>)]
     pub txid: Option<bitcoin::Txid>,
+}
+
+impl TryFrom<MeltProtestResponse> for ProtestOutcome<bitcoin::Txid> {
+    type Error = ProtestOutcomeError;
+    fn try_from(response: MeltProtestResponse) -> Result<Self, Self::Error> {
+        Self::from_parts(response.status, response.txid)
+    }
+}
+
+impl From<ProtestOutcome<bitcoin::Txid>> for MeltProtestResponse {
+    fn from(outcome: ProtestOutcome<bitcoin::Txid>) -> Self {
+        let (status, txid) = outcome.into_parts();
+        Self { status, txid }
+    }
 }
 
 ///--------------------------- Melt Onchain Estimate Request

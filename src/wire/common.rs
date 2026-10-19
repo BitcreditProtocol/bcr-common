@@ -19,11 +19,56 @@ pub struct Pagination {
     pub offset: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum ProtestStatus {
     Resolved,
     Rabid,
     Offline,
+}
+
+/// The answer to a protest, with the result the alpha issued when it is resolved
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProtestOutcome<T> {
+    /// the result of the committed request, found in the ledger or returned by the replay
+    Resolved(T),
+    /// the alpha explicitly rejected a valid committed request
+    Rabid,
+    /// the alpha could not be reached, so it is not marked rabid
+    Offline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ProtestOutcomeError {
+    #[error("protest resolved without its result")]
+    ResolvedWithoutResult,
+    #[error("protest that is not resolved carries a result")]
+    UnexpectedResult,
+}
+
+impl<T> ProtestOutcome<T> {
+    /// A result is present if and only if the status is `Resolved`
+    pub fn from_parts(
+        status: ProtestStatus,
+        result: Option<T>,
+    ) -> Result<Self, ProtestOutcomeError> {
+        match (status, result) {
+            (ProtestStatus::Resolved, Some(result)) => Ok(Self::Resolved(result)),
+            (ProtestStatus::Resolved, None) => Err(ProtestOutcomeError::ResolvedWithoutResult),
+            (ProtestStatus::Rabid, None) => Ok(Self::Rabid),
+            (ProtestStatus::Offline, None) => Ok(Self::Offline),
+            (ProtestStatus::Rabid | ProtestStatus::Offline, Some(_)) => {
+                Err(ProtestOutcomeError::UnexpectedResult)
+            }
+        }
+    }
+
+    pub fn into_parts(self) -> (ProtestStatus, Option<T>) {
+        match self {
+            Self::Resolved(result) => (ProtestStatus::Resolved, Some(result)),
+            Self::Rabid => (ProtestStatus::Rabid, None),
+            Self::Offline => (ProtestStatus::Offline, None),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -171,12 +216,28 @@ mod protest_contract {
     #[test]
     fn result_is_present_exactly_when_resolved() {
         let cases = [
-            (ProtestStatus::Resolved, Some(1), Ok(ProtestOutcome::Resolved(1))),
-            (ProtestStatus::Resolved, None, Err(ProtestOutcomeError::ResolvedWithoutResult)),
+            (
+                ProtestStatus::Resolved,
+                Some(1),
+                Ok(ProtestOutcome::Resolved(1)),
+            ),
+            (
+                ProtestStatus::Resolved,
+                None,
+                Err(ProtestOutcomeError::ResolvedWithoutResult),
+            ),
             (ProtestStatus::Rabid, None, Ok(ProtestOutcome::Rabid)),
-            (ProtestStatus::Rabid, Some(1), Err(ProtestOutcomeError::UnexpectedResult)),
+            (
+                ProtestStatus::Rabid,
+                Some(1),
+                Err(ProtestOutcomeError::UnexpectedResult),
+            ),
             (ProtestStatus::Offline, None, Ok(ProtestOutcome::Offline)),
-            (ProtestStatus::Offline, Some(1), Err(ProtestOutcomeError::UnexpectedResult)),
+            (
+                ProtestStatus::Offline,
+                Some(1),
+                Err(ProtestOutcomeError::UnexpectedResult),
+            ),
         ];
         for (status, result, expected) in cases {
             let outcome = ProtestOutcome::from_parts(status, result);
