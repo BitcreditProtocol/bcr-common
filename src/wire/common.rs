@@ -108,6 +108,22 @@ mod protest_contract {
     }
 
     #[test]
+    fn melt_protest_request_without_inputs_keeps_todays_bytes() {
+        let request: melt::MeltProtestRequest = parse("/melt/request");
+        assert!(request.inputs.is_none());
+        assert_same_json("/melt/request", &request);
+        let bytes = serde_json::to_string(&request).unwrap();
+        assert!(!bytes.contains("inputs"));
+    }
+
+    #[test]
+    fn melt_protest_request_with_inputs_parses() {
+        let request: melt::MeltProtestRequest = parse("/melt/request_with_inputs");
+        assert_eq!(request.inputs.as_ref().map(Vec::len), Some(1));
+        assert_same_json("/melt/request_with_inputs", &request);
+    }
+
+    #[test]
     fn melt_outcome_requires_the_txid_only_when_resolved() {
         let txid = "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b";
 

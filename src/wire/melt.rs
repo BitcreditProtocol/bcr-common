@@ -123,6 +123,8 @@ pub struct MeltProtestRequest {
     pub commitment: bitcoin::secp256k1::schnorr::Signature,
     #[schema(value_type = String)]
     pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inputs: Option<Vec<ecash::Proof>>,
 }
 
 ///--------------------------- Melt Protest Response

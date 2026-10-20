@@ -67,6 +67,21 @@
       "commitment": "e907831f80848d1069a5371b402410364bdf1c5f8307b0084c55f1ce2dca821525f66a4a85ea8b71e482a74f382d2ce5ebeee8fdb2172f477df4900d310536c0",
       "wallet_signature": "6896bd60eeae296db48a229ff71dfe071bde413e6d43f917dc8dcf8c78de33418906d11ac976abccb20b091292bff4ea897efcb639ea871cfa95f6de339e4b0a"
     },
+    "request_with_inputs": {
+      "alpha_id": "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+      "quote_id": "3f2a9d4c-1b7e-4c58-9e06-8d5b2a7f1c34",
+      "content": "CQoLDA==",
+      "commitment": "e907831f80848d1069a5371b402410364bdf1c5f8307b0084c55f1ce2dca821525f66a4a85ea8b71e482a74f382d2ce5ebeee8fdb2172f477df4900d310536c0",
+      "wallet_signature": "6896bd60eeae296db48a229ff71dfe071bde413e6d43f917dc8dcf8c78de33418906d11ac976abccb20b091292bff4ea897efcb639ea871cfa95f6de339e4b0a",
+      "inputs": [
+        {
+          "amount": 8,
+          "id": "009a1f293253e41e",
+          "secret": "407915bc212be61a77e3e6d2aeb4c727980bda51cd06a6afc29e2861768a7837",
+          "C": "02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+        }
+      ]
+    },
     "resolved": {
       "status": "Resolved",
       "txid": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"
