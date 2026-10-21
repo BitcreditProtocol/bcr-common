@@ -87,7 +87,7 @@ impl Client {
                 };
                 Error::ResourceNotFound(value)
             }
-            StatusCode::BAD_REQUEST => {
+            StatusCode::BAD_REQUEST | StatusCode::CONFLICT => {
                 let value: serde_json::Value = response.json().await.unwrap_or_default();
                 Error::InvalidRequest(value)
             }
