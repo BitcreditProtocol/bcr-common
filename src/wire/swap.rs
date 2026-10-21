@@ -10,7 +10,7 @@ use crate::{
     wire::{
         attestation::AttestedFingerprints,
         borsh::{deserialize_from_str, serialize_as_str},
-        common::ProtestStatus,
+        common::{ProtestOutcome, ProtestOutcomeError, ProtestStatus},
     },
 };
 
@@ -104,4 +104,19 @@ pub struct SwapProtestRequest {
 pub struct SwapProtestResponse {
     pub status: ProtestStatus,
     pub signatures: Option<Vec<ecash::BlindSignature>>,
+}
+
+impl TryFrom<SwapProtestResponse> for ProtestOutcome<Vec<ecash::BlindSignature>> {
+    type Error = ProtestOutcomeError;
+    fn try_from(response: SwapProtestResponse) -> Result<Self, Self::Error> {
+        let signatures = response.signatures.filter(|s| !s.is_empty());
+        Self::from_parts(response.status, signatures)
+    }
+}
+
+impl From<ProtestOutcome<Vec<ecash::BlindSignature>>> for SwapProtestResponse {
+    fn from(outcome: ProtestOutcome<Vec<ecash::BlindSignature>>) -> Self {
+        let (status, signatures) = outcome.into_parts();
+        Self { status, signatures }
+    }
 }

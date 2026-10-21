@@ -92,6 +92,12 @@ pub mod web_ep {
     pub const ONLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/online";
     pub const ATTEST_ISSUANCE_V1: &str = "/v1/attest/issuance";
     pub const ATTEST_ISSUANCE_V1_EXT: &str = "/v1/clowder/attest/issuance";
+    pub const PROTEST_MINT_V1: &str = "/v1/protest/mint";
+    pub const PROTEST_MINT_V1_EXT: &str = "/v1/protest/mint";
+    pub const PROTEST_SWAP_V1: &str = "/v1/protest/swap";
+    pub const PROTEST_SWAP_V1_EXT: &str = "/v1/protest/swap";
+    pub const PROTEST_MELT_V1: &str = "/v1/protest/melt";
+    pub const PROTEST_MELT_V1_EXT: &str = "/v1/protest/melt";
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
