@@ -43,7 +43,7 @@ pub fn generate_random_ecash_keyset() -> (ecash::MintKeySetInfo, ecash::MintKeyS
     let info = ecash::MintKeySetInfo {
         id: set.id.into(),
         active: true,
-        unit: cashu::CurrencyUnit::Sat,
+        unit: ecash::DEFAULT_CURRENCY_UNIT,
         amounts,
         valid_from: 0,
         final_expiry: None,
@@ -51,7 +51,7 @@ pub fn generate_random_ecash_keyset() -> (ecash::MintKeySetInfo, ecash::MintKeyS
         derivation_path: path,
         input_fee_ppk: 0,
     };
-    (info, set.into())
+    (info, set.try_into().unwrap())
 }
 
 pub fn generate_random_ecash_proofs(
