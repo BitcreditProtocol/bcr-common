@@ -40,12 +40,11 @@ pub fn active_keyset(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::CURRENCY_UNIT;
 
     fn info(tag: u8, active: bool, final_expiry: Option<u64>) -> ecash::KeySetInfo {
         ecash::KeySetInfo {
             id: ecash::Id::V1([tag; 7]),
-            unit: CURRENCY_UNIT,
+            unit: ecash::DEFAULT_CURRENCY_UNIT,
             active,
             input_fee_ppk: 0,
             final_expiry,
