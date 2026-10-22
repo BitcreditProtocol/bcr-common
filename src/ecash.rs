@@ -1,3 +1,4 @@
+use core::fmt;
 // ----- standard library imports
 use std::str::FromStr;
 // ----- extra library imports
@@ -25,6 +26,8 @@ pub enum Error {
     Amount(#[from] cashu::amount::Error),
     #[error("invalid keyset id")]
     InvalidKeysetId,
+    #[error("currency unit {0}")]
+    Currency(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -302,7 +305,7 @@ impl From<Proof> for cashu::Proof {
 pub struct KeySet {
     #[schema(value_type = String)]
     pub id: Id,
-    pub unit: cashu::CurrencyUnit,
+    pub unit: CurrencyUnit,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active: Option<bool>,
     pub keys: cashu::Keys,
@@ -312,16 +315,18 @@ pub struct KeySet {
     pub final_expiry: Option<u64>,
 }
 
-impl From<cashu::KeySet> for KeySet {
-    fn from(keyset: cashu::KeySet) -> Self {
-        Self {
+impl TryFrom<cashu::KeySet> for KeySet {
+    type Error = Error;
+    fn try_from(keyset: cashu::KeySet) -> Result<Self> {
+        let unit = keyset.unit.try_into()?;
+        Ok(Self {
             id: keyset.id.into(),
-            unit: keyset.unit,
+            unit,
             active: keyset.active,
             keys: keyset.keys,
             input_fee_ppk: keyset.input_fee_ppk,
             final_expiry: keyset.final_expiry,
-        }
+        })
     }
 }
 
@@ -329,7 +334,7 @@ impl From<KeySet> for cashu::KeySet {
     fn from(keyset: KeySet) -> Self {
         Self {
             id: keyset.id.into(),
-            unit: keyset.unit,
+            unit: keyset.unit.into(),
             active: keyset.active,
             keys: keyset.keys,
             input_fee_ppk: keyset.input_fee_ppk,
@@ -342,22 +347,24 @@ impl From<KeySet> for cashu::KeySet {
 pub struct KeySetInfo {
     #[schema(value_type = String)]
     pub id: Id,
-    pub unit: cashu::CurrencyUnit,
+    pub unit: CurrencyUnit,
     pub active: bool,
     pub input_fee_ppk: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub final_expiry: Option<u64>,
 }
 
-impl From<cashu::KeySetInfo> for KeySetInfo {
-    fn from(info: cashu::KeySetInfo) -> Self {
-        Self {
+impl TryFrom<cashu::KeySetInfo> for KeySetInfo {
+    type Error = Error;
+    fn try_from(info: cashu::KeySetInfo) -> Result<Self> {
+        let unit = info.unit.try_into()?;
+        Ok(Self {
             id: info.id.into(),
-            unit: info.unit,
+            unit,
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
             final_expiry: info.final_expiry,
-        }
+        })
     }
 }
 
@@ -365,7 +372,7 @@ impl From<KeySetInfo> for cashu::KeySetInfo {
     fn from(info: KeySetInfo) -> Self {
         Self {
             id: info.id.into(),
-            unit: info.unit,
+            unit: info.unit.into(),
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
             final_expiry: info.final_expiry,
@@ -376,7 +383,7 @@ impl From<KeySetInfo> for cashu::KeySetInfo {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MintKeySet {
     pub id: Id,
-    pub unit: cashu::CurrencyUnit,
+    pub unit: CurrencyUnit,
     pub keys: cashu::nut01::MintKeys,
     pub input_fee_ppk: u64,
     pub final_expiry: Option<u64>,
@@ -385,7 +392,7 @@ pub struct MintKeySet {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MintKeySetInfo {
     pub id: Id,
-    pub unit: cashu::CurrencyUnit,
+    pub unit: CurrencyUnit,
     pub active: bool,
     pub valid_from: u64,
     pub derivation_path: btc32::DerivationPath,
@@ -395,15 +402,17 @@ pub struct MintKeySetInfo {
     pub final_expiry: Option<u64>,
 }
 
-impl From<cashu::MintKeySet> for MintKeySet {
-    fn from(keyset: cashu::MintKeySet) -> Self {
-        Self {
+impl TryFrom<cashu::MintKeySet> for MintKeySet {
+    type Error = Error;
+    fn try_from(keyset: cashu::MintKeySet) -> Result<Self> {
+        let unit = keyset.unit.try_into()?;
+        Ok(Self {
             id: keyset.id.into(),
-            unit: keyset.unit,
+            unit,
             keys: keyset.keys,
             input_fee_ppk: keyset.input_fee_ppk,
             final_expiry: keyset.final_expiry,
-        }
+        })
     }
 }
 
@@ -411,7 +420,7 @@ impl From<MintKeySet> for cashu::MintKeySet {
     fn from(keyset: MintKeySet) -> Self {
         Self {
             id: keyset.id.into(),
-            unit: keyset.unit,
+            unit: keyset.unit.into(),
             keys: keyset.keys,
             input_fee_ppk: keyset.input_fee_ppk,
             final_expiry: keyset.final_expiry,
@@ -444,11 +453,13 @@ impl From<MintKeySet> for KeySet {
     }
 }
 
-impl From<cdk_common::mint::MintKeySetInfo> for MintKeySetInfo {
-    fn from(info: cdk_common::mint::MintKeySetInfo) -> Self {
-        Self {
+impl TryFrom<cdk_common::mint::MintKeySetInfo> for MintKeySetInfo {
+    type Error = Error;
+    fn try_from(info: cdk_common::mint::MintKeySetInfo) -> Result<Self> {
+        let unit = info.unit.try_into()?;
+        Ok(Self {
             id: info.id.into(),
-            unit: info.unit,
+            unit,
             active: info.active,
             valid_from: info.valid_from,
             derivation_path: info.derivation_path,
@@ -456,7 +467,7 @@ impl From<cdk_common::mint::MintKeySetInfo> for MintKeySetInfo {
             amounts: info.amounts,
             input_fee_ppk: info.input_fee_ppk,
             final_expiry: info.final_expiry,
-        }
+        })
     }
 }
 
@@ -464,7 +475,7 @@ impl From<MintKeySetInfo> for cashu::KeySetInfo {
     fn from(info: MintKeySetInfo) -> Self {
         Self {
             id: info.id.into(),
-            unit: info.unit,
+            unit: info.unit.into(),
             active: info.active,
             input_fee_ppk: info.input_fee_ppk,
             final_expiry: info.final_expiry,
@@ -550,6 +561,104 @@ pub mod test_utils {
             signatures.push(s);
         }
         signatures
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ToSchema)]
+pub struct CurrencyUnit([char; 4]);
+pub const DEFAULT_CURRENCY_UNIT: CurrencyUnit = CurrencyUnit(['s', 'a', 't', '\0']);
+impl CurrencyUnit {
+    pub fn new(unit: &str) -> Result<Self> {
+        // ascii control chars would collide with the `char::default()` padding
+        if !unit.chars().all(|c| c.is_ascii_alphanumeric()) {
+            let msg = format!("invalid unit: {}", unit);
+            return Err(Error::Currency(msg));
+        }
+        if unit.len() == 3 {
+            let inner: [char; 3] = unit
+                .to_lowercase()
+                .chars()
+                .collect::<Vec<char>>()
+                .try_into()
+                .expect("3 chars");
+            let inner = [inner[0], inner[1], inner[2], char::default()];
+            Ok(Self(inner))
+        } else if unit.len() == 4 {
+            let inner: [char; 4] = unit
+                .to_lowercase()
+                .chars()
+                .collect::<Vec<char>>()
+                .try_into()
+                .expect("4 chars");
+            Ok(Self(inner))
+        } else {
+            let msg = format!("invalid unit length: {}", unit.len());
+            Err(Error::Currency(msg))
+        }
+    }
+}
+impl fmt::Display for CurrencyUnit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // the padding of a 3-chars unit must not leak out
+        let s: String = self
+            .0
+            .iter()
+            .take_while(|c| **c != char::default())
+            .collect();
+        write!(f, "{}", s)
+    }
+}
+
+impl FromStr for CurrencyUnit {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        Self::new(s)
+    }
+}
+
+impl TryFrom<cashu::CurrencyUnit> for CurrencyUnit {
+    type Error = Error;
+    fn try_from(unit: cashu::CurrencyUnit) -> Result<Self> {
+        match unit {
+            cashu::CurrencyUnit::Msat => Ok(CurrencyUnit::new("msat")?),
+            cashu::CurrencyUnit::Sat => Ok(CurrencyUnit::new("sat")?),
+            cashu::CurrencyUnit::Usd => Ok(CurrencyUnit::new("usd")?),
+            cashu::CurrencyUnit::Eur => Ok(CurrencyUnit::new("eur")?),
+            cashu::CurrencyUnit::Custom(custom) => CurrencyUnit::new(&custom),
+            cashu::CurrencyUnit::Auth => Err(Error::Currency(String::from("auth invalid unit"))),
+            _ => Err(Error::Currency(String::from("unknown unit"))),
+        }
+    }
+}
+
+impl From<CurrencyUnit> for cashu::CurrencyUnit {
+    fn from(unit: CurrencyUnit) -> Self {
+        let s = unit.to_string();
+        match s.as_str() {
+            "msat" => cashu::CurrencyUnit::Msat,
+            "sat" => cashu::CurrencyUnit::Sat,
+            "usd" => cashu::CurrencyUnit::Usd,
+            "eur" => cashu::CurrencyUnit::Eur,
+            _ => cashu::CurrencyUnit::Custom(s),
+        }
+    }
+}
+
+impl serde::Serialize for CurrencyUnit {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_str(self)
+    }
+}
+impl <'de> serde::Deserialize<'de> for CurrencyUnit {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = <std::string::String as serde::Deserialize>::deserialize(deserializer)?;
+        CurrencyUnit::new(&s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -846,16 +955,180 @@ mod tests {
                 .remove(0)
                 .into();
         assert_eq!(Proof::from(cashu::Proof::from(proof.clone())), proof);
-        let info = KeySetInfo {
+        let e_info = KeySetInfo {
             id: keyset.id,
             unit: keyset.unit,
             active: true,
             input_fee_ppk: keyset.input_fee_ppk,
             final_expiry: keyset.final_expiry,
         };
+        let c_info = cashu::KeySetInfo::from(e_info.clone());
+        let e_info2 = KeySetInfo::try_from(c_info.clone()).unwrap();
+        assert_eq!(e_info2, e_info);
+    }
+
+    fn currency_unit_fixtures() -> Vec<&'static str> {
+        vec!["sat", "msat", "usd", "eur", "crs", "csat"]
+    }
+
+    #[test]
+    fn currency_unit_new_normalizes_case_and_checks_length() {
+        assert_eq!(CurrencyUnit::new("SAT").expect("3 chars").to_string(), "sat");
         assert_eq!(
-            KeySetInfo::from(cashu::KeySetInfo::from(info.clone())),
-            info
+            CurrencyUnit::new("MsAt").expect("4 chars").to_string(),
+            "msat"
+        );
+        assert_eq!(
+            CurrencyUnit::from_str("EUR").expect("parse"),
+            CurrencyUnit::new("eur").expect("new")
+        );
+
+        for s in ["", "s", "sa", "msats", "bitcoin"] {
+            assert!(CurrencyUnit::new(s).is_err(), "should refuse {s:?}");
+            assert!(CurrencyUnit::from_str(s).is_err(), "should refuse {s:?}");
+        }
+    }
+
+    #[test]
+    fn currency_unit_default_is_sat() {
+        assert_eq!(DEFAULT_CURRENCY_UNIT, CurrencyUnit::new("sat").expect("new"));
+        assert_eq!(DEFAULT_CURRENCY_UNIT.to_string(), "sat");
+        assert_eq!(
+            cashu::CurrencyUnit::from(DEFAULT_CURRENCY_UNIT),
+            cashu::CurrencyUnit::Sat
+        );
+    }
+
+    /// units arrive from the wire, so a non-ascii string must be an error, not a panic
+    #[test]
+    fn currency_unit_refuses_non_ascii() {
+        for s in ["éur", "€ur", "日本円"] {
+            assert!(CurrencyUnit::new(s).is_err(), "should refuse {s:?}");
+        }
+    }
+
+    #[test]
+    fn currency_unit_display_round_trips_from_str() {
+        for s in currency_unit_fixtures() {
+            let unit = CurrencyUnit::from_str(s).expect("parse");
+            assert_eq!(unit.to_string(), s);
+            assert_eq!(
+                CurrencyUnit::from_str(&unit.to_string()).expect("reparse"),
+                unit
+            );
+        }
+    }
+
+    #[test]
+    fn currency_unit_json_wire_compat() {
+        for s in currency_unit_fixtures() {
+            let unit = CurrencyUnit::from_str(s).expect("parse");
+
+            let bytes = serde_json::to_vec(&unit).expect("serialize");
+            assert_eq!(bytes, format!("\"{s}\"").into_bytes());
+
+            let deserialized: cashu::CurrencyUnit =
+                serde_json::from_slice(&bytes).expect("deserialize");
+            assert_eq!(deserialized, cashu::CurrencyUnit::from(unit));
+            assert_eq!(bytes, serde_json::to_vec(&deserialized).expect("serialize"));
+
+            let back: CurrencyUnit = serde_json::from_slice(&bytes).expect("deserialize");
+            assert_eq!(back, unit);
+        }
+    }
+
+    #[test]
+    fn currency_unit_cashu_conversions_round_trip() {
+        let cashu_units = vec![
+            cashu::CurrencyUnit::Sat,
+            cashu::CurrencyUnit::Msat,
+            cashu::CurrencyUnit::Usd,
+            cashu::CurrencyUnit::Eur,
+            cashu::CurrencyUnit::Custom(String::from("csat")),
+        ];
+        for cashu_unit in cashu_units {
+            let unit = CurrencyUnit::try_from(cashu_unit.clone()).expect("convert");
+            assert_eq!(unit.to_string(), cashu_unit.to_string());
+            assert_eq!(cashu::CurrencyUnit::from(unit), cashu_unit);
+        }
+
+        for s in currency_unit_fixtures() {
+            let unit = CurrencyUnit::from_str(s).expect("parse");
+            let cashu_unit = cashu::CurrencyUnit::from(unit);
+            assert_eq!(cashu_unit, cashu::CurrencyUnit::from_str(s).expect("parse"));
+            assert_eq!(CurrencyUnit::try_from(cashu_unit).expect("convert"), unit);
+        }
+    }
+
+    /// cashu's `Custom` variant accepts any string, so the mint can legitimately put a unit
+    /// on the wire that our fixed-width type cannot hold: we must refuse it, never panic
+    /// and never silently truncate it
+    #[test]
+    fn currency_unit_deserialize_refuses_units_cashu_accepts() {
+        for s in ["", "b", "bi", "bitcoin", "日本円", "éur", "s\u{1}t"] {
+            let cashu_unit = cashu::CurrencyUnit::Custom(String::from(s));
+            let bytes = serde_json::to_vec(&cashu_unit).expect("serialize");
+
+            // cashu happily round-trips it
+            let back: cashu::CurrencyUnit = serde_json::from_slice(&bytes).expect("deserialize");
+            assert_eq!(back, cashu_unit, "cashu accepts {s:?}");
+
+            assert!(
+                serde_json::from_slice::<CurrencyUnit>(&bytes).is_err(),
+                "should refuse {s:?}"
+            );
+            assert!(CurrencyUnit::try_from(cashu_unit).is_err(), "refuse {s:?}");
+        }
+    }
+
+    /// cashu trims and lowercases on the way out, so these reach us as units we can hold
+    #[test]
+    fn currency_unit_deserialize_accepts_cashu_normalized_customs() {
+        for (custom, expected) in [(" CSAT ", "csat"), ("CRS", "crs"), ("\tcsat\n", "csat")] {
+            let cashu_unit = cashu::CurrencyUnit::Custom(String::from(custom));
+            let bytes = serde_json::to_vec(&cashu_unit).expect("serialize");
+            assert_eq!(bytes, format!("\"{expected}\"").into_bytes());
+
+            let unit: CurrencyUnit = serde_json::from_slice(&bytes).expect("deserialize");
+            assert_eq!(unit, CurrencyUnit::new(expected).expect("new"));
+        }
+    }
+
+    /// a malformed payload must be a deserialization error, not a panic
+    #[test]
+    fn currency_unit_deserialize_refuses_non_strings() {
+        for json in ["123", "null", "true", r#"["s","a","t"]"#, r#"{"unit":"sat"}"#] {
+            assert!(
+                serde_json::from_str::<CurrencyUnit>(json).is_err(),
+                "should refuse {json}"
+            );
+        }
+    }
+
+    /// whatever we emit, cashu must read back as the same unit
+    #[test]
+    fn currency_unit_serialize_is_readable_by_cashu() {
+        for s in currency_unit_fixtures() {
+            let unit = CurrencyUnit::from_str(s).expect("parse");
+            let bytes = serde_json::to_vec(&unit).expect("serialize");
+
+            let cashu_unit: cashu::CurrencyUnit =
+                serde_json::from_slice(&bytes).expect("cashu deserialize");
+            assert_eq!(cashu_unit, cashu::CurrencyUnit::from(unit), "{s:?}");
+            assert_eq!(cashu_unit.to_string(), unit.to_string(), "{s:?}");
+            assert!(
+                !bytes.contains(&0),
+                "{s:?} leaks its padding onto the wire: {}",
+                String::from_utf8_lossy(&bytes)
+            );
+        }
+    }
+
+    #[test]
+    fn currency_unit_refuses_unrepresentable_cashu_units() {
+        assert!(CurrencyUnit::try_from(cashu::CurrencyUnit::Auth).is_err());
+        assert!(
+            CurrencyUnit::try_from(cashu::CurrencyUnit::Custom(String::from("bitcoin"))).is_err()
         );
     }
 
