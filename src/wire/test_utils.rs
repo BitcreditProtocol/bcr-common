@@ -9,6 +9,10 @@ use crate::{
 
 // ----- end imports
 
+/// The wallet-facing protest contract: per operation one request, every outcome, answers the
+/// contract refuses, and a beta's rejection with its HTTP status
+pub const PROTEST_CONTRACT: &str = include_str!("protest_contract.json");
+
 pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
     let keypair = generate_random_keypair();
     let sample = [

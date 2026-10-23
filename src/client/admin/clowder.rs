@@ -92,6 +92,12 @@ pub mod web_ep {
     pub const ONLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/online";
     pub const ATTEST_ISSUANCE_V1: &str = "/v1/attest/issuance";
     pub const ATTEST_ISSUANCE_V1_EXT: &str = "/v1/clowder/attest/issuance";
+    pub const PROTEST_MINT_V1: &str = "/v1/protest/mint";
+    pub const PROTEST_MINT_V1_EXT: &str = "/v1/protest/mint";
+    pub const PROTEST_SWAP_V1: &str = "/v1/protest/swap";
+    pub const PROTEST_SWAP_V1_EXT: &str = "/v1/protest/swap";
+    pub const PROTEST_MELT_V1: &str = "/v1/protest/melt";
+    pub const PROTEST_MELT_V1_EXT: &str = "/v1/protest/melt";
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -982,5 +988,33 @@ pub(crate) mod common {
         let url = base.join(ep).expect("attest issuance relative path");
         let response = cl.post(url, request).await?;
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod endpoint_routing_tests {
+    use super::web_ep::*;
+
+    #[test]
+    fn protest_ext_paths_skip_the_clowder_passthrough() {
+        for (v1, ext) in [
+            (PROTEST_MINT_V1, PROTEST_MINT_V1_EXT),
+            (PROTEST_SWAP_V1, PROTEST_SWAP_V1_EXT),
+            (PROTEST_MELT_V1, PROTEST_MELT_V1_EXT),
+        ] {
+            assert_eq!(ext, v1);
+            assert!(!ext.starts_with("/v1/clowder"));
+        }
+    }
+
+    #[test]
+    fn passthrough_ext_paths_carry_the_clowder_prefix() {
+        for (v1, ext) in [
+            (ATTEST_ISSUANCE_V1, ATTEST_ISSUANCE_V1_EXT),
+            (ONLINE_EXCHANGE_V1, ONLINE_EXCHANGE_V1_EXT),
+            (OFFLINE_EXCHANGE_V1, OFFLINE_EXCHANGE_V1_EXT),
+        ] {
+            assert_eq!(ext, format!("/v1/clowder{}", v1.trim_start_matches("/v1")));
+        }
     }
 }

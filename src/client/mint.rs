@@ -4,8 +4,6 @@ use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
-#[cfg(feature = "mint")]
-use crate::wire::swap as wire_swap;
 use crate::{
     cashu,
     client::{
@@ -21,8 +19,10 @@ use crate::{
     },
     ecash,
     wire::{
-        attestation as wire_attestation, clowder as wire_clowder, exchange as wire_exchange,
-        keys as wire_keys, melt as wire_melt, mint as wire_mint, quotes as wire_quotes,
+        attestation as wire_attestation, clowder as wire_clowder,
+        common::{ProtestOutcome, ProtestOutcomeError},
+        exchange as wire_exchange, keys as wire_keys, melt as wire_melt, mint as wire_mint,
+        quotes as wire_quotes, swap as wire_swap,
     },
 };
 
@@ -47,6 +47,8 @@ pub enum Error {
     Cdk20(#[from] cashu::nut20::Error),
     #[error("borsh sign error {0}")]
     BorshSign(#[from] BorshMsgSignatureError),
+    #[error("protest outcome {0}")]
+    ProtestOutcome(#[from] ProtestOutcomeError),
 }
 
 #[derive(Debug, Error)]
@@ -824,6 +826,53 @@ impl Client {
         Ok(response)
     }
 
+    // -------------------------------------------------------------------------
+    // Clowder – protests, answered by a beta of the accused alpha
+    // -------------------------------------------------------------------------
+
+    pub async fn protest_mint(
+        &self,
+        request: &wire_mint::MintProtestRequest,
+    ) -> Result<ProtestOutcome<Vec<cashu::BlindSignature>>> {
+        self.protest::<_, wire_mint::MintProtestResponse, _>(web_ep::PROTEST_MINT_V1_EXT, request)
+            .await
+    }
+
+    pub async fn protest_swap(
+        &self,
+        request: &wire_swap::SwapProtestRequest,
+    ) -> Result<ProtestOutcome<Vec<ecash::BlindSignature>>> {
+        self.protest::<_, wire_swap::SwapProtestResponse, _>(web_ep::PROTEST_SWAP_V1_EXT, request)
+            .await
+    }
+
+    pub async fn protest_melt(
+        &self,
+        request: &wire_melt::MeltProtestRequest,
+    ) -> Result<ProtestOutcome<bitcoin::Txid>> {
+        self.protest::<_, wire_melt::MeltProtestResponse, _>(web_ep::PROTEST_MELT_V1_EXT, request)
+            .await
+    }
+
+    async fn protest<Request, Response, T>(
+        &self,
+        ep: &str,
+        request: &Request,
+    ) -> Result<ProtestOutcome<T>>
+    where
+        Request: serde::Serialize,
+        Response:
+            serde::de::DeserializeOwned + TryInto<ProtestOutcome<T>, Error = ProtestOutcomeError>,
+    {
+        let url = self.base.join(ep).expect("protest relative path");
+        let response: Response = self
+            .cl
+            .post(url, request)
+            .await
+            .map_err(clowder::Error::from)?;
+        Ok(response.try_into()?)
+    }
+
     pub async fn derive_ebill_payment_address(
         &self,
         alpha_id: secp::PublicKey,
@@ -842,5 +891,157 @@ impl Client {
         )
         .await?;
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod protest_contract {
+    use super::*;
+    use crate::wire::{
+        clowder::ClowderRejection,
+        common::{ProtestOutcome, ProtestOutcomeError},
+        melt as wire_melt, mint as wire_mint, swap as wire_swap,
+        test_utils::PROTEST_CONTRACT,
+    };
+
+    fn entry(path: &str) -> serde_json::Value {
+        let fixture: serde_json::Value = serde_json::from_str(PROTEST_CONTRACT).expect("fixture");
+        fixture
+            .pointer(path)
+            .unwrap_or_else(|| panic!("fixture has no {path}"))
+            .clone()
+    }
+
+    fn parse<T: serde::de::DeserializeOwned>(path: &str) -> T {
+        serde_json::from_value(entry(path)).unwrap_or_else(|e| panic!("{path}: {e}"))
+    }
+
+    async fn answer(
+        server: &mut mockito::Server,
+        ep: &str,
+        request: &str,
+        status: usize,
+        body: serde_json::Value,
+    ) -> mockito::Mock {
+        server
+            .mock("POST", ep)
+            .match_body(mockito::Matcher::Json(entry(request)))
+            .with_status(status)
+            .with_header("content-type", "application/json")
+            .with_body(body.to_string())
+            .expect(1)
+            .create_async()
+            .await
+    }
+
+    #[test]
+    fn protest_endpoints_are_the_wallet_facing_paths() {
+        assert_eq!(web_ep::PROTEST_MINT_V1, "/v1/protest/mint");
+        assert_eq!(web_ep::PROTEST_SWAP_V1, "/v1/protest/swap");
+        assert_eq!(web_ep::PROTEST_MELT_V1, "/v1/protest/melt");
+        assert_eq!(web_ep::PROTEST_MINT_V1_EXT, web_ep::PROTEST_MINT_V1);
+        assert_eq!(web_ep::PROTEST_SWAP_V1_EXT, web_ep::PROTEST_SWAP_V1);
+        assert_eq!(web_ep::PROTEST_MELT_V1_EXT, web_ep::PROTEST_MELT_V1);
+    }
+
+    #[tokio::test]
+    async fn client_posts_each_protest_to_its_endpoint() {
+        let mut server = mockito::Server::new_async().await;
+        let mint = answer(
+            &mut server,
+            web_ep::PROTEST_MINT_V1_EXT,
+            "/mint/request",
+            200,
+            entry("/mint/resolved"),
+        )
+        .await;
+        let swap = answer(
+            &mut server,
+            web_ep::PROTEST_SWAP_V1_EXT,
+            "/swap/request",
+            200,
+            entry("/swap/rabid"),
+        )
+        .await;
+        let melt = answer(
+            &mut server,
+            web_ep::PROTEST_MELT_V1_EXT,
+            "/melt/request",
+            200,
+            entry("/melt/offline"),
+        )
+        .await;
+        let client = Client::new(reqwest::Url::parse(&server.url()).unwrap());
+
+        let request: wire_mint::MintProtestRequest = parse("/mint/request");
+        let outcome = client.protest_mint(&request).await.expect("mint protest");
+        let expected: wire_mint::MintProtestResponse = parse("/mint/resolved");
+        assert_eq!(
+            outcome,
+            ProtestOutcome::Resolved(expected.signatures.expect("fixture signatures"))
+        );
+
+        let request: wire_swap::SwapProtestRequest = parse("/swap/request");
+        let outcome = client.protest_swap(&request).await.expect("swap protest");
+        assert_eq!(outcome, ProtestOutcome::Rabid);
+
+        let request: wire_melt::MeltProtestRequest = parse("/melt/request");
+        let outcome = client.protest_melt(&request).await.expect("melt protest");
+        assert_eq!(outcome, ProtestOutcome::Offline);
+
+        mint.assert_async().await;
+        swap.assert_async().await;
+        melt.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn client_refuses_a_resolved_answer_without_its_result() {
+        let mut server = mockito::Server::new_async().await;
+        let melt = answer(
+            &mut server,
+            web_ep::PROTEST_MELT_V1_EXT,
+            "/melt/request",
+            200,
+            entry("/melt/resolved_without_txid"),
+        )
+        .await;
+        let client = Client::new(reqwest::Url::parse(&server.url()).unwrap());
+
+        let request: wire_melt::MeltProtestRequest = parse("/melt/request");
+        let result = client.protest_melt(&request).await;
+        assert!(
+            matches!(
+                result,
+                Err(Error::ProtestOutcome(
+                    ProtestOutcomeError::ResolvedWithoutResult
+                ))
+            ),
+            "{result:?}"
+        );
+        melt.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn client_surfaces_the_beta_rejection() {
+        let mut server = mockito::Server::new_async().await;
+        let status = entry("/rejection/http_status").as_u64().unwrap() as usize;
+        let swap = answer(
+            &mut server,
+            web_ep::PROTEST_SWAP_V1_EXT,
+            "/swap/request",
+            status,
+            entry("/rejection/body"),
+        )
+        .await;
+        let client = Client::new(reqwest::Url::parse(&server.url()).unwrap());
+
+        let request: wire_swap::SwapProtestRequest = parse("/swap/request");
+        let result = client.protest_swap(&request).await;
+        let Err(Error::InvalidRequest(BRError::Clowder(body))) = result else {
+            panic!("expected a clowder rejection, got {result:?}");
+        };
+        let rejection: ClowderRejection = serde_json::from_value(body).unwrap();
+        assert_eq!(rejection, parse::<ClowderRejection>("/rejection/body"));
+        swap.assert_async().await;
     }
 }
