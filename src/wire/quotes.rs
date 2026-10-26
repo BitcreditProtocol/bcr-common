@@ -170,6 +170,8 @@ pub enum ListSort {
     BillMaturityDateAsc,
     SubmittedDesc,
     SubmittedAsc,
+    AmountDesc,
+    AmountAsc,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
