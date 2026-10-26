@@ -31,9 +31,9 @@ pub mod admin_ep {
         "/admin/foreign/mint_signatures/{pubkey}/{quote_id}";
     pub const FOREIGN_MINT_ONCHAIN: &str = "/admin/foreign/mint/onchain";
     pub const FOREIGN_PROOFS_ORIGIN: &str = "/admin/foreign/proofs_origin";
-    pub const FOREIGN_PROTEST_MELT: &str = "/admin/foreign/protest_melt";
-    pub const FOREIGN_PROTEST_MINT: &str = "/admin/foreign/protest_mint";
-    pub const FOREIGN_PROTEST_SWAP: &str = "/admin/foreign/protest_swap";
+    pub const FOREIGN_PROTEST_MELT: &str = "/admin/foreign/protest/melt";
+    pub const FOREIGN_PROTEST_MINT: &str = "/admin/foreign/protest/mint";
+    pub const FOREIGN_PROTEST_SWAP: &str = "/admin/foreign/protest/swap";
     pub const FOREIGN_URL: &str = "/admin/foreign/url/{pubkey}";
     pub const FOREIGN_VERIFY_FINGERPRINTS: &str = "/admin/foreign/verify_fingerprints/{pubkey}";
     pub const FOREIGN_VERIFY_PROOFS: &str = "/admin/foreign/verify_proofs/{pubkey}";
