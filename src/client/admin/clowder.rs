@@ -1008,4 +1008,19 @@ mod endpoint_routing_tests {
             assert_eq!(ext, format!("/v1/clowder{}", v1.trim_start_matches("/v1")));
         }
     }
+
+    #[test]
+    fn wallet_protest_paths_rewrite_to_the_admin_protest_prefix() {
+        use super::admin_ep::*;
+        for (ext, admin) in [
+            (PROTEST_MINT_V1_EXT, FOREIGN_PROTEST_MINT),
+            (PROTEST_SWAP_V1_EXT, FOREIGN_PROTEST_SWAP),
+            (PROTEST_MELT_V1_EXT, FOREIGN_PROTEST_MELT),
+        ] {
+            assert_eq!(
+                admin,
+                ext.replacen("/v1/clowder/protest/", "/admin/foreign/protest/", 1)
+            );
+        }
+    }
 }
