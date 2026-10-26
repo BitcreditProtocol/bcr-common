@@ -9,10 +9,13 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
-use crate::wire::borsh::{
-    deserialize_btc_amount, deserialize_from_str, deserialize_vec_of_jsons,
-    deserialize_vecof_blindedmessage, serialize_as_str, serialize_btc_amount,
-    serialize_vec_of_jsons, serialize_vecof_blindedmessage,
+use crate::wire::{
+    borsh::{
+        deserialize_btc_amount, deserialize_from_str, deserialize_vec_of_jsons,
+        deserialize_vecof_blindedmessage, serialize_as_str, serialize_btc_amount,
+        serialize_vec_of_jsons, serialize_vecof_blindedmessage,
+    },
+    common::{ProtestOutcome, ProtestOutcomeError, ProtestStatus},
 };
 // ----- end imports
 
@@ -180,12 +183,25 @@ pub struct MintProtestRequest {
     pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
 }
 
-pub use crate::wire::common::ProtestStatus;
-
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MintProtestResponse {
     pub status: ProtestStatus,
     pub signatures: Option<Vec<cashu::nuts::BlindSignature>>,
+}
+
+impl TryFrom<MintProtestResponse> for ProtestOutcome<Vec<cashu::nuts::BlindSignature>> {
+    type Error = ProtestOutcomeError;
+    fn try_from(response: MintProtestResponse) -> Result<Self, Self::Error> {
+        let signatures = response.signatures.filter(|s| !s.is_empty());
+        Self::from_parts(response.status, signatures)
+    }
+}
+
+impl From<ProtestOutcome<Vec<cashu::nuts::BlindSignature>>> for MintProtestResponse {
+    fn from(outcome: ProtestOutcome<Vec<cashu::nuts::BlindSignature>>) -> Self {
+        let (status, signatures) = outcome.into_parts();
+        Self { status, signatures }
+    }
 }
 
 #[cfg(test)]

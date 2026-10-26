@@ -9,6 +9,22 @@ use crate::{
 
 // ----- end imports
 
+/// The wallet-facing protest contract: per operation one request, every outcome, answers the
+/// contract refuses, and a beta's rejection with its HTTP status
+pub const PROTEST_CONTRACT: &str = include_str!("protest_contract.json");
+
+pub fn protest_entry(path: &str) -> serde_json::Value {
+    let fixture: serde_json::Value = serde_json::from_str(PROTEST_CONTRACT).expect("fixture");
+    fixture
+        .pointer(path)
+        .unwrap_or_else(|| panic!("fixture has no {path}"))
+        .clone()
+}
+
+pub fn protest_parse<T: serde::de::DeserializeOwned>(path: &str) -> T {
+    serde_json::from_value(protest_entry(path)).unwrap_or_else(|e| panic!("{path}: {e}"))
+}
+
 pub fn random_identity_public_data() -> (secp::Keypair, BillIdentParticipant) {
     let keypair = generate_random_keypair();
     let sample = [

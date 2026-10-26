@@ -31,9 +31,9 @@ pub mod admin_ep {
         "/admin/foreign/mint_signatures/{pubkey}/{quote_id}";
     pub const FOREIGN_MINT_ONCHAIN: &str = "/admin/foreign/mint/onchain";
     pub const FOREIGN_PROOFS_ORIGIN: &str = "/admin/foreign/proofs_origin";
-    pub const FOREIGN_PROTEST_MELT: &str = "/admin/foreign/protest_melt";
-    pub const FOREIGN_PROTEST_MINT: &str = "/admin/foreign/protest_mint";
-    pub const FOREIGN_PROTEST_SWAP: &str = "/admin/foreign/protest_swap";
+    pub const FOREIGN_PROTEST_MELT: &str = "/admin/foreign/protest/melt";
+    pub const FOREIGN_PROTEST_MINT: &str = "/admin/foreign/protest/mint";
+    pub const FOREIGN_PROTEST_SWAP: &str = "/admin/foreign/protest/swap";
     pub const FOREIGN_URL: &str = "/admin/foreign/url/{pubkey}";
     pub const FOREIGN_VERIFY_FINGERPRINTS: &str = "/admin/foreign/verify_fingerprints/{pubkey}";
     pub const FOREIGN_VERIFY_PROOFS: &str = "/admin/foreign/verify_proofs/{pubkey}";
@@ -92,6 +92,12 @@ pub mod web_ep {
     pub const ONLINE_EXCHANGE_V1_EXT: &str = "/v1/clowder/exchange/online";
     pub const ATTEST_ISSUANCE_V1: &str = "/v1/attest/issuance";
     pub const ATTEST_ISSUANCE_V1_EXT: &str = "/v1/clowder/attest/issuance";
+    pub const PROTEST_MINT_V1: &str = "/v1/protest/mint";
+    pub const PROTEST_MINT_V1_EXT: &str = "/v1/clowder/protest/mint";
+    pub const PROTEST_SWAP_V1: &str = "/v1/protest/swap";
+    pub const PROTEST_SWAP_V1_EXT: &str = "/v1/clowder/protest/swap";
+    pub const PROTEST_MELT_V1: &str = "/v1/protest/melt";
+    pub const PROTEST_MELT_V1_EXT: &str = "/v1/clowder/protest/melt";
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -982,5 +988,39 @@ pub(crate) mod common {
         let url = base.join(ep).expect("attest issuance relative path");
         let response = cl.post(url, request).await?;
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod endpoint_routing_tests {
+    use super::web_ep::*;
+
+    #[test]
+    fn wallet_facing_paths_carry_the_clowder_prefix() {
+        for (v1, ext) in [
+            (ATTEST_ISSUANCE_V1, ATTEST_ISSUANCE_V1_EXT),
+            (ONLINE_EXCHANGE_V1, ONLINE_EXCHANGE_V1_EXT),
+            (OFFLINE_EXCHANGE_V1, OFFLINE_EXCHANGE_V1_EXT),
+            (PROTEST_MINT_V1, PROTEST_MINT_V1_EXT),
+            (PROTEST_SWAP_V1, PROTEST_SWAP_V1_EXT),
+            (PROTEST_MELT_V1, PROTEST_MELT_V1_EXT),
+        ] {
+            assert_eq!(ext, format!("/v1/clowder{}", v1.trim_start_matches("/v1")));
+        }
+    }
+
+    #[test]
+    fn wallet_protest_paths_rewrite_to_the_admin_protest_prefix() {
+        use super::admin_ep::*;
+        for (ext, admin) in [
+            (PROTEST_MINT_V1_EXT, FOREIGN_PROTEST_MINT),
+            (PROTEST_SWAP_V1_EXT, FOREIGN_PROTEST_SWAP),
+            (PROTEST_MELT_V1_EXT, FOREIGN_PROTEST_MELT),
+        ] {
+            assert_eq!(
+                admin,
+                ext.replacen("/v1/clowder/protest/", "/admin/foreign/protest/", 1)
+            );
+        }
     }
 }

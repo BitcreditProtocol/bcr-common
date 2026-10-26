@@ -248,4 +248,18 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "success");
     }
+
+    #[tokio::test]
+    async fn a_409_stays_an_internal_error_with_its_body() {
+        let mut server = mockito::Server::new_async().await;
+        server
+            .mock("GET", EP_1)
+            .with_status(409)
+            .with_body(r#"{"Conflict":"proofs already spent"}"#)
+            .create_async()
+            .await;
+        let base = Url::parse(&server.url()).unwrap();
+        let result: Result<()> = Client::new().get(base.join(EP_1).unwrap(), &[]).await;
+        assert!(matches!(result, Err(Error::Internal(body)) if body.contains("already spent")));
+    }
 }
