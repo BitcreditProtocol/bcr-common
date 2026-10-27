@@ -13,6 +13,14 @@ pub enum NotificationRequest {
         #[serde(default)]
         fields: HashMap<String, String>,
     },
+    EbillMatured {
+        #[serde(default)]
+        fields: HashMap<String, String>,
+    },
+    EbillRepaid {
+        #[serde(default)]
+        fields: HashMap<String, String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
