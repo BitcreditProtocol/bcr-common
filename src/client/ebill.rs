@@ -151,6 +151,26 @@ impl Client {
         Ok(())
     }
 
+    /// Public wallet-facing identity proof, separate from the administrative profile.
+    pub const GET_MINT_IDENTITY_EP_V1: &'static str =
+        crate::wire::mint_identity::MINT_IDENTITY_PATH;
+    pub async fn get_mint_identity(
+        &self,
+        challenge: &str,
+    ) -> Result<crate::wire::mint_identity::MintIdentity> {
+        if !crate::wire::mint_identity::valid_challenge(challenge) {
+            return Err(Error::InvalidRequest);
+        }
+        let url = self
+            .base
+            .join(Self::GET_MINT_IDENTITY_EP_V1)
+            .expect("mint identity path");
+        let request = self.cl.get(url).query(&[("challenge", challenge)]);
+        #[cfg(not(target_arch = "wasm32"))]
+        let request = request.timeout(std::time::Duration::from_secs(10));
+        Ok(request.send().await?.error_for_status()?.json().await?)
+    }
+
     pub const GET_IDENTITY_EP_V1: &'static str = "/v1/admin/identity/detail";
     pub async fn get_identity(&self) -> Result<wire_identity::Identity> {
         let url = self
