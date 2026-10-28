@@ -123,7 +123,7 @@ impl std::convert::TryFrom<ecash::Proof> for ProofFingerprint {
         let y = proof.y()?;
         Ok(ProofFingerprint {
             keyset_id: proof.keyset_id,
-            amount: proof.amount.into(),
+            amount: proof.amount.to_sat(),
             y: ecash::public_key_cashu2secp(&y),
             c: ecash::public_key_cashu2secp(&proof.c),
             dleq: proof.dleq,
@@ -148,7 +148,7 @@ impl std::convert::TryFrom<cashu::Proof> for ProofFingerprint {
 pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> ecash::Proof {
     ecash::Proof {
         keyset_id: fp.keyset_id,
-        amount: cashu::Amount::from(fp.amount),
+        amount: bitcoin::Amount::from_sat(fp.amount),
         c: ecash::public_key_secp2cashu(&fp.c),
         dleq: fp.dleq.clone(),
         witness: None,

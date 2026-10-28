@@ -584,7 +584,7 @@ mod tests {
 
     fn proof(keyset_id: Id, amount: u64, secret: &str) -> Proof {
         Proof {
-            amount: Amount::from(amount),
+            amount: bitcoin::Amount::from_sat(amount),
             keyset_id,
             secret: cashu::secret::Secret::new(secret),
             c: cashu::PublicKey::from_hex(MINT_ID).unwrap(),
