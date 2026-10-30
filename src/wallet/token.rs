@@ -539,7 +539,7 @@ mod tests {
     use crate::core::{
         NETWORK_MAINNET, NETWORK_REGTEST, NETWORK_SIGNET, NETWORK_TESTNET, NETWORK_TESTNET4,
     };
-    use crate::ecash::Proof;
+    use crate::ecash::{self, Proof};
 
     const MINT_ID: &str = "02b463e1f803480e0964a1f65b508b77e2e5d1d3054e94ba1d353b9db76e453da5";
     /// Legacy token in the canonical cbor field order, with no memo and no `d`
@@ -575,7 +575,7 @@ mod tests {
     fn keyset_info(id: Id) -> KeySetInfo {
         KeySetInfo {
             id,
-            unit: cashu::CurrencyUnit::Sat,
+            unit: ecash::DEFAULT_CURRENCY_UNIT,
             active: true,
             input_fee_ppk: 0,
             final_expiry: None,
