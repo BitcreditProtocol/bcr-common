@@ -241,7 +241,7 @@ impl Client {
     pub async fn keys_v1(&self, kid: cashu::Id) -> Result<ecash::KeySet> {
         let result =
             core::common::keys_v1(&self.cl, &self.base, core::web_ep::KEYS_V1_EXT, kid).await?;
-        Ok(result.into())
+        Ok(result.try_into().expect("unit conversion issue"))
     }
 
     pub async fn keys(&self, kid: cashu::Id) -> Result<ecash::KeySet> {

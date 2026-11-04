@@ -131,8 +131,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn currency_unit() -> cashu::CurrencyUnit {
-        crate::core::CURRENCY_UNIT
+    pub fn currency_unit() -> ecash::CurrencyUnit {
+        ecash::DEFAULT_CURRENCY_UNIT
     }
 
     pub fn new(base: reqwest::Url) -> Self {
@@ -161,7 +161,7 @@ impl Client {
             .join(admin_ep::NEW_KEYSET)
             .expect("new keys relative path");
         let request = wire_keys::NewKeysetRequest {
-            unit: crate::core::CURRENCY_UNIT,
+            unit: ecash::DEFAULT_CURRENCY_UNIT,
             expiration,
             fees_ppk,
         };

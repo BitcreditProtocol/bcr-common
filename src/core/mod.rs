@@ -30,7 +30,6 @@ pub use billid::BillId;
 pub use nodeid::NodeId;
 
 pub const ID_PREFIX: &str = "bitcr";
-pub const CURRENCY_UNIT: cashu::CurrencyUnit = cashu::CurrencyUnit::Sat;
 pub const NETWORK_MAINNET: char = 'm';
 pub const NETWORK_TESTNET: char = 't';
 pub const NETWORK_TESTNET4: char = 'T';
