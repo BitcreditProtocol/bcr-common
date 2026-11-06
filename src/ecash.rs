@@ -27,6 +27,8 @@ pub enum Error {
     BtcAmount(String),
     #[error("invalid keyset id")]
     InvalidKeysetId,
+    #[error("invalid witness signature")]
+    InvalidWitnessSignature,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -127,6 +129,106 @@ impl From<Id> for cashu::Id {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, BorshSerialize, BorshDeserialize)]
+pub enum Witness {
+    HTLC(HTLCWitness),
+    P2PK(P2PKWitness),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+pub struct HTLCWitness {
+    pub preimage: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[borsh(
+        serialize_with = "wire::borsh::serialize_option_vec_of_strs",
+        deserialize_with = "wire::borsh::deserialize_option_vec_of_strs"
+    )]
+    pub signatures: Vec<secp::schnorr::Signature>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+pub struct P2PKWitness {
+    #[borsh(
+        serialize_with = "wire::borsh::serialize_vec_of_strs",
+        deserialize_with = "wire::borsh::deserialize_vec_of_strs"
+    )]
+    pub signatures: Vec<secp::schnorr::Signature>,
+}
+
+impl serde::Serialize for Witness {
+    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let stringified = match self {
+            Self::HTLC(witness) => serde_json::to_string(witness),
+            Self::P2PK(witness) => serde_json::to_string(witness),
+        }
+        .map_err(serde::ser::Error::custom)?;
+        s.serialize_str(&stringified)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Witness {
+    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let stringified = <std::string::String as serde::Deserialize>::deserialize(d)?;
+        if let Ok(witness) = serde_json::from_str::<HTLCWitness>(&stringified) {
+            return Ok(Self::HTLC(witness));
+        }
+        serde_json::from_str::<P2PKWitness>(&stringified)
+            .map(Self::P2PK)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+fn parse_signatures(signatures: &[String]) -> Result<Vec<secp::schnorr::Signature>> {
+    let mut schnorrs = Vec::with_capacity(signatures.len());
+    for s in signatures {
+        let schnorr =
+            secp::schnorr::Signature::from_str(s).map_err(|_| Error::InvalidWitnessSignature)?;
+        schnorrs.push(schnorr);
+    }
+    Ok(schnorrs)
+}
+
+fn render_signatures(signatures: &[secp::schnorr::Signature]) -> Vec<String> {
+    signatures.iter().map(ToString::to_string).collect()
+}
+
+impl TryFrom<cashu::Witness> for Witness {
+    type Error = Error;
+
+    fn try_from(witness: cashu::Witness) -> Result<Self> {
+        match witness {
+            cashu::Witness::HTLCWitness(witness) => Ok(Self::HTLC(HTLCWitness {
+                preimage: witness.preimage,
+                signatures: parse_signatures(witness.signatures.unwrap_or_default().as_slice())?,
+            })),
+            cashu::Witness::P2PKWitness(witness) => Ok(Self::P2PK(P2PKWitness {
+                signatures: parse_signatures(&witness.signatures)?,
+            })),
+        }
+    }
+}
+
+impl From<Witness> for cashu::Witness {
+    fn from(witness: Witness) -> Self {
+        match witness {
+            Witness::HTLC(witness) => Self::HTLCWitness(cashu::HTLCWitness {
+                signatures: (!witness.signatures.is_empty())
+                    .then(|| render_signatures(&witness.signatures)),
+                preimage: witness.preimage,
+            }),
+            Witness::P2PK(witness) => Self::P2PKWitness(cashu::P2PKWitness {
+                signatures: render_signatures(&witness.signatures),
+            }),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct BlindedMessage {
     #[borsh(
@@ -143,21 +245,19 @@ pub struct BlindedMessage {
     )]
     pub blinded_secret: cashu::PublicKey,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[borsh(
-        serialize_with = "wire::borsh::serialize_optionproofwitness",
-        deserialize_with = "wire::borsh::deserialize_optionproofwitness"
-    )]
-    pub witness: Option<cashu::Witness>,
+    pub witness: Option<Witness>,
 }
 
-impl From<cashu::BlindedMessage> for BlindedMessage {
-    fn from(message: cashu::BlindedMessage) -> Self {
-        Self {
+impl TryFrom<cashu::BlindedMessage> for BlindedMessage {
+    type Error = Error;
+
+    fn try_from(message: cashu::BlindedMessage) -> Result<Self> {
+        Ok(Self {
             amount: bitcoin::Amount::from_sat(message.amount.to_u64()),
             keyset_id: message.keyset_id.into(),
             blinded_secret: message.blinded_secret,
-            witness: message.witness,
-        }
+            witness: message.witness.map(Witness::try_from).transpose()?,
+        })
     }
 }
 
@@ -167,7 +267,7 @@ impl From<BlindedMessage> for cashu::BlindedMessage {
             amount: cashu::Amount::from(message.amount.to_sat()),
             keyset_id: cashu::Id::from(message.keyset_id),
             blinded_secret: message.blinded_secret,
-            witness: message.witness,
+            witness: message.witness.map(Into::into),
         }
     }
 }
@@ -233,11 +333,10 @@ pub struct Proof {
     #[serde(rename = "C")]
     pub c: cashu::PublicKey,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub witness: Option<cashu::Witness>,
+    #[schema(value_type = Option<String>)]
+    pub witness: Option<Witness>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dleq: Option<cashu::ProofDleq>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub p2pk_e: Option<cashu::PublicKey>,
 }
 
 pub type Proofs = Vec<Proof>;
@@ -284,17 +383,18 @@ impl ProofsMethods for [Proof] {
     }
 }
 
-impl From<cashu::Proof> for Proof {
-    fn from(proof: cashu::Proof) -> Self {
-        Self {
+impl TryFrom<cashu::Proof> for Proof {
+    type Error = Error;
+
+    fn try_from(proof: cashu::Proof) -> Result<Self> {
+        Ok(Self {
             amount: bitcoin::Amount::from_sat(proof.amount.to_u64()),
             keyset_id: proof.keyset_id.into(),
             secret: proof.secret,
             c: proof.c,
-            witness: proof.witness,
+            witness: proof.witness.map(Witness::try_from).transpose()?,
             dleq: proof.dleq,
-            p2pk_e: proof.p2pk_e,
-        }
+        })
     }
 }
 
@@ -305,9 +405,9 @@ impl From<Proof> for cashu::Proof {
             keyset_id: proof.keyset_id.into(),
             secret: proof.secret,
             c: proof.c,
-            witness: proof.witness,
+            witness: proof.witness.map(Into::into),
             dleq: proof.dleq,
-            p2pk_e: proof.p2pk_e,
+            p2pk_e: None,
         }
     }
 }
@@ -518,7 +618,6 @@ pub mod test_utils {
                 c,
                 witness: None,
                 dleq: None,
-                p2pk_e: None,
             };
             proofs.push(p);
         }
@@ -719,6 +818,75 @@ mod tests {
         Id::from_bytes(&bytes).expect("keyset id")
     }
 
+    fn random_signature() -> secp::schnorr::Signature {
+        let bytes: [u8; 64] = std::array::from_fn(|_| rand::random::<u8>());
+        secp::schnorr::Signature::from_slice(&bytes).expect("signature")
+    }
+
+    fn witness_fixtures() -> Vec<Witness> {
+        vec![
+            Witness::HTLC(HTLCWitness {
+                preimage: String::from("0f1e2d3c"),
+                signatures: vec![random_signature(), random_signature()],
+            }),
+            Witness::HTLC(HTLCWitness {
+                preimage: String::from("0f1e2d3c"),
+                signatures: vec![],
+            }),
+            Witness::P2PK(P2PKWitness {
+                signatures: vec![random_signature()],
+            }),
+            Witness::P2PK(P2PKWitness { signatures: vec![] }),
+        ]
+    }
+
+    /// cashu can express `Some([])`, the mirror cannot - it reads back as `None`
+    #[test]
+    fn witness_empty_signatures_collapse_to_none() {
+        let witness = cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+            preimage: String::from("0f1e2d3c"),
+            signatures: Some(vec![]),
+        });
+        let mirrored = Witness::try_from(witness).expect("convert");
+        assert_eq!(
+            cashu::Witness::from(mirrored),
+            cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+                preimage: String::from("0f1e2d3c"),
+                signatures: None,
+            })
+        );
+    }
+
+    #[test]
+    fn witness_rejects_malformed_signature() {
+        let witness = cashu::Witness::P2PKWitness(cashu::P2PKWitness {
+            signatures: vec![String::from("not-a-signature")],
+        });
+        assert!(matches!(
+            Witness::try_from(witness),
+            Err(Error::InvalidWitnessSignature)
+        ));
+    }
+
+    #[test]
+    fn witness_borsh_wire_compat() {
+        for witness in witness_fixtures() {
+            let kwitness = cashu::Witness::from(witness.clone());
+
+            let buf = borsh::to_vec(&Some(witness.clone())).expect("serialize");
+            let mut upstream = Vec::new();
+            wire::borsh::serialize_optionproofwitness(&Some(kwitness.clone()), &mut upstream)
+                .expect("serialize");
+            assert_eq!(buf, upstream);
+
+            let deserialized: Option<Witness> = borsh::from_slice(&upstream).expect("deserialize");
+            assert_eq!(deserialized, Some(witness));
+            let upstream_back = wire::borsh::deserialize_optionproofwitness(&mut buf.as_slice())
+                .expect("deserialize");
+            assert_eq!(upstream_back, Some(kwitness));
+        }
+    }
+
     #[test]
     fn blindedmessage_borsh_matches_legacy_wrapper() {
         let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
@@ -728,8 +896,8 @@ mod tests {
             amount: bitcoin::Amount::from_sat(rand::random::<u16>() as u64),
             keyset_id: random_keyset_id(),
             blinded_secret,
-            witness: Some(cashu::Witness::P2PKWitness(cashu::P2PKWitness {
-                signatures: vec![String::from("sig")],
+            witness: Some(Witness::P2PK(P2PKWitness {
+                signatures: vec![random_signature()],
             })),
         };
         let bytes = borsh::to_vec(&message).expect("serialize");
@@ -742,6 +910,22 @@ mod tests {
     }
 
     #[test]
+    fn witness_json_wire_compat() {
+        for witness in witness_fixtures() {
+            let kwitness = cashu::Witness::from(witness.clone());
+
+            let buf = serde_json::to_vec(&witness).expect("serialize");
+            let upstream = serde_json::to_vec(&kwitness).expect("serialize");
+            assert_eq!(buf, upstream);
+
+            let deserialized: Witness = serde_json::from_slice(&upstream).expect("deserialize");
+            assert_eq!(deserialized, witness);
+            let upstream_back: cashu::Witness = serde_json::from_slice(&buf).expect("deserialize");
+            assert_eq!(upstream_back, kwitness);
+        }
+    }
+
+    #[test]
     fn blindedmessage_json_wire_compat() {
         let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
         let (blinded_secret, _) =
@@ -750,7 +934,10 @@ mod tests {
             amount: bitcoin::Amount::from_sat(rand::random::<u16>() as u64),
             keyset_id: random_keyset_id(),
             blinded_secret,
-            witness: None,
+            witness: Some(Witness::HTLC(HTLCWitness {
+                preimage: String::from("0f1e2d3c"),
+                signatures: vec![random_signature()],
+            })),
         };
         let bytes = serde_json::to_vec(&message).expect("serialize");
         let deserialized: cashu::BlindedMessage =
@@ -758,7 +945,14 @@ mod tests {
         assert_eq!(deserialized.amount.to_u64(), message.amount.to_sat());
         assert_eq!(Id::from(deserialized.keyset_id), message.keyset_id);
         assert_eq!(deserialized.blinded_secret, message.blinded_secret);
-        assert_eq!(deserialized.witness, message.witness);
+        assert_eq!(
+            deserialized
+                .witness
+                .map(Witness::try_from)
+                .transpose()
+                .expect("convert"),
+            message.witness
+        );
     }
 
     #[test]
@@ -789,13 +983,36 @@ mod tests {
             keyset_id: cashu_proof.keyset_id.into(),
             secret: cashu_proof.secret,
             c: cashu_proof.c,
-            witness: cashu_proof.witness,
+            witness: cashu_proof
+                .witness
+                .map(Witness::try_from)
+                .transpose()
+                .expect("convert"),
             dleq: cashu_proof.dleq,
-            p2pk_e: cashu_proof.p2pk_e,
         };
         let bytes = serde_json::to_vec(&proof).expect("serialize");
         let deserialized: cashu::Proof = serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(deserialized.secret, proof.secret);
+    }
+
+    /// A witness-carrying proof must still read back as a `cashu::Proof`;
+    /// `proof_json_wire_compat` only ever sees `witness: None`
+    #[test]
+    fn proof_with_witness_json_wire_compat() {
+        let keyset = core_tests::generate_random_ecash_keyset().1;
+        let mut cashu_proof =
+            core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
+                .remove(0);
+        cashu_proof.witness = Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+            preimage: String::from("0f1e2d3c"),
+            signatures: Some(vec![random_signature().to_string()]),
+        }));
+
+        let proof = Proof::try_from(cashu_proof.clone()).expect("convert");
+        let bytes = serde_json::to_vec(&proof).expect("serialize");
+        let deserialized: cashu::Proof = serde_json::from_slice(&bytes).expect("deserialize");
+        assert_eq!(deserialized, cashu_proof);
+        assert_eq!(Proof::try_from(deserialized).expect("convert"), proof);
     }
 
     #[test]
@@ -839,7 +1056,12 @@ mod tests {
             &keyset,
             &[cashu::Amount::from(1u64), cashu::Amount::from(8u64)],
         );
-        let proofs: Proofs = cashu_proofs.iter().cloned().map(Into::into).collect();
+        let proofs: Proofs = cashu_proofs
+            .iter()
+            .cloned()
+            .map(Proof::try_from)
+            .collect::<Result<_>>()
+            .expect("convert");
         for (proof, expected) in proofs.iter().zip(cashu_proofs.iter()) {
             assert_eq!(proof.y().unwrap(), expected.y().unwrap());
         }
@@ -860,11 +1082,15 @@ mod tests {
     #[test]
     fn cashu_conversions_round_trip() {
         let keyset = core_tests::generate_random_ecash_keyset().1;
-        let proof: Proof =
+        let proof = Proof::try_from(
             core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
-                .remove(0)
-                .into();
-        assert_eq!(Proof::from(cashu::Proof::from(proof.clone())), proof);
+                .remove(0),
+        )
+        .expect("convert");
+        assert_eq!(
+            Proof::try_from(cashu::Proof::from(proof.clone())).expect("convert"),
+            proof
+        );
         let info = KeySetInfo {
             id: keyset.id,
             unit: keyset.unit,

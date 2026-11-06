@@ -3,7 +3,7 @@
 use cashu::{Amount, PublicKey, nut02::ShortKeysetId, secret::Secret};
 use serde::{Deserialize, Serialize};
 // ----- local modules
-use crate::ecash::{Id, Proof, Proofs};
+use crate::ecash;
 
 // ----- end imports
 
@@ -20,7 +20,7 @@ pub struct TokenV4Token {
 
 impl TokenV4Token {
     /// Create new [`TokenV4Token`]
-    pub fn new(keyset_id: Id, proofs: Proofs) -> Self {
+    pub fn new(keyset_id: ecash::Id, proofs: ecash::Proofs) -> Self {
         Self {
             keyset_id: ShortKeysetId::from(cashu::Id::from(keyset_id)),
             proofs: proofs.into_iter().map(Into::into).collect(),
@@ -61,28 +61,30 @@ impl ProofV4 {
     }
 
     /// [`ProofV4`] into [`Proof`]
-    pub fn into_proof(&self, keyset_id: &Id) -> Proof {
-        Proof {
+    pub fn into_proof(&self, keyset_id: &ecash::Id) -> ecash::Result<ecash::Proof> {
+        Ok(ecash::Proof {
             amount: bitcoin::Amount::from_sat(self.amount.to_u64()),
             keyset_id: *keyset_id,
             secret: self.secret.clone(),
             c: self.c,
-            witness: self.witness.clone(),
+            witness: self
+                .witness
+                .clone()
+                .map(crate::ecash::Witness::try_from)
+                .transpose()?,
             dleq: self.dleq.clone(),
-            p2pk_e: self.p2pk_e,
-        }
+        })
     }
 }
 
-impl From<Proof> for ProofV4 {
-    fn from(proof: Proof) -> Self {
-        let Proof {
+impl From<ecash::Proof> for ProofV4 {
+    fn from(proof: ecash::Proof) -> Self {
+        let ecash::Proof {
             amount,
             secret,
             c,
             witness,
             dleq,
-            p2pk_e,
             ..
         } = proof;
         let amount = cashu::Amount::from(amount.to_sat());
@@ -90,9 +92,9 @@ impl From<Proof> for ProofV4 {
             amount,
             secret,
             c,
-            witness,
+            witness: witness.map(Into::into),
             dleq,
-            p2pk_e,
+            p2pk_e: None,
         }
     }
 }

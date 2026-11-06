@@ -153,7 +153,6 @@ pub fn fp_to_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -> ecas
         dleq: fp.dleq.clone(),
         witness: None,
         secret,
-        p2pk_e: None,
     }
 }
 
