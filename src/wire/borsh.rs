@@ -108,6 +108,33 @@ where
         .collect::<std::result::Result<Vec<T>, T::Err>>()
         .map_err(|e| BorshError::new(ErrorKind::InvalidData, e))
 }
+/// Keeps a legacy `Option<Vec<String>>` layout readable from a flat `Vec`: an
+/// empty slice writes as `None`, and `None` reads back as an empty `Vec`
+pub fn serialize_option_vec_of_strs<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
+where
+    T: std::fmt::Display,
+{
+    if vec.is_empty() {
+        borsh::BorshSerialize::serialize(&false, writer)?;
+        return Ok(());
+    }
+    borsh::BorshSerialize::serialize(&true, writer)?;
+    serialize_vec_of_strs(vec, writer)
+}
+
+pub fn deserialize_option_vec_of_strs<T>(reader: &mut impl Read) -> Result<Vec<T>>
+where
+    T: std::str::FromStr,
+    <T as FromStr>::Err: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    let is_some: bool = borsh::BorshDeserialize::deserialize_reader(reader)?;
+    if is_some {
+        deserialize_vec_of_strs(reader)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
 pub(crate) fn serialize_vec_of_jsons<T>(vec: &[T], writer: &mut impl Write) -> Result<()>
 where
     T: serde::ser::Serialize,
@@ -685,11 +712,23 @@ mod tests {
 
     #[test]
     fn blindedmessage_borsh_matches_ecash_blindedmessage() {
+        const SCHNORR_SIG: &str = concat!(
+            "e907831f80848d1069a5371b402410364bdf1c5f8307b0084c55f1ce2dca8215",
+            "25f66a4a85ea8b71e482a74f382d2ce5ebeee8fdb2172f477df4900d310536c0"
+        );
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
         let witnesses = [
             None,
             Some(cashu::Witness::P2PKWitness(cashu::P2PKWitness {
-                signatures: vec![String::from("sig")],
+                signatures: vec![SCHNORR_SIG.to_string()],
+            })),
+            Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+                preimage: String::from("0f1e2d3c"),
+                signatures: Some(vec![SCHNORR_SIG.to_string()]),
+            })),
+            Some(cashu::Witness::HTLCWitness(cashu::HTLCWitness {
+                preimage: String::from("0f1e2d3c"),
+                signatures: None,
             })),
         ];
 
@@ -702,7 +741,7 @@ mod tests {
                 blinded_secret,
                 witness,
             };
-            let mirror = ecash::BlindedMessage::from(msg.clone());
+            let mirror = ecash::BlindedMessage::try_from(msg.clone()).unwrap();
 
             let mut wrapper_buf = Vec::new();
             borsh::BorshSerialize::serialize(
