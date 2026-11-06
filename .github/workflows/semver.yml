@@ -1,0 +1,53 @@
+name: Semver
+
+on:
+  push:
+    branches: [ "**" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_PROFILE_DEV_DEBUG: "0"
+
+jobs:
+  semver:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up disk space
+        uses: BitcreditProtocol/.github/.github/actions/free-disk-space@6de4960af50d86d1d76a813b27a9a700a68da7c8 # v1.0.0
+
+      # Full history and tags: the baseline revision has to exist locally for
+      # cargo-semver-checks to build it.
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Resolve baseline tag
+        id: baseline
+        run: |
+          tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+          if [ -z "$tag" ]; then
+            echo "::notice::No v* tag found; skipping semver check."
+          else
+            echo "Baseline: $tag"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      # The release type is derived from the version delta between the baseline
+      # tag's Cargo.toml and the current one: breaking changes require that
+      # `version` in Cargo.toml has been bumped (0.x: bump the minor).
+      - name: Check semver
+        if: steps.baseline.outputs.tag != ''
+        uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239 # v2.9
+        with:
+          baseline-rev: ${{ steps.baseline.outputs.tag }}
+          feature-group: all-features
+          prefix-key: "bcr-common-semver"
+          verbose: true
