@@ -494,7 +494,9 @@ fn proofs_of(tokens: &[TokenV4Token], mint_keysets: &[KeySetInfo]) -> Result<Pro
     let mut proofs = Proofs::with_capacity(tokens.iter().map(|t| t.proofs.len()).sum());
     for token in tokens {
         let keyset_id = resolve_keyset_id(&token.keyset_id, mint_keysets)?;
-        proofs.extend(token.proofs.iter().map(|p| p.into_proof(&keyset_id)));
+        for proof in &token.proofs {
+            proofs.push(proof.into_proof(&keyset_id)?);
+        }
     }
     Ok(proofs)
 }
@@ -590,7 +592,6 @@ mod tests {
             c: cashu::PublicKey::from_hex(MINT_ID).unwrap(),
             witness: None,
             dleq: None,
-            p2pk_e: None,
         }
     }
 
