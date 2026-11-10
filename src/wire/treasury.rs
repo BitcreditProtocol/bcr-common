@@ -84,9 +84,13 @@ pub struct ForeignBalanceEntry {
     #[schema(value_type = String)]
     pub mint_id: secp256k1::PublicKey,
     #[schema(value_type = u64)]
-    pub settled: cashu::Amount,
+    pub cr_settled: cashu::Amount,
     #[schema(value_type = u64)]
-    pub unsettled: cashu::Amount,
+    pub cr_unsettled: cashu::Amount,
+    #[schema(value_type = u64)]
+    pub db_settled: cashu::Amount,
+    #[schema(value_type = u64)]
+    pub db_unsettled: cashu::Amount,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
