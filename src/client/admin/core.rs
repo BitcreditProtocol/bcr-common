@@ -175,7 +175,7 @@ impl Client {
     ) -> Result<ecash::KeySetInfo> {
         let unit = Self::currency_unit();
         let filters = wire_keys::KeysetInfoFilters {
-            unit: Some(unit.clone()),
+            unit: Some(unit),
             min_expiration: Some(expiration.saturating_sub(time::Duration::days(1))),
             max_expiration: Some(expiration.saturating_add(time::Duration::days(1))),
         };

@@ -1250,7 +1250,6 @@ mod test {
 
     #[test]
     fn prepare_swap_is_deterministic_across_calls_and_rebuilt_kinfos() {
-        const SECRET_LEN: usize = 10;
         const FEE_PPK: u64 = 1;
         let mut keysets: Vec<_> = (0..3)
             .map(|_| {

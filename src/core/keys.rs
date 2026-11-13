@@ -19,7 +19,7 @@ pub fn to_fee_and_amounts(keyset: &ecash::KeySet) -> cashu::amount::FeeAndAmount
 pub fn to_keyset(keyset: &ecash::MintKeySet, active: Option<bool>) -> ecash::KeySet {
     ecash::KeySet {
         id: keyset.id,
-        unit: keyset.unit.clone(),
+        unit: keyset.unit,
         active,
         keys: keyset.keys.clone().into(),
         input_fee_ppk: keyset.input_fee_ppk,
