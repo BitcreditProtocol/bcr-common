@@ -24,8 +24,8 @@ pub enum Error {
     Dhke(#[from] cashu::dhke::Error),
     #[error("amount {0}")]
     Amount(#[from] cashu::amount::Error),
-    #[error("btc amount {0}")]
-    BtcAmount(String),
+    #[error("amount overflow {0}")]
+    AmountOverflow(String),
     #[error("invalid keyset id")]
     InvalidKeysetId,
     #[error("currency unit {0}")]
@@ -132,11 +132,7 @@ impl From<Id> for cashu::Id {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct BlindedMessage {
-    #[borsh(
-        serialize_with = "wire::borsh::serialize_btc_amount",
-        deserialize_with = "wire::borsh::deserialize_btc_amount"
-    )]
-    pub amount: bitcoin::Amount,
+    pub amount: u64,
     #[serde(rename = "id")]
     pub keyset_id: Id,
     #[serde(rename = "B_")]
@@ -156,7 +152,7 @@ pub struct BlindedMessage {
 impl From<cashu::BlindedMessage> for BlindedMessage {
     fn from(message: cashu::BlindedMessage) -> Self {
         Self {
-            amount: bitcoin::Amount::from_sat(message.amount.to_u64()),
+            amount: message.amount.to_u64(),
             keyset_id: message.keyset_id.into(),
             blinded_secret: message.blinded_secret,
             witness: message.witness,
@@ -167,7 +163,7 @@ impl From<cashu::BlindedMessage> for BlindedMessage {
 impl From<BlindedMessage> for cashu::BlindedMessage {
     fn from(message: BlindedMessage) -> Self {
         Self {
-            amount: cashu::Amount::from(message.amount.to_sat()),
+            amount: cashu::Amount::from(message.amount),
             keyset_id: cashu::Id::from(message.keyset_id),
             blinded_secret: message.blinded_secret,
             witness: message.witness,
@@ -179,12 +175,7 @@ impl From<BlindedMessage> for cashu::BlindedMessage {
     Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize,
 )]
 pub struct BlindSignature {
-    #[borsh(
-        serialize_with = "wire::borsh::serialize_btc_amount",
-        deserialize_with = "wire::borsh::deserialize_btc_amount"
-    )]
-    #[schema(value_type = u64)]
-    pub amount: bitcoin::Amount,
+    pub amount: u64,
     #[serde(rename = "id")]
     #[schema(value_type = String)]
     pub keyset_id: Id,
@@ -205,7 +196,7 @@ pub struct BlindSignature {
 impl From<BlindSignature> for cashu::BlindSignature {
     fn from(signature: BlindSignature) -> Self {
         Self {
-            amount: cashu::Amount::from(signature.amount.to_sat()),
+            amount: cashu::Amount::from(signature.amount),
             keyset_id: signature.keyset_id.into(),
             c: signature.c,
             dleq: signature.dleq,
@@ -216,7 +207,7 @@ impl From<BlindSignature> for cashu::BlindSignature {
 impl From<cashu::BlindSignature> for BlindSignature {
     fn from(signature: cashu::BlindSignature) -> Self {
         Self {
-            amount: bitcoin::Amount::from_sat(signature.amount.to_u64()),
+            amount: signature.amount.to_u64(),
             keyset_id: signature.keyset_id.into(),
             c: signature.c,
             dleq: signature.dleq,
@@ -226,8 +217,7 @@ impl From<cashu::BlindSignature> for BlindSignature {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Proof {
-    #[schema(value_type = u64)]
-    pub amount: bitcoin::Amount,
+    pub amount: u64,
     #[serde(rename = "id")]
     #[schema(value_type = String)]
     pub keyset_id: Id,
@@ -261,21 +251,21 @@ impl Proof {
 /// reaches [`Proofs`] and any slice of proofs alike
 pub trait ProofsMethods {
     /// Total value of the proofs
-    fn total_amount(&self) -> Result<bitcoin::Amount>;
+    fn total_amount(&self) -> Result<u64>;
 
     /// `y` of every proof, in order
     fn ys(&self) -> Result<Vec<cashu::PublicKey>>;
 }
 
 impl ProofsMethods for [Proof] {
-    fn total_amount(&self) -> Result<bitcoin::Amount> {
-        let mut total = bitcoin::Amount::ZERO;
+    fn total_amount(&self) -> Result<u64> {
+        let mut total = 0u64;
         for p in self.iter() {
             total = match total.checked_add(p.amount) {
                 Some(sum) => sum,
                 None => {
                     let msg = format!("overflow adding {} to {total}", p.amount);
-                    return Err(Error::BtcAmount(msg));
+                    return Err(Error::AmountOverflow(msg));
                 }
             };
         }
@@ -290,7 +280,7 @@ impl ProofsMethods for [Proof] {
 impl From<cashu::Proof> for Proof {
     fn from(proof: cashu::Proof) -> Self {
         Self {
-            amount: bitcoin::Amount::from_sat(proof.amount.to_u64()),
+            amount: proof.amount.to_u64(),
             keyset_id: proof.keyset_id.into(),
             secret: proof.secret,
             c: proof.c,
@@ -304,7 +294,7 @@ impl From<cashu::Proof> for Proof {
 impl From<Proof> for cashu::Proof {
     fn from(proof: Proof) -> Self {
         Self {
-            amount: cashu::Amount::from(proof.amount.to_sat()),
+            amount: cashu::Amount::from(proof.amount),
             keyset_id: proof.keyset_id.into(),
             secret: proof.secret,
             c: proof.c,
@@ -540,7 +530,7 @@ pub mod test_utils {
             let c = cashu::dhke::unblind_message(&c_, &r, &keypair.public_key)
                 .expect("unblind_message");
             let p = Proof {
-                amount: bitcoin::Amount::from_sat(amount.to_u64()),
+                amount: amount.to_u64(),
                 keyset_id: keyset.id,
                 secret,
                 c,
@@ -563,7 +553,7 @@ pub mod test_utils {
             let (b_, r) = cashu::dhke::blind_message(secret.as_bytes(), None)
                 .expect("cdk_dhke::blind_message");
             let b = BlindedMessage {
-                amount: bitcoin::Amount::from_sat(amount.to_u64()),
+                amount: amount.to_u64(),
                 keyset_id: kid.into(),
                 blinded_secret: b_,
                 witness: None,
@@ -585,7 +575,7 @@ pub mod test_utils {
         for amount in amounts {
             let s = BlindSignature {
                 keyset_id: keyset.id,
-                amount: bitcoin::Amount::from_sat(amount.to_u64()),
+                amount: amount.to_u64(),
                 c: a_pk,
                 dleq: None,
             };
@@ -628,6 +618,14 @@ impl CurrencyUnit {
         }
     }
 }
+/// Mirrors `cashu::CurrencyUnit`, whose `Default` is also sat. Lets wire structs that gain a
+/// `unit` field use `#[serde(default)]`, so payloads written before the field existed still parse.
+impl Default for CurrencyUnit {
+    fn default() -> Self {
+        DEFAULT_CURRENCY_UNIT
+    }
+}
+
 impl fmt::Display for CurrencyUnit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // the padding of a 3-chars unit must not leak out
@@ -851,7 +849,7 @@ mod tests {
         let (blinded_secret, _) =
             cashu::dhke::blind_message(secret.as_bytes(), None).expect("blind message");
         let message = BlindedMessage {
-            amount: bitcoin::Amount::from_sat(rand::random::<u16>() as u64),
+            amount: rand::random::<u16>() as u64,
             keyset_id: random_keyset_id(),
             blinded_secret,
             witness: Some(cashu::Witness::P2PKWitness(cashu::P2PKWitness {
@@ -873,7 +871,7 @@ mod tests {
         let (blinded_secret, _) =
             cashu::dhke::blind_message(secret.as_bytes(), None).expect("blind message");
         let message = BlindedMessage {
-            amount: bitcoin::Amount::from_sat(rand::random::<u16>() as u64),
+            amount: rand::random::<u16>() as u64,
             keyset_id: random_keyset_id(),
             blinded_secret,
             witness: None,
@@ -881,7 +879,7 @@ mod tests {
         let bytes = serde_json::to_vec(&message).expect("serialize");
         let deserialized: cashu::BlindedMessage =
             serde_json::from_slice(&bytes).expect("deserialize");
-        assert_eq!(deserialized.amount.to_u64(), message.amount.to_sat());
+        assert_eq!(deserialized.amount.to_u64(), message.amount);
         assert_eq!(Id::from(deserialized.keyset_id), message.keyset_id);
         assert_eq!(deserialized.blinded_secret, message.blinded_secret);
         assert_eq!(deserialized.witness, message.witness);
@@ -890,7 +888,7 @@ mod tests {
     #[test]
     fn blindsignature_json_wire_compat() {
         let signature = BlindSignature {
-            amount: bitcoin::Amount::from_sat(rand::random::<u16>() as u64),
+            amount: rand::random::<u16>() as u64,
             keyset_id: random_keyset_id(),
             c: random_public_key(),
             dleq: None,
@@ -898,7 +896,7 @@ mod tests {
         let bytes = serde_json::to_vec(&signature).expect("serialize");
         let deserialized: cashu::BlindSignature =
             serde_json::from_slice(&bytes).expect("deserialize");
-        assert_eq!(deserialized.amount.to_u64(), signature.amount.to_sat());
+        assert_eq!(deserialized.amount.to_u64(), signature.amount);
         assert_eq!(Id::from(deserialized.keyset_id), signature.keyset_id);
         assert_eq!(deserialized.c, signature.c);
         assert_eq!(deserialized.dleq, signature.dleq);
@@ -911,7 +909,7 @@ mod tests {
             core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(1u64)])
                 .remove(0);
         let proof = Proof {
-            amount: bitcoin::Amount::from_sat(cashu_proof.amount.to_u64()),
+            amount: cashu_proof.amount.to_u64(),
             keyset_id: cashu_proof.keyset_id.into(),
             secret: cashu_proof.secret,
             c: cashu_proof.c,
@@ -970,17 +968,14 @@ mod tests {
             assert_eq!(proof.y().unwrap(), expected.y().unwrap());
         }
         assert_eq!(proofs.ys().unwrap().len(), 2);
+        assert_eq!(proofs.total_amount().unwrap(), 9u64);
         assert_eq!(
             proofs.total_amount().unwrap(),
-            bitcoin::Amount::from_sat(9u64)
-        );
-        assert_eq!(
-            proofs.total_amount().unwrap().to_sat(),
             cashu::nut00::ProofsMethods::total_amount(&cashu_proofs)
                 .unwrap()
                 .to_u64()
         );
-        assert_eq!(Proofs::new().total_amount().unwrap(), bitcoin::Amount::ZERO);
+        assert_eq!(Proofs::new().total_amount().unwrap(), 0);
     }
 
     #[test]
@@ -1042,6 +1037,25 @@ mod tests {
             assert!(CurrencyUnit::new(s).is_err(), "should refuse {s:?}");
             assert!(CurrencyUnit::from_str(s).is_err(), "should refuse {s:?}");
         }
+    }
+
+    #[test]
+    fn currency_unit_default_impl_matches_the_constant_and_cashu() {
+        assert_eq!(CurrencyUnit::default(), DEFAULT_CURRENCY_UNIT);
+        assert_eq!(
+            cashu::CurrencyUnit::from(CurrencyUnit::default()),
+            cashu::CurrencyUnit::default()
+        );
+        // a payload written before a `unit` field existed must still parse
+        #[derive(serde::Deserialize)]
+        struct Legacy {
+            amount: u64,
+            #[serde(default)]
+            unit: CurrencyUnit,
+        }
+        let parsed: Legacy = serde_json::from_str(r#"{"amount":42}"#).expect("deserialize");
+        assert_eq!(parsed.amount, 42);
+        assert_eq!(parsed.unit, DEFAULT_CURRENCY_UNIT);
     }
 
     #[test]
