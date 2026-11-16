@@ -156,8 +156,8 @@ pub struct PerceivedState {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SupplyResponse {
-    pub credit: cashu::Amount,
-    pub debit: cashu::Amount,
+    pub credit: u64,
+    pub debit: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -168,8 +168,10 @@ pub struct BitcoinAmountResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct EbillAmountResponse {
-    #[schema(value_type = u64)]
-    pub amount: bitcoin::Amount,
+    pub amount: u64,
+    /// Ebill value, not on-chain bitcoin: a bill can be issued in any currency
+    #[serde(default)]
+    pub unit: ecash::CurrencyUnit,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -180,8 +182,8 @@ pub struct EiouAmountResponse {
 /// Collateral backing eCash and circulating supply information regarding eCash
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Coverage {
-    pub debit_circulating_supply: cashu::Amount,
-    pub credit_circulating_supply: cashu::Amount,
+    pub debit_circulating_supply: u64,
+    pub credit_circulating_supply: u64,
     #[schema(value_type = u64)]
     pub onchain_collateral: bitcoin::Amount,
     #[schema(value_type = u64)]
@@ -200,8 +202,8 @@ pub struct MintCollateralResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MintCirculatingSupplyResponse {
-    pub debit: cashu::Amount,
-    pub credit: cashu::Amount,
+    pub debit: u64,
+    pub credit: u64,
 }
 
 ///--------------------------- Clowder Node Information
@@ -287,7 +289,7 @@ pub struct KeysetCreationRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeysetCreationResponse {
-    pub public_keys: BTreeMap<cashu::Amount, cashu::PublicKey>,
+    pub public_keys: BTreeMap<u64, cashu::PublicKey>,
     pub id: cashu::Id,
     pub expiry: u64,
     pub unit: cashu::CurrencyUnit,
@@ -299,7 +301,7 @@ pub struct KeysetCreationResponse {
 pub struct MintOnchainRequest {
     pub keyset_id: cashu::Id,
     pub quote_id: uuid::Uuid,
-    pub amount: cashu::Amount,
+    pub amount: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -326,7 +328,7 @@ pub struct RequestToPayEbillResponse {}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegisterEbillRequest {
     pub bill_id: crate::core::BillId,
-    pub amount: cashu::Amount,
+    pub amount: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -339,7 +341,7 @@ pub struct MintEbillRequest {
     pub keyset_id: cashu::Id,
     pub quote_id: uuid::Uuid,
     pub bill_id: crate::core::BillId,
-    pub amount: cashu::Amount,
+    pub amount: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -428,7 +430,7 @@ pub struct OfflineRedeemResponse {
 /// What the node authorised; the mint issues against this, never the request's total.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RedeemOfflineExchangeAuthorization {
-    pub amount: cashu::Amount,
+    pub amount: u64,
 }
 
 ///--------------------------- Lease Acknowledgment
@@ -492,7 +494,7 @@ impl LeaseAckResponse {
 pub struct MintEiouRequest {
     pub keyset_id: cashu::Id,
     pub quote_id: uuid::Uuid,
-    pub amount: cashu::Amount,
+    pub amount: u64,
     pub expiry: u64,
 }
 
@@ -527,7 +529,7 @@ pub struct MeltQuoteOnchainRequest {
     pub quote_id: uuid::Uuid,
     pub inputs: AttestedFingerprints,
     pub address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
-    pub admin_fees: cashu::Amount,
+    pub admin_fees: u64,
     pub network_fees: bitcoin::Amount,
     pub expiry: u64,
     pub wallet_key: cashu::PublicKey,
@@ -637,13 +639,13 @@ pub struct ProofsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntermintValidProofs {
     pub valid_proofs: Vec<cashu::Proof>,
-    pub amount: cashu::Amount,
+    pub amount: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidFingerprints {
     pub valid_proofs: Vec<wire_keys::ProofFingerprint>,
-    pub amount: cashu::Amount,
+    pub amount: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -942,6 +944,7 @@ mod tests {
         );
 
         // A Beta reading the entry off the chain can judge the issuance itself.
+        // `verify` sums `cashu::BlindedMessage` outputs, so it stays on cashu's amount type
         let amount = cashu::Amount::from(3_u64);
         back.redemption
             .verify(&alpha, &wallet.public_key().into(), amount)
@@ -1010,7 +1013,7 @@ pub struct LastOfflineResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AmountResponse {
-    pub amount: cashu::Amount,
+    pub amount: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1135,8 +1138,7 @@ pub struct KeysetBalance {
     #[schema(value_type = String)]
     pub keyset_id: ecash::Id,
     pub expiry: u64,
-    #[schema(value_type = u64)]
-    pub balance: bitcoin::Amount,
+    pub balance: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

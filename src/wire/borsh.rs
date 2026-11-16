@@ -600,13 +600,18 @@ mod tests {
         assert_eq!(t, deserialized_t);
     }
 
+    /// Both encodings coexist: on-chain amounts stay `bitcoin::Amount` while eCash amounts
+    /// are plain `u64`. This pins that the two are byte-identical, so moving a field between
+    /// them never disturbs a signed borsh payload.
     #[test]
-    fn serialize_deserialize_btc_amount() {
-        let amount = bitcoin::Amount::from_sat(123456789);
-        let mut buf = Vec::new();
-        serialize_btc_amount(&amount, &mut buf).unwrap();
-        let deserialized_amount = deserialize_btc_amount(&mut buf.as_slice()).unwrap();
-        assert_eq!(amount, deserialized_amount);
+    fn u64_borsh_matches_the_btc_amount_encoding() {
+        let sats = 123456789u64;
+        let mut legacy = Vec::new();
+        serialize_btc_amount(&bitcoin::Amount::from_sat(sats), &mut legacy).unwrap();
+        let mut current = Vec::new();
+        borsh::BorshSerialize::serialize(&sats, &mut current).unwrap();
+        assert_eq!(legacy, current);
+        assert_eq!(current, sats.to_le_bytes());
     }
 
     #[test]

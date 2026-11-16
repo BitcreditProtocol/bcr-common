@@ -6,6 +6,7 @@ use utoipa::{IntoParams, ToSchema};
 // ----- local imports
 use crate::{
     core::{BillId, NodeId},
+    ecash,
     wire::{
         bill::{BillIdentParticipant, BillParticipant},
         borsh::{
@@ -47,7 +48,10 @@ pub struct BillInfo {
     pub drawer: BillIdentParticipant,
     pub payee: BillParticipant,
     pub endorsees: Vec<BillParticipant>,
-    pub sum: u64, // in satoshis, converted to bitcoin::Amount in the service
+    /// In satoshis. This is part of a signed borsh payload (`SignedEnquireRequest`), so it
+    /// cannot gain a unit field without invalidating existing signatures -- a versioned
+    /// successor is needed before a bill here can be denominated in anything else.
+    pub sum: u64,
     #[borsh(
         serialize_with = "serialize_bill_date",
         deserialize_with = "deserialize_bill_date"
@@ -104,39 +108,33 @@ pub enum StatusReply {
         keyset_id: cashu::Id,
         #[serde(with = "time::serde::rfc3339")]
         expiration_date: time::OffsetDateTime,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
         wallet_pubkey: cashu::PublicKey,
     },
     OfferExpired {
         #[serde(with = "time::serde::rfc3339")]
         tstamp: time::OffsetDateTime,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
     },
     Accepted {
         keyset_id: cashu::Id,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
         wallet_pubkey: cashu::PublicKey,
     },
     Rejected {
         #[serde(with = "time::serde::rfc3339")]
         tstamp: time::OffsetDateTime,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
     },
     MintingEnabled {
         keyset_id: cashu::Id,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
         wallet_pubkey: cashu::PublicKey,
-        minted_amount: cashu::Amount,
+        minted_amount: u64,
     },
     FailedEbillValidation {
         keyset_id: cashu::Id,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
         wallet_pubkey: cashu::PublicKey,
     },
 }
@@ -183,8 +181,10 @@ pub struct ListReply {
 pub struct LightInfo {
     pub id: uuid::Uuid,
     pub status: InfoReplyDiscriminants,
-    #[schema(value_type = u64)]
-    pub sum: bitcoin::Amount,
+    pub sum: u64,
+    /// A list entry carries no keyset id, so the sum needs its own unit
+    #[serde(default)]
+    pub unit: ecash::CurrencyUnit,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -219,16 +219,14 @@ pub enum InfoReply {
         #[serde(with = "time::serde::rfc3339")]
         ttl: time::OffsetDateTime,
         keyset_id: cashu::Id,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
     },
     OfferExpired {
         id: uuid::Uuid,
         bill: BillInfo,
         #[serde(with = "time::serde::rfc3339")]
         tstamp: time::OffsetDateTime,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
     },
     Denied {
         id: uuid::Uuid,
@@ -240,31 +238,27 @@ pub enum InfoReply {
         id: uuid::Uuid,
         bill: BillInfo,
         keyset_id: cashu::Id,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
     },
     Rejected {
         id: uuid::Uuid,
         bill: BillInfo,
         #[serde(with = "time::serde::rfc3339")]
         tstamp: time::OffsetDateTime,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
     },
     MintingEnabled {
         id: uuid::Uuid,
         bill: BillInfo,
         keyset_id: cashu::Id,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
-        fee: cashu::Amount,
+        discounted: u64,
+        fee: u64,
     },
     FailedEbillValidation {
         id: uuid::Uuid,
         bill: BillInfo,
         keyset_id: cashu::Id,
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
     },
 }
 
@@ -280,8 +274,10 @@ pub struct ListPendingQueryRequest {
 pub enum UpdateQuoteRequest {
     Deny,
     Offer {
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
+        /// standalone request: no keyset id sibling to resolve the unit from
+        #[serde(default)]
+        unit: ecash::CurrencyUnit,
         #[serde(default, with = "time::serde::rfc3339::option")]
         ttl: Option<time::OffsetDateTime>,
     },
@@ -291,8 +287,10 @@ pub enum UpdateQuoteRequest {
 pub enum UpdateQuoteResponse {
     Denied,
     Offered {
-        #[schema(value_type = u64)]
-        discounted: bitcoin::Amount,
+        discounted: u64,
+        /// standalone response: no keyset id sibling to resolve the unit from
+        #[serde(default)]
+        unit: ecash::CurrencyUnit,
         #[serde(with = "time::serde::rfc3339")]
         ttl: time::OffsetDateTime,
     },
@@ -351,26 +349,44 @@ mod tests {
     #[test]
     fn option_tstamp_json_wire_compat() {
         let request = UpdateQuoteRequest::Offer {
-            discounted: bitcoin::Amount::from_sat(7),
+            discounted: 7,
+            unit: ecash::DEFAULT_CURRENCY_UNIT,
             ttl: Some(time::macros::datetime!(2026-08-03 12:00:00 UTC)),
         };
         let json = serde_json::to_string(&request).unwrap();
         assert_eq!(
             json,
-            r#"{"action":"Offer","discounted":7,"ttl":"2026-08-03T12:00:00Z"}"#
+            r#"{"action":"Offer","discounted":7,"unit":"sat","ttl":"2026-08-03T12:00:00Z"}"#
         );
         let request = UpdateQuoteRequest::Offer {
-            discounted: bitcoin::Amount::from_sat(7),
+            discounted: 7,
+            unit: ecash::DEFAULT_CURRENCY_UNIT,
             ttl: None,
         };
         let json = serde_json::to_string(&request).unwrap();
-        assert_eq!(json, r#"{"action":"Offer","discounted":7,"ttl":null}"#);
+        assert_eq!(
+            json,
+            r#"{"action":"Offer","discounted":7,"unit":"sat","ttl":null}"#
+        );
+        // a payload predating both optional fields still parses, unit falling back to sat
         let missing: UpdateQuoteRequest =
             serde_json::from_str(r#"{"action":"Offer","discounted":7}"#).unwrap();
         assert!(matches!(
             missing,
-            UpdateQuoteRequest::Offer { ttl: None, .. }
+            UpdateQuoteRequest::Offer { ttl: None, unit, .. } if unit == ecash::DEFAULT_CURRENCY_UNIT
         ));
+
+        // a non-sat offer survives the round trip
+        let eur = UpdateQuoteRequest::Offer {
+            discounted: 7,
+            unit: ecash::CurrencyUnit::new("eur").expect("unit"),
+            ttl: None,
+        };
+        let json = serde_json::to_string(&eur).unwrap();
+        assert_eq!(
+            json,
+            r#"{"action":"Offer","discounted":7,"unit":"eur","ttl":null}"#
+        );
     }
 
     #[test]
