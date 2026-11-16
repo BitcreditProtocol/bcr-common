@@ -7,6 +7,7 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::{
     core::{BillId, NodeId},
+    ecash,
     wire::{
         borsh::{deserialize_vec_of_strs, serialize_vec_of_strs},
         contact::ContactType,
@@ -349,7 +350,10 @@ pub struct LightBillIdentParticipantWithAddress {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillShortDescription {
     pub id: BillId,
-    pub sum: bitcoin::Amount,
+    pub sum: u64,
+    /// A bill can be issued in any currency, so `sum` alone does not identify a value
+    #[serde(default)]
+    pub unit: ecash::CurrencyUnit,
     pub recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
 }
 
@@ -459,12 +463,63 @@ pub struct BillBalanceEntry {
     #[serde(with = "crate::wire::bill_date")]
     pub maturity_date: time::Date,
     pub sum: String,
+    /// A bill can be issued in any currency, so `sum` alone does not identify a value
+    #[serde(default)]
+    pub unit: ecash::CurrencyUnit,
     pub paid: bool,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A bill's sum is denominated in the bill's own currency, so every value that is not
+    /// already paired with a `currency` field carries a unit. Payloads written before the
+    /// field still parse, falling back to sat.
+    #[test]
+    fn bill_sums_carry_their_unit() {
+        let entry = BillBalanceEntry {
+            id: crate::core::test_utils::random_bill_id(),
+            issue_date: time::macros::date!(2026 - 08 - 03),
+            maturity_date: time::macros::date!(2026 - 11 - 03),
+            sum: String::from("1500"),
+            unit: ecash::CurrencyUnit::new("eur").expect("unit"),
+            paid: false,
+        };
+        let json = serde_json::to_value(&entry).expect("serialize");
+        assert_eq!(json["unit"], "eur");
+        assert_eq!(json["sum"], "1500");
+
+        let legacy = serde_json::json!({
+            "id": entry.id.to_string(),
+            "issue_date": "2026-08-03",
+            "maturity_date": "2026-11-03",
+            "sum": "1500",
+            "paid": false,
+        });
+        let parsed: BillBalanceEntry = serde_json::from_value(legacy).expect("deserialize");
+        assert_eq!(parsed.unit, ecash::DEFAULT_CURRENCY_UNIT);
+
+        let short = BillShortDescription {
+            id: entry.id.clone(),
+            sum: 1500,
+            unit: ecash::CurrencyUnit::new("usd").expect("unit"),
+            recipient: "bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080"
+                .parse()
+                .expect("valid address"),
+        };
+        let json = serde_json::to_value(&short).expect("serialize");
+        assert_eq!(json["unit"], "usd");
+
+        let legacy = serde_json::json!({
+            "id": entry.id.to_string(),
+            "sum": 1500,
+            "recipient": "bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080",
+        });
+        let parsed: BillShortDescription = serde_json::from_value(legacy).expect("deserialize");
+        assert_eq!(parsed.unit, ecash::DEFAULT_CURRENCY_UNIT);
+        assert_eq!(parsed.sum, 1500);
+    }
 
     #[test]
     fn bill_date_json_wire_compat() {

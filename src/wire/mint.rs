@@ -41,11 +41,11 @@ pub struct OnchainMintQuoteResponseBody {
     /// Bitcoin address to send payment
     pub address: String,
     /// Amount to pay including fees
-    #[schema(value_type = u64)]
     #[borsh(
         serialize_with = "serialize_btc_amount",
         deserialize_with = "deserialize_btc_amount"
     )]
+    #[schema(value_type = u64)]
     pub payment_amount: Amount,
     /// Quote expiry timestamp
     pub expiry: u64,
@@ -75,11 +75,11 @@ pub struct OnchainMintQuoteResponseBodyV1 {
     /// Bitcoin address to send payment
     pub address: String,
     /// Amount to pay including fees
-    #[schema(value_type = u64)]
     #[borsh(
         serialize_with = "serialize_btc_amount",
         deserialize_with = "deserialize_btc_amount"
     )]
+    #[schema(value_type = u64)]
     pub payment_amount: Amount,
     /// Quote expiry timestamp
     pub expiry: u64,
