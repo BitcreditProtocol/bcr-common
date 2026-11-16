@@ -115,6 +115,10 @@ pub enum StatusReply {
         #[serde(with = "time::serde::rfc3339")]
         tstamp: time::OffsetDateTime,
         discounted: u64,
+        /// Terminal status: no `keyset_id` reaches here, so the currency of `discounted`
+        /// would otherwise be lost
+        #[serde(default)]
+        unit: ecash::CurrencyUnit,
     },
     Accepted {
         keyset_id: cashu::Id,
@@ -125,6 +129,10 @@ pub enum StatusReply {
         #[serde(with = "time::serde::rfc3339")]
         tstamp: time::OffsetDateTime,
         discounted: u64,
+        /// Terminal status: no `keyset_id` reaches here, so the currency of `discounted`
+        /// would otherwise be lost
+        #[serde(default)]
+        unit: ecash::CurrencyUnit,
     },
     MintingEnabled {
         keyset_id: cashu::Id,
@@ -227,6 +235,10 @@ pub enum InfoReply {
         #[serde(with = "time::serde::rfc3339")]
         tstamp: time::OffsetDateTime,
         discounted: u64,
+        /// Terminal status: no `keyset_id` reaches here, so the currency of `discounted`
+        /// would otherwise be lost
+        #[serde(default)]
+        unit: ecash::CurrencyUnit,
     },
     Denied {
         id: uuid::Uuid,
@@ -246,6 +258,10 @@ pub enum InfoReply {
         #[serde(with = "time::serde::rfc3339")]
         tstamp: time::OffsetDateTime,
         discounted: u64,
+        /// Terminal status: no `keyset_id` reaches here, so the currency of `discounted`
+        /// would otherwise be lost
+        #[serde(default)]
+        unit: ecash::CurrencyUnit,
     },
     MintingEnabled {
         id: uuid::Uuid,
@@ -343,6 +359,77 @@ mod tests {
         let deserialized: StatusReply = serde_json::from_str(&json).unwrap();
         assert!(
             matches!(deserialized, StatusReply::Canceled { tstamp } if tstamp.unix_timestamp() == 1_785_758_400)
+        );
+    }
+
+    fn sample_bill_info() -> BillInfo {
+        let (_, participant) = crate::wire::test_utils::random_identity_public_data();
+        BillInfo {
+            id: crate::core::test_utils::random_bill_id(),
+            drawee: participant.clone(),
+            drawer: participant.clone(),
+            payee: BillParticipant::Ident(participant.clone()),
+            endorsees: vec![],
+            sum: 1500,
+            maturity_date: time::macros::date!(2026 - 11 - 03),
+            file_urls: vec![],
+        }
+    }
+
+    /// `OfferExpired` and `Rejected` are the only `discounted`-bearing variants with no
+    /// `keyset_id` to resolve the unit from, so they carry it themselves. A client that
+    /// fetches a terminal quote first must still be able to read the amount.
+    #[test]
+    fn terminal_quote_statuses_keep_their_currency() {
+        let tstamp = time::macros::datetime!(2026-08-03 12:00:00 UTC);
+        let eur = ecash::CurrencyUnit::new("eur").expect("unit");
+
+        let expired = StatusReply::OfferExpired {
+            tstamp,
+            discounted: 1200,
+            unit: eur,
+        };
+        let json = serde_json::to_value(&expired).expect("serialize");
+        assert_eq!(json["status"], "OfferExpired");
+        assert_eq!(json["discounted"], 1200);
+        assert_eq!(json["unit"], "eur");
+
+        let rejected = StatusReply::Rejected {
+            tstamp,
+            discounted: 1200,
+            unit: eur,
+        };
+        assert_eq!(
+            serde_json::to_value(&rejected).expect("serialize")["unit"],
+            "eur"
+        );
+
+        // a terminal status written before the field still parses, meaning sat
+        for status in ["OfferExpired", "Rejected"] {
+            let legacy = serde_json::json!({
+                "status": status,
+                "tstamp": "2026-08-03T12:00:00Z",
+                "discounted": 1200,
+            });
+            let parsed: StatusReply = serde_json::from_value(legacy).expect("deserialize");
+            let unit = match parsed {
+                StatusReply::OfferExpired { unit, .. } | StatusReply::Rejected { unit, .. } => unit,
+                other => panic!("expected a terminal status, got {other:?}"),
+            };
+            assert_eq!(unit, ecash::DEFAULT_CURRENCY_UNIT, "{status}");
+        }
+
+        // the same two variants of the admin-facing reply
+        let legacy = serde_json::json!({
+            "status": "OfferExpired",
+            "id": uuid::Uuid::nil(),
+            "bill": serde_json::to_value(sample_bill_info()).expect("bill"),
+            "tstamp": "2026-08-03T12:00:00Z",
+            "discounted": 1200,
+        });
+        let parsed: InfoReply = serde_json::from_value(legacy).expect("deserialize");
+        assert!(
+            matches!(parsed, InfoReply::OfferExpired { unit, .. } if unit == ecash::DEFAULT_CURRENCY_UNIT)
         );
     }
 

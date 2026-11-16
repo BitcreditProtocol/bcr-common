@@ -63,7 +63,7 @@ impl ProofV4 {
     /// [`ProofV4`] into [`Proof`]
     pub fn into_proof(&self, keyset_id: &Id) -> Proof {
         Proof {
-            amount: bitcoin::Amount::from_sat(self.amount.to_u64()),
+            amount: self.amount.to_u64(),
             keyset_id: *keyset_id,
             secret: self.secret.clone(),
             c: self.c,
@@ -85,7 +85,7 @@ impl From<Proof> for ProofV4 {
             p2pk_e,
             ..
         } = proof;
-        let amount = cashu::Amount::from(amount.to_sat());
+        let amount = cashu::Amount::from(amount);
         Self {
             amount,
             secret,
