@@ -1021,3 +1021,262 @@ mod protest_contract {
         swap.assert_async().await;
     }
 }
+
+/// The wallet-facing wire contract.
+///
+/// Wallets in the field were built against the previous shape of these messages, where every
+/// amount was a `bitcoin::Amount` or a `cashu::Amount` rather than a plain `u64`. No field on
+/// this surface was added, removed or renamed, so the only thing to prove is that the retype
+/// is invisible on the wire. Each test stands in for one of the two directions:
+///
+/// - a *new* mint answering an *old* wallet: our output is parsed into structs declared with the
+///   old field types, so anything renamed, retyped or dropped shows up as a failure here;
+/// - an *old* wallet or mint talking to new code: byte fixtures captured from the previous
+///   definitions are parsed into the current types.
+#[cfg(all(test, feature = "test-utils"))]
+mod wallet_wire_contract {
+    use super::*;
+    use crate::core_tests;
+    use serde::Deserialize;
+
+    /// `bitcoin::Amount` is a `u64` newtype with a derived serde impl, so a wallet still
+    /// compiled against it must read our plain `u64` without noticing.
+    #[derive(Debug, Deserialize)]
+    struct LegacyProof {
+        amount: bitcoin::Amount,
+        id: ecash::Id,
+        secret: cashu::secret::Secret,
+        #[serde(rename = "C")]
+        c: cashu::PublicKey,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct LegacyBlindedMessage {
+        amount: bitcoin::Amount,
+        id: ecash::Id,
+        #[serde(rename = "B_")]
+        blinded_secret: cashu::PublicKey,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct LegacyBlindSignature {
+        amount: bitcoin::Amount,
+        id: ecash::Id,
+        #[serde(rename = "C_")]
+        c: cashu::PublicKey,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct LegacyProofFingerprint {
+        keyset_id: ecash::Id,
+        amount: u64,
+    }
+
+    /// `/v1/local/coverage`, whose five amounts were two different `Amount` newtypes.
+    #[derive(Debug, Deserialize)]
+    struct LegacyCoverage {
+        debit_circulating_supply: cashu::Amount,
+        credit_circulating_supply: cashu::Amount,
+        onchain_collateral: bitcoin::Amount,
+        ebill_collateral: bitcoin::Amount,
+        eiou_collateral: u64,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct LegacyMeltOnchainEstimateResponse {
+        tx_vsize: u64,
+        melt_fee: bitcoin::Amount,
+        melt_fee_ppk: u64,
+    }
+
+    /// The quote status a wallet polls through `lookup`. Not covered by the frozen-byte
+    /// tests, since it is JSON only.
+    #[derive(Debug, Deserialize)]
+    #[serde(tag = "status")]
+    enum LegacyStatusReply {
+        Offered {
+            keyset_id: cashu::Id,
+            discounted: bitcoin::Amount,
+            wallet_pubkey: cashu::PublicKey,
+        },
+        MintingEnabled {
+            keyset_id: cashu::Id,
+            discounted: bitcoin::Amount,
+            minted_amount: cashu::Amount,
+        },
+    }
+
+    fn sample_proof() -> ecash::Proof {
+        let keyset = core_tests::generate_random_ecash_keyset().1;
+        core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(8u64)])
+            .remove(0)
+            .into()
+    }
+
+    #[test]
+    fn a_legacy_wallet_still_reads_the_ecash_primitives() {
+        let proof = sample_proof();
+        let json = serde_json::to_string(&proof).expect("serialize");
+        let legacy: LegacyProof = serde_json::from_str(&json).expect("legacy wallet parses proof");
+        assert_eq!(legacy.amount.to_sat(), proof.amount);
+        assert_eq!(legacy.id, proof.keyset_id);
+        assert_eq!(legacy.secret, proof.secret);
+        assert_eq!(legacy.c, proof.c);
+
+        let secret = cashu::secret::Secret::new(rand::random::<u64>().to_string());
+        let (blinded_secret, _) =
+            cashu::dhke::blind_message(secret.as_bytes(), None).expect("blind");
+        let message = ecash::BlindedMessage {
+            amount: 16,
+            keyset_id: proof.keyset_id,
+            blinded_secret,
+            witness: None,
+        };
+        let json = serde_json::to_string(&message).expect("serialize");
+        let legacy: LegacyBlindedMessage = serde_json::from_str(&json).expect("legacy parses");
+        assert_eq!(legacy.amount.to_sat(), message.amount);
+        assert_eq!(legacy.id, message.keyset_id);
+        assert_eq!(legacy.blinded_secret, message.blinded_secret);
+
+        let signature = ecash::BlindSignature {
+            amount: 32,
+            keyset_id: proof.keyset_id,
+            c: proof.c,
+            dleq: None,
+        };
+        let json = serde_json::to_string(&signature).expect("serialize");
+        let legacy: LegacyBlindSignature = serde_json::from_str(&json).expect("legacy parses");
+        assert_eq!(legacy.amount.to_sat(), signature.amount);
+        assert_eq!(legacy.id, signature.keyset_id);
+        assert_eq!(legacy.c, signature.c);
+
+        let fp = wire_keys::ProofFingerprint::try_from(proof.clone()).expect("fingerprint");
+        let json = serde_json::to_string(&fp).expect("serialize");
+        let legacy: LegacyProofFingerprint = serde_json::from_str(&json).expect("legacy parses");
+        assert_eq!(legacy.amount, proof.amount);
+        assert_eq!(legacy.keyset_id, proof.keyset_id);
+    }
+
+    #[test]
+    fn a_legacy_wallet_still_reads_coverage_and_melt_estimates() {
+        let coverage = wire_clowder::Coverage {
+            debit_circulating_supply: 1,
+            credit_circulating_supply: 2,
+            onchain_collateral: bitcoin::Amount::from_sat(3),
+            ebill_collateral: bitcoin::Amount::from_sat(4),
+            eiou_collateral: 5,
+        };
+        let json = serde_json::to_string(&coverage).expect("serialize");
+        let legacy: LegacyCoverage = serde_json::from_str(&json).expect("legacy wallet parses");
+        assert_eq!(legacy.debit_circulating_supply, cashu::Amount::from(1u64));
+        assert_eq!(legacy.credit_circulating_supply, cashu::Amount::from(2u64));
+        assert_eq!(legacy.onchain_collateral.to_sat(), 3);
+        assert_eq!(legacy.ebill_collateral.to_sat(), 4);
+        assert_eq!(legacy.eiou_collateral, 5);
+
+        let estimate = wire_melt::MeltOnchainEstimateResponse {
+            tx_vsize: 140,
+            feerates: vec![],
+            melt_fee: bitcoin::Amount::from_sat(250),
+            melt_fee_ppk: 2,
+        };
+        let json = serde_json::to_string(&estimate).expect("serialize");
+        let legacy: LegacyMeltOnchainEstimateResponse =
+            serde_json::from_str(&json).expect("legacy wallet parses");
+        assert_eq!(legacy.tx_vsize, 140);
+        assert_eq!(legacy.melt_fee.to_sat(), 250);
+        assert_eq!(legacy.melt_fee_ppk, 2);
+    }
+
+    #[test]
+    fn a_legacy_wallet_still_reads_the_quote_status_it_polls() {
+        let keyset_id = cashu::Id::from(sample_proof().keyset_id);
+        let wallet_pubkey = crate::ecash::public_key_secp2cashu(
+            &crate::core::generate_random_keypair().public_key(),
+        );
+        let reply = wire_quotes::StatusReply::MintingEnabled {
+            keyset_id,
+            discounted: 1200,
+            wallet_pubkey,
+            minted_amount: 1000,
+        };
+        let json = serde_json::to_string(&reply).expect("serialize");
+        let legacy: LegacyStatusReply = serde_json::from_str(&json).expect("legacy wallet parses");
+        let LegacyStatusReply::MintingEnabled {
+            keyset_id: kid,
+            discounted,
+            minted_amount,
+        } = legacy
+        else {
+            panic!("variant tag changed: {json}");
+        };
+        assert_eq!(kid, keyset_id);
+        assert_eq!(discounted.to_sat(), 1200);
+        assert_eq!(minted_amount, cashu::Amount::from(1000u64));
+
+        let offered = wire_quotes::StatusReply::Offered {
+            keyset_id,
+            expiration_date: time::macros::datetime!(2026-08-03 12:00:00 UTC),
+            discounted: 1200,
+            wallet_pubkey,
+        };
+        let json = serde_json::to_string(&offered).expect("serialize");
+        let legacy: LegacyStatusReply = serde_json::from_str(&json).expect("legacy wallet parses");
+        let LegacyStatusReply::Offered {
+            keyset_id: kid,
+            discounted,
+            wallet_pubkey: pk,
+        } = legacy
+        else {
+            panic!("variant tag changed: {json}");
+        };
+        assert_eq!(kid, keyset_id);
+        assert_eq!(discounted.to_sat(), 1200);
+        assert_eq!(pk, wallet_pubkey);
+
+        // and a status written before the change parses into the current type
+        let legacy_json = serde_json::json!({
+            "status": "Offered",
+            "keyset_id": keyset_id.to_string(),
+            "expiration_date": "2026-08-03T12:00:00Z",
+            "discounted": 1200,
+            "wallet_pubkey": wallet_pubkey,
+        });
+        let parsed: wire_quotes::StatusReply = serde_json::from_value(legacy_json).expect("parse");
+        assert!(
+            matches!(parsed, wire_quotes::StatusReply::Offered { discounted, .. } if discounted == 1200)
+        );
+    }
+
+    /// The other direction: payloads written by code predating this change, parsed by the
+    /// current types. The `unit`-less bodies are what a deployed peer sends today.
+    #[test]
+    fn current_types_parse_payloads_written_before_the_change() {
+        let proof = sample_proof();
+        let legacy_proof = serde_json::json!({
+            "amount": 8,
+            "id": proof.keyset_id.to_string(),
+            "secret": proof.secret,
+            "C": proof.c,
+        });
+        let parsed: ecash::Proof = serde_json::from_value(legacy_proof).expect("parse");
+        assert_eq!(parsed.amount, 8);
+        assert_eq!(parsed.keyset_id, proof.keyset_id);
+
+        let legacy_coverage = serde_json::json!({
+            "debit_circulating_supply": 1, "credit_circulating_supply": 2,
+            "onchain_collateral": 3, "ebill_collateral": 4, "eiou_collateral": 5,
+        });
+        let parsed: wire_clowder::Coverage =
+            serde_json::from_value(legacy_coverage).expect("parse");
+        assert_eq!(parsed.debit_circulating_supply, 1);
+        assert_eq!(parsed.eiou_collateral, 5);
+
+        let legacy_estimate = serde_json::json!({
+            "tx_vsize": 140, "feerates": [], "melt_fee": 250, "melt_fee_ppk": 2,
+        });
+        let parsed: wire_melt::MeltOnchainEstimateResponse =
+            serde_json::from_value(legacy_estimate).expect("parse");
+        assert_eq!(parsed.melt_fee.to_sat(), 250);
+    }
+}
