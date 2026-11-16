@@ -3,7 +3,7 @@
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
-use crate::{client::admin::jsonrpc, wire::bill as wire_bill, wire::quotes as wire_quotes};
+use crate::{client::admin::jsonrpc, ecash, wire::bill as wire_bill, wire::quotes as wire_quotes};
 
 // ----- end imports
 
@@ -128,7 +128,8 @@ impl Client {
     pub async fn offer(
         &self,
         qid: Uuid,
-        discounted: bitcoin::Amount,
+        discounted: u64,
+        unit: ecash::CurrencyUnit,
         ttl: Option<time::OffsetDateTime>,
     ) -> Result<wire_quotes::UpdateQuoteResponse> {
         assert!(admin_ep::UPDATE.contains("{qid}"));
@@ -136,7 +137,11 @@ impl Client {
             .base
             .join(&admin_ep::UPDATE.replace("{qid}", &qid.to_string()))
             .expect("offer quote relative path");
-        let body = wire_quotes::UpdateQuoteRequest::Offer { discounted, ttl };
+        let body = wire_quotes::UpdateQuoteRequest::Offer {
+            discounted,
+            unit,
+            ttl,
+        };
         let response = self.cl.patch(url, &body).await?;
         Ok(response)
     }

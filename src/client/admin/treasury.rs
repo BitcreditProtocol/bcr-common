@@ -1,6 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::{Amount, secp256k1};
+use bitcoin::secp256k1;
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
@@ -135,7 +135,7 @@ impl Client {
     pub async fn request_to_pay_ebill(
         &self,
         ebill_id: BillId,
-        amount: Amount,
+        amount: bitcoin::Amount,
         deadline: time::OffsetDateTime,
     ) -> Result<wire_treasury::RequestToPayFromEBillResponse> {
         let request = wire_treasury::RequestToPayFromEBillRequest {
@@ -152,7 +152,7 @@ impl Client {
         Ok(response)
     }
 
-    pub async fn try_htlc(&self, preimage: String) -> Result<cashu::Amount> {
+    pub async fn try_htlc(&self, preimage: String) -> Result<u64> {
         let url = self
             .base
             .join(admin_ep::TRY_HTLC_SWAP)
@@ -167,8 +167,8 @@ impl Client {
         qid: uuid::Uuid,
         kid: ecash::Id,
         pk: secp256k1::PublicKey,
-        amount: cashu::Amount,
-        discounted: cashu::Amount,
+        amount: u64,
+        discounted: u64,
         bill_id: BillId,
     ) -> Result<()> {
         let url = self
