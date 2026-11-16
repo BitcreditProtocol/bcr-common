@@ -1104,6 +1104,12 @@ mod wallet_wire_contract {
             discounted: bitcoin::Amount,
             minted_amount: cashu::Amount,
         },
+        /// Terminal status, the one shape that gained a `unit` an old wallet never saw
+        OfferExpired {
+            #[serde(with = "time::serde::rfc3339")]
+            tstamp: time::OffsetDateTime,
+            discounted: bitcoin::Amount,
+        },
     }
 
     fn sample_proof() -> ecash::Proof {
@@ -1233,6 +1239,21 @@ mod wallet_wire_contract {
         assert_eq!(kid, keyset_id);
         assert_eq!(discounted.to_sat(), 1200);
         assert_eq!(pk, wallet_pubkey);
+
+        // a terminal status now carries a unit; an old wallet must ignore it and still
+        // read the amount it already knew about
+        let expired = wire_quotes::StatusReply::OfferExpired {
+            tstamp: time::macros::datetime!(2026-08-03 12:00:00 UTC),
+            discounted: 1200,
+            unit: ecash::CurrencyUnit::new("eur").expect("unit"),
+        };
+        let json = serde_json::to_string(&expired).expect("serialize");
+        let legacy: LegacyStatusReply = serde_json::from_str(&json).expect("legacy wallet parses");
+        let LegacyStatusReply::OfferExpired { tstamp, discounted } = legacy else {
+            panic!("variant tag changed: {json}");
+        };
+        assert_eq!(discounted.to_sat(), 1200);
+        assert_eq!(tstamp.unix_timestamp(), 1_785_758_400);
 
         // and a status written before the change parses into the current type
         let legacy_json = serde_json::json!({
