@@ -167,7 +167,8 @@ impl Client {
         qid: uuid::Uuid,
         kid: ecash::Id,
         pk: secp256k1::PublicKey,
-        target: cashu::Amount,
+        amount: cashu::Amount,
+        discounted: cashu::Amount,
         bill_id: BillId,
     ) -> Result<()> {
         let url = self
@@ -178,7 +179,8 @@ impl Client {
             quote_id: qid,
             kid,
             pub_key: pk,
-            target,
+            amount,
+            discounted,
             bill_id,
         };
         let _: wire_treasury::NewMintOperationResponse = self.cl.post(url, &msg).await?;

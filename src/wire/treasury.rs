@@ -16,7 +16,10 @@ pub struct NewMintOperationRequest {
     pub kid: ecash::Id,
     #[schema(value_type = String)]
     pub pub_key: secp256k1::PublicKey,
-    pub target: cashu::Amount,
+    /// the ebill face value (bill sum)
+    pub amount: cashu::Amount,
+    /// the amount the wallet is allowed to mint, the rest (amount - discounted) is the mint fee
+    pub discounted: cashu::Amount,
     #[schema(value_type = String)]
     pub bill_id: crate::core::BillId,
 }
