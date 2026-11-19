@@ -1116,7 +1116,8 @@ mod wallet_wire_contract {
         let keyset = core_tests::generate_random_ecash_keyset().1;
         core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(8u64)])
             .remove(0)
-            .into()
+            .try_into()
+            .unwrap()
     }
 
     #[test]

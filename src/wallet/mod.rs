@@ -41,4 +41,6 @@ pub enum Error {
     CborEncode(#[from] ciborium::ser::Error<std::io::Error>),
     #[error("amount {0}")]
     Amount(#[from] cashu::amount::Error),
+    #[error("ecash {0}")]
+    Ecash(#[from] crate::ecash::Error),
 }
