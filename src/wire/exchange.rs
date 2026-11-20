@@ -1,11 +1,13 @@
 // ----- standard library imports
 // ----- extra library imports
 use bitcoin::hashes::{Hash, sha256::Hash as Sha256};
-use bitcoin::secp256k1::{self, Message, SECP256K1};
+use bitcoin::secp256k1::{self as secp, Message, SECP256K1};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 // ----- local imports
-use crate::wire::{attestation::fp_digest, borsh as wire_borsh, keys as wire_keys};
+use crate::wire::{
+    attestation::fp_digest, borsh as wire_borsh, common::secp_compat, keys as wire_keys,
+};
 
 // ----- end imports
 
@@ -17,11 +19,11 @@ pub const DOMAIN_TAG_EXCHANGE: &[u8] = b"bcr/exchange/offline/v1";
 /// hashes; excludes the substitute key (any substitute may complete it) and the
 /// frozen tip (`evidence_digest` pins it).
 pub fn exchange_digest(
-    alpha_id: &secp256k1::PublicKey,
+    alpha_id: &secp::PublicKey,
     evidence_digest: &[u8; 32],
     fingerprints: &[wire_keys::ProofFingerprint],
     hashes: &[Sha256],
-    wallet_pk: &cashu::PublicKey,
+    wallet_pk: &secp::PublicKey,
 ) -> [u8; 32] {
     let fps = fp_digest(fingerprints);
     let mut sorted: Vec<[u8; 32]> = hashes.iter().map(|h| h.to_byte_array()).collect();
@@ -35,7 +37,7 @@ pub fn exchange_digest(
     for hash in &sorted {
         msg.extend_from_slice(hash);
     }
-    msg.extend_from_slice(&wallet_pk.to_bytes());
+    msg.extend_from_slice(&wallet_pk.serialize());
     Sha256::hash(&msg).to_byte_array()
 }
 
@@ -58,7 +60,7 @@ pub fn outputs_digest(outputs: &[cashu::BlindedMessage]) -> [u8; 32] {
 
 /// `SHA256(DOMAIN_TAG_REDEEM || alpha_id || exchange_digest || outputs_digest(outputs))`.
 pub fn redemption_digest(
-    alpha_id: &secp256k1::PublicKey,
+    alpha_id: &secp::PublicKey,
     exchange_digest: &[u8; 32],
     outputs: &[cashu::BlindedMessage],
 ) -> [u8; 32] {
@@ -78,7 +80,7 @@ pub fn redemption_message(redemption_digest: &[u8; 32]) -> Message {
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum ExchangeError {
     #[error("schnorr signature verification failed: {0}")]
-    Signature(#[from] secp256k1::Error),
+    Signature(#[from] secp::Error),
     #[error("exchange digest does not match its fields")]
     DigestMismatch,
     #[error("redemption outputs do not total the amount claimable")]
@@ -90,7 +92,7 @@ pub enum ExchangeError {
 pub struct OnlineExchangeRequest {
     pub proofs: Vec<cashu::Proof>,
     #[schema(value_type = Vec<String>)]
-    pub exchange_path: Vec<secp256k1::PublicKey>,
+    pub exchange_path: Vec<secp::PublicKey>,
 }
 
 ///--------------------------- Online ExchangeResponse
@@ -104,9 +106,10 @@ pub struct OnlineExchangeResponse {
 pub struct OfflineExchangeRequest {
     pub fingerprints: Vec<wire_keys::ProofFingerprint>,
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
-    pub wallet_pk: cashu::PublicKey,
+    #[serde(with = "secp_compat")]
+    pub wallet_pk: secp::PublicKey,
     /// Over the exchange digest; only wallet-signed reports can spend its proofs.
-    pub wallet_signature: secp256k1::schnorr::Signature,
+    pub wallet_signature: secp::schnorr::Signature,
 }
 
 ///--------------------------- Exchange Broadcast (Substitute -> Alpha's Betas)
@@ -115,13 +118,14 @@ pub struct OfflineExchangeRequest {
 /// Beta enforces only what it saw, so no quorum is needed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExchangeBroadcast {
-    pub alpha_id: secp256k1::PublicKey,
+    pub alpha_id: secp::PublicKey,
     pub evidence_digest: [u8; 32],
     pub exchange_digest: [u8; 32],
     pub fingerprints: Vec<wire_keys::ProofFingerprint>,
     pub hashes: Vec<Sha256>,
-    pub wallet_pk: cashu::PublicKey,
-    pub wallet_signature: secp256k1::schnorr::Signature,
+    #[serde(with = "secp_compat")]
+    pub wallet_pk: secp::PublicKey,
+    pub wallet_signature: secp::schnorr::Signature,
 }
 
 impl ExchangeBroadcast {
@@ -140,7 +144,7 @@ impl ExchangeBroadcast {
         SECP256K1.verify_schnorr(
             &self.wallet_signature,
             &exchange_message(&self.exchange_digest),
-            &self.wallet_pk.x_only_public_key(),
+            &self.wallet_pk.x_only_public_key().0,
         )?;
         Ok(())
     }
@@ -153,18 +157,19 @@ impl ExchangeBroadcast {
 pub struct ExchangeEntry {
     pub fingerprints: Vec<wire_keys::ProofFingerprint>,
     pub hashes: Vec<Sha256>,
-    pub wallet_pk: cashu::PublicKey,
+    #[serde(with = "secp_compat")]
+    pub wallet_pk: secp::PublicKey,
     /// Over the exchange digest.
-    pub wallet_signature: secp256k1::schnorr::Signature,
+    pub wallet_signature: secp::schnorr::Signature,
     /// Over the exchange digest.
-    pub substitute_signature: secp256k1::schnorr::Signature,
+    pub substitute_signature: secp::schnorr::Signature,
 }
 
 impl ExchangeEntry {
     /// The digest this entry's signatures commit to, under the given outage.
     pub fn exchange_digest(
         &self,
-        alpha_id: &secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
         evidence_digest: &[u8; 32],
     ) -> [u8; 32] {
         exchange_digest(
@@ -180,7 +185,7 @@ impl ExchangeEntry {
     /// its chain at close.
     pub fn into_broadcast(
         self,
-        alpha_id: secp256k1::PublicKey,
+        alpha_id: secp::PublicKey,
         evidence_digest: [u8; 32],
     ) -> ExchangeBroadcast {
         let exchange_digest = self.exchange_digest(&alpha_id, &evidence_digest);
@@ -199,16 +204,16 @@ impl ExchangeEntry {
     /// own fields, so no field can be swapped after signing.
     pub fn verify(
         &self,
-        alpha_id: &secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
         evidence_digest: &[u8; 32],
-        substitute_id: &secp256k1::PublicKey,
+        substitute_id: &secp::PublicKey,
     ) -> Result<[u8; 32], ExchangeError> {
         let digest = self.exchange_digest(alpha_id, evidence_digest);
         let msg = exchange_message(&digest);
         SECP256K1.verify_schnorr(
             &self.wallet_signature,
             &msg,
-            &self.wallet_pk.x_only_public_key(),
+            &self.wallet_pk.x_only_public_key().0,
         )?;
         SECP256K1.verify_schnorr(
             &self.substitute_signature,
@@ -237,15 +242,15 @@ pub struct RedeemOfflineExchangeRequest {
     pub outputs: Vec<cashu::BlindedMessage>,
     /// Over the redemption digest.
     #[schema(value_type = String)]
-    pub wallet_signature: secp256k1::schnorr::Signature,
+    pub wallet_signature: secp::schnorr::Signature,
 }
 
 impl RedeemOfflineExchangeRequest {
     pub fn new(
-        alpha_id: &secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
         exchange_digest: [u8; 32],
         outputs: Vec<cashu::BlindedMessage>,
-        wallet_kp: &secp256k1::Keypair,
+        wallet_kp: &secp::Keypair,
     ) -> Self {
         let digest = redemption_digest(alpha_id, &exchange_digest, &outputs);
         Self {
@@ -258,8 +263,8 @@ impl RedeemOfflineExchangeRequest {
     /// Takes `amount` so no caller can authorise a redemption without checking value.
     pub fn verify(
         &self,
-        alpha_id: &secp256k1::PublicKey,
-        wallet_pk: &cashu::PublicKey,
+        alpha_id: &secp::PublicKey,
+        wallet_pk: &secp::PublicKey,
         amount: cashu::Amount,
     ) -> Result<(), ExchangeError> {
         let total = cashu::Amount::try_sum(self.outputs.iter().map(|o| o.amount))
@@ -271,7 +276,7 @@ impl RedeemOfflineExchangeRequest {
         SECP256K1.verify_schnorr(
             &self.wallet_signature,
             &redemption_message(&digest),
-            &wallet_pk.x_only_public_key(),
+            &wallet_pk.x_only_public_key().0,
         )?;
         Ok(())
     }
@@ -297,7 +302,7 @@ pub struct OfflineExchangePayload {
 pub struct OfflineExchangeResponse {
     pub content: String, // b64 borsh-serialized OfflineExchangePayload
     #[schema(value_type = String)]
-    pub signature: bitcoin::secp256k1::schnorr::Signature,
+    pub signature: secp::schnorr::Signature,
 }
 
 ///--------------------------- HtlcSwapAttemptRequest
@@ -317,7 +322,7 @@ pub struct RequestToMintFromForeignECashPayload {
 pub struct RequestToMintFromForeignECash {
     pub payload: String, // b64 borsh payload
     #[schema(value_type = String)]
-    pub signature: secp256k1::schnorr::Signature,
+    pub signature: secp::schnorr::Signature,
 }
 
 /// Shared with the other wire modules that embed an exchange.
@@ -325,7 +330,6 @@ pub struct RequestToMintFromForeignECash {
 pub mod tests_support {
     use super::*;
     use crate::core_tests;
-    use bitcoin::secp256k1 as secp;
 
     pub fn sample_fingerprints(amounts: &[u64]) -> Vec<wire_keys::ProofFingerprint> {
         let (_, keyset) = core_tests::generate_random_ecash_keyset();
@@ -358,7 +362,7 @@ pub mod tests_support {
         let evidence_digest = [3u8; 32];
         let fingerprints = sample_fingerprints(&[8]);
         let hashes = sample_hashes(1);
-        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let wallet_pk = wallet_kp.public_key();
         let digest = exchange_digest(
             &alpha_id,
             &evidence_digest,
@@ -389,7 +393,7 @@ mod tests {
         let evidence = [3u8; 32];
         let mut fps = sample_fingerprints(&[1, 2, 4]);
         let mut hashes = sample_hashes(3);
-        let wpk: cashu::PublicKey = wallet().public_key().into();
+        let wpk = wallet().public_key();
         let original = exchange_digest(&alpha, &evidence, &fps, &hashes, &wpk);
         fps.reverse();
         hashes.swap(0, 2);
@@ -405,7 +409,7 @@ mod tests {
         let evidence = [3u8; 32];
         let fps = sample_fingerprints(&[1, 2]);
         let hashes = sample_hashes(2);
-        let wpk: cashu::PublicKey = wallet().public_key().into();
+        let wpk = wallet().public_key();
         let original = exchange_digest(&alpha, &evidence, &fps, &hashes, &wpk);
 
         assert_ne!(
@@ -431,13 +435,7 @@ mod tests {
             original
         );
         assert_ne!(
-            exchange_digest(
-                &alpha,
-                &evidence,
-                &fps,
-                &hashes,
-                &wallet().public_key().into()
-            ),
+            exchange_digest(&alpha, &evidence, &fps, &hashes, &wallet().public_key()),
             original
         );
     }
@@ -448,7 +446,7 @@ mod tests {
         let evidence = [3u8; 32];
         let fps = sample_fingerprints(&[1]);
         let hashes = sample_hashes(1);
-        let wpk: cashu::PublicKey = wallet().public_key().into();
+        let wpk = wallet().public_key();
         let original = exchange_digest(&alpha, &evidence, &fps, &hashes, &wpk);
         let mut stripped = fps.clone();
         stripped[0].dleq = None;
@@ -466,7 +464,7 @@ mod tests {
 
         // A substitute cannot swap in another redemption key ...
         let mut swapped = broadcast.clone();
-        swapped.wallet_pk = wallet().public_key().into();
+        swapped.wallet_pk = wallet().public_key();
         assert!(swapped.verify().is_err());
 
         // ... nor name proofs the wallet never signed for.
@@ -488,7 +486,7 @@ mod tests {
         let evidence = [3u8; 32];
         let fingerprints = sample_fingerprints(&[8]);
         let hashes = sample_hashes(1);
-        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let wallet_pk = wallet_kp.public_key();
         let digest = exchange_digest(&alpha_id, &evidence, &fingerprints, &hashes, &wallet_pk);
         let msg = exchange_message(&digest);
         let entry = ExchangeEntry {
@@ -536,7 +534,7 @@ mod tests {
         let evidence = [3u8; 32];
         let fingerprints = sample_fingerprints(&[8]);
         let hashes = sample_hashes(1);
-        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let wallet_pk = wallet_kp.public_key();
         let digest = exchange_digest(&alpha_id, &evidence, &fingerprints, &hashes, &wallet_pk);
         let msg = exchange_message(&digest);
         let entry = ExchangeEntry {
@@ -623,7 +621,7 @@ mod tests {
     fn redemption_request_verifies_against_the_recorded_key() {
         let alpha = wallet().public_key();
         let wallet_kp = wallet();
-        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let wallet_pk = wallet_kp.public_key();
         let amount = cashu::Amount::from(3_u64);
         let req = RedeemOfflineExchangeRequest::new(
             &alpha,
@@ -635,7 +633,7 @@ mod tests {
         req.verify(&alpha, &wallet_pk, amount).expect("own claim");
 
         // Another wallet cannot claim a spend entry recorded for this one.
-        let other: cashu::PublicKey = wallet().public_key().into();
+        let other = wallet().public_key();
         assert!(matches!(
             req.verify(&alpha, &other, amount),
             Err(ExchangeError::Signature(_))
@@ -654,7 +652,7 @@ mod tests {
     fn redemption_totalling_more_than_claimable_is_refused() {
         let alpha = wallet().public_key();
         let wallet_kp = wallet();
-        let wallet_pk: cashu::PublicKey = wallet_kp.public_key().into();
+        let wallet_pk = wallet_kp.public_key();
         let req = RedeemOfflineExchangeRequest::new(
             &alpha,
             [7u8; 32],
@@ -691,11 +689,106 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&req).expect("ser")).expect("de");
         assert_eq!(back.exchange_digest, req.exchange_digest);
         assert_eq!(back.wallet_signature, req.wallet_signature);
-        back.verify(
-            &alpha,
-            &wallet_kp.public_key().into(),
-            cashu::Amount::from(3_u64),
-        )
-        .expect("survives the wire");
+        back.verify(&alpha, &wallet_kp.public_key(), cashu::Amount::from(3_u64))
+            .expect("survives the wire");
+    }
+
+    /// The three exchange messages as they were laid out before `wallet_pk` became
+    /// `secp::PublicKey`. They reach Alpha's betas as cbor, and a spend entry
+    /// already on a chain must keep decoding.
+    mod wire_compat {
+        use super::*;
+        use crate::{ecash, wire::common::assert_wire_compat};
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct OfflineExchangeRequestV1 {
+            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            hashes: Vec<bitcoin::hashes::sha256::Hash>,
+            wallet_pk: cashu::PublicKey,
+            wallet_signature: secp::schnorr::Signature,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ExchangeBroadcastV1 {
+            alpha_id: secp::PublicKey,
+            evidence_digest: [u8; 32],
+            exchange_digest: [u8; 32],
+            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            hashes: Vec<Sha256>,
+            wallet_pk: cashu::PublicKey,
+            wallet_signature: secp::schnorr::Signature,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ExchangeEntryV1 {
+            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            hashes: Vec<Sha256>,
+            wallet_pk: cashu::PublicKey,
+            wallet_signature: secp::schnorr::Signature,
+            substitute_signature: secp::schnorr::Signature,
+        }
+
+        #[test]
+        fn offline_exchange_request_wire_compat() {
+            let wallet_kp = wallet();
+            let request = OfflineExchangeRequest {
+                fingerprints: sample_fingerprints(&[8]),
+                hashes: sample_hashes(1),
+                wallet_pk: wallet_kp.public_key(),
+                wallet_signature: SECP256K1.sign_schnorr(&exchange_message(&[7u8; 32]), &wallet_kp),
+            };
+            let v1 = OfflineExchangeRequestV1 {
+                fingerprints: request.fingerprints.clone(),
+                hashes: request.hashes.clone(),
+                wallet_pk: ecash::public_key_secp2cashu(&request.wallet_pk),
+                wallet_signature: request.wallet_signature,
+            };
+            assert_wire_compat(&request, &v1);
+        }
+
+        #[test]
+        fn exchange_broadcast_wire_compat() {
+            let broadcast = sample_broadcast(&wallet());
+            let v1 = ExchangeBroadcastV1 {
+                alpha_id: broadcast.alpha_id,
+                evidence_digest: broadcast.evidence_digest,
+                exchange_digest: broadcast.exchange_digest,
+                fingerprints: broadcast.fingerprints.clone(),
+                hashes: broadcast.hashes.clone(),
+                wallet_pk: ecash::public_key_secp2cashu(&broadcast.wallet_pk),
+                wallet_signature: broadcast.wallet_signature,
+            };
+            assert_wire_compat(&broadcast, &v1);
+        }
+
+        #[test]
+        fn exchange_entry_wire_compat() {
+            let wallet_kp = wallet();
+            let signature = SECP256K1.sign_schnorr(&exchange_message(&[9u8; 32]), &wallet_kp);
+            let entry = ExchangeEntry {
+                fingerprints: sample_fingerprints(&[2, 4]),
+                hashes: sample_hashes(2),
+                wallet_pk: wallet_kp.public_key(),
+                wallet_signature: signature,
+                substitute_signature: signature,
+            };
+            let v1 = ExchangeEntryV1 {
+                fingerprints: entry.fingerprints.clone(),
+                hashes: entry.hashes.clone(),
+                wallet_pk: ecash::public_key_secp2cashu(&entry.wallet_pk),
+                wallet_signature: entry.wallet_signature,
+                substitute_signature: entry.substitute_signature,
+            };
+            assert_wire_compat(&entry, &v1);
+        }
+
+        /// The digest hashes the 33-byte compressed key either way, so signatures
+        /// made before the swap still verify.
+        #[test]
+        fn exchange_digest_is_unchanged_by_the_key_type() {
+            let broadcast = sample_broadcast(&wallet());
+            broadcast.verify().expect("verifies");
+        }
     }
 }

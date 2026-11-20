@@ -1,6 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
-use bitcoin::secp256k1;
+use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 use uuid::Uuid;
 // ----- local imports
@@ -166,7 +166,7 @@ impl Client {
         &self,
         qid: uuid::Uuid,
         kid: ecash::Id,
-        pk: secp256k1::PublicKey,
+        pk: secp::PublicKey,
         amount: u64,
         discounted: u64,
         bill_id: BillId,
@@ -214,8 +214,8 @@ impl Client {
         &self,
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
-        wallet_pk: cashu::PublicKey,
-        wallet_signature: secp256k1::schnorr::Signature,
+        wallet_pk: secp::PublicKey,
+        wallet_signature: secp::schnorr::Signature,
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
         let result = common::exchange_offline_raw(
             &self.cl,
@@ -247,7 +247,7 @@ impl Client {
     pub async fn exchange_online(
         &self,
         proofs: Vec<cashu::Proof>,
-        exchange_path: Vec<secp256k1::PublicKey>,
+        exchange_path: Vec<secp::PublicKey>,
     ) -> Result<Vec<cashu::Proof>> {
         let result = common::exchange_online_raw(
             &self.cl,
@@ -318,8 +318,8 @@ pub(crate) mod common {
         ep: &'static str,
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
-        wallet_pk: cashu::PublicKey,
-        wallet_signature: secp256k1::schnorr::Signature,
+        wallet_pk: secp::PublicKey,
+        wallet_signature: secp::schnorr::Signature,
     ) -> Result<wire_exchange::OfflineExchangeResponse> {
         let url = base.join(ep).expect("exchange_offline relative path");
         let msg = wire_exchange::OfflineExchangeRequest {
@@ -350,7 +350,7 @@ pub(crate) mod common {
         base: &reqwest::Url,
         ep: &'static str,
         proofs: Vec<cashu::Proof>,
-        exchange_path: Vec<secp256k1::PublicKey>,
+        exchange_path: Vec<secp::PublicKey>,
     ) -> Result<wire_exchange::OnlineExchangeResponse> {
         let url = base.join(ep).expect("exchange_online relative path");
         let msg = wire_exchange::OnlineExchangeRequest {

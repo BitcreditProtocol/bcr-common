@@ -1,6 +1,7 @@
 // ----- standard library imports
 // ----- extra library imports
 use bitcoin::hashes::sha256::Hash as Sha256;
+use bitcoin::secp256k1 as secp;
 use thiserror::Error;
 // ----- local imports
 use crate::{
@@ -178,7 +179,7 @@ impl Client {
 
     pub async fn get_mint_url(
         &self,
-        node_id: &bitcoin::secp256k1::PublicKey,
+        node_id: &secp::PublicKey,
     ) -> Result<wire_clowder::MintUrlResponse> {
         assert!(admin_ep::FOREIGN_URL.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_URL.replace("{pubkey}", &node_id.to_string());
@@ -247,9 +248,9 @@ impl Client {
     #[allow(unused)]
     pub async fn post_checkstate(
         &self,
-        pubkey: bitcoin::secp256k1::PublicKey,
+        pubkey: secp::PublicKey,
         keyset_ids: Vec<Id>,
-        proof_ys: Vec<cashu::PublicKey>,
+        proof_ys: Vec<secp::PublicKey>,
     ) -> Result<cashu::CheckStateResponse> {
         assert!(admin_ep::FOREIGN_CHECKSTATE.contains("{pubkey}"));
         let req = wire_clowder::CheckStateRequest {
@@ -267,7 +268,7 @@ impl Client {
 
     pub async fn get_keyset(
         &self,
-        alpha_id: &bitcoin::secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
         keyset_id: &Id,
     ) -> Result<KeysResponse> {
         assert!(admin_ep::FOREIGN_KEYS.contains("{pubkey}"));
@@ -284,8 +285,8 @@ impl Client {
         &self,
         proofs: Vec<wire_keys::ProofFingerprint>,
         locks: Vec<Sha256>,
-        wallet_pubkey: bitcoin::secp256k1::PublicKey,
-    ) -> Result<bitcoin::secp256k1::schnorr::Signature> {
+        wallet_pubkey: secp::PublicKey,
+    ) -> Result<secp::schnorr::Signature> {
         let payload = wire_clowder::SubstituteExchangeRequest {
             proofs,
             locks,
@@ -332,7 +333,7 @@ impl Client {
 
     pub async fn get_keyset_info(
         &self,
-        alpha_id: &bitcoin::secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
         keyset_id: &Id,
     ) -> Result<KeysetResponse> {
         assert!(admin_ep::FOREIGN_KEYSET.contains("{pubkey}"));
@@ -371,7 +372,7 @@ impl Client {
 
     pub async fn post_verify_proofs(
         &self,
-        pubkey: bitcoin::secp256k1::PublicKey,
+        pubkey: secp::PublicKey,
         proofs: Vec<Proof>,
     ) -> Result<wire_clowder::IntermintValidProofs> {
         assert!(admin_ep::FOREIGN_VERIFY_PROOFS.contains("{pubkey}"));
@@ -388,7 +389,7 @@ impl Client {
 
     pub async fn post_verify_fingerprints(
         &self,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
         proofs: Vec<wire_keys::ProofFingerprint>,
     ) -> Result<wire_clowder::ValidFingerprints> {
         assert!(admin_ep::FOREIGN_VERIFY_FINGERPRINTS.contains("{pubkey}"));
@@ -407,7 +408,7 @@ impl Client {
     #[allow(unused)]
     pub async fn get_last_offline(
         &self,
-        pubkey: bitcoin::secp256k1::PublicKey,
+        pubkey: secp::PublicKey,
     ) -> Result<wire_clowder::LastOfflineResponse> {
         assert!(admin_ep::FOREIGN_LAST_OFFLINE.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_LAST_OFFLINE.replace("{pubkey}", &pubkey.to_string());
@@ -500,7 +501,7 @@ impl Client {
 
     pub async fn get_collateral_onchain(
         &self,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
     ) -> Result<wire_clowder::BitcoinAmountResponse> {
         assert!(admin_ep::FOREIGN_COLLATERAL_ONCHAIN.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_COLLATERAL_ONCHAIN.replace("{pubkey}", &pubkey.to_string());
@@ -514,7 +515,7 @@ impl Client {
 
     pub async fn get_collateral_ebill(
         &self,
-        pubkey: bitcoin::secp256k1::PublicKey,
+        pubkey: secp::PublicKey,
     ) -> Result<wire_clowder::EbillAmountResponse> {
         assert!(admin_ep::FOREIGN_COLLATERAL_EBILL.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_COLLATERAL_EBILL.replace("{pubkey}", &pubkey.to_string());
@@ -528,7 +529,7 @@ impl Client {
 
     pub async fn get_collateral_eiou(
         &self,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
     ) -> Result<wire_clowder::EiouAmountResponse> {
         assert!(admin_ep::FOREIGN_COLLATERAL_EIOU.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_COLLATERAL_EIOU.replace("{pubkey}", &pubkey.to_string());
@@ -542,7 +543,7 @@ impl Client {
 
     pub async fn get_circulating_supply(
         &self,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
     ) -> Result<wire_clowder::SupplyResponse> {
         assert!(admin_ep::FOREIGN_CIRCULATING_SUPPLY.contains("{pubkey}"));
         let path = admin_ep::FOREIGN_CIRCULATING_SUPPLY.replace("{pubkey}", &pubkey.to_string());
@@ -557,7 +558,7 @@ impl Client {
     #[allow(unused)]
     pub async fn get_keyset_mints(
         &self,
-        pubkey: bitcoin::secp256k1::PublicKey,
+        pubkey: secp::PublicKey,
         keyset_id: &Id,
     ) -> Result<wire_clowder::AmountResponse> {
         assert!(admin_ep::FOREIGN_KEYSET_MINTS.contains("{pubkey}"));
@@ -576,7 +577,7 @@ impl Client {
     #[allow(unused)]
     pub async fn get_keyset_burns(
         &self,
-        pubkey: bitcoin::secp256k1::PublicKey,
+        pubkey: secp::PublicKey,
         keyset_id: &Id,
     ) -> Result<wire_clowder::AmountResponse> {
         assert!(admin_ep::FOREIGN_KEYSET_BURNS.contains("{pubkey}"));
@@ -614,7 +615,7 @@ impl Client {
 
     pub async fn fetch_mint_onchain_signatures(
         &self,
-        alpha_id: &bitcoin::secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
         quote_id: &uuid::Uuid,
     ) -> Result<Option<Vec<crate::cashu::nuts::BlindSignature>>> {
         assert!(admin_ep::FOREIGN_MINT_ONCHAIN_SIGNATURES.contains("{pubkey}"));
@@ -690,7 +691,7 @@ impl Client {
 
     pub async fn get_substitute(
         &self,
-        alpha_id: &bitcoin::secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
     ) -> Result<wire_clowder::ConnectedMintResponse> {
         let response = common::get_substitute(
             &self.cl,
@@ -704,7 +705,7 @@ impl Client {
 
     pub async fn get_offline(
         &self,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
     ) -> Result<wire_clowder::OfflineResponse> {
         let response =
             common::get_offline(&self.cl, &self.base, web_ep::FOREIGN_OFFLINE_V1, pubkey).await?;
@@ -713,7 +714,7 @@ impl Client {
 
     pub async fn get_status(
         &self,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
     ) -> Result<wire_clowder::AlphaStateResponse> {
         let response =
             common::get_status(&self.cl, &self.base, web_ep::FOREIGN_STATUS_V1, pubkey).await?;
@@ -722,7 +723,7 @@ impl Client {
 
     pub async fn derive_ebill_payment_address(
         &self,
-        alpha_id: bitcoin::secp256k1::PublicKey,
+        alpha_id: secp::PublicKey,
         bill_id: BillId,
         block_id: u64,
         previous_block_hash: bitcoin::hashes::sha256::Hash,
@@ -742,7 +743,7 @@ impl Client {
 
     pub async fn get_active_keysets(
         &self,
-        alpha_id: &bitcoin::secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
     ) -> Result<cashu::KeysResponse> {
         let response = common::get_active_keysets(
             &self.cl,
@@ -895,7 +896,7 @@ pub(crate) mod common {
         cl: &jsonrpc::Client,
         base: &reqwest::Url,
         ep: &'static str,
-        alpha_id: &bitcoin::secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
     ) -> Result<KeysResponse> {
         assert!(ep.contains("{pubkey}"));
         let path = ep.replace("{pubkey}", &alpha_id.to_string());
@@ -910,7 +911,7 @@ pub(crate) mod common {
         cl: &jsonrpc::Client,
         base: &reqwest::Url,
         ep: &'static str,
-        alpha_id: &bitcoin::secp256k1::PublicKey,
+        alpha_id: &secp::PublicKey,
     ) -> Result<wire_clowder::ConnectedMintResponse> {
         assert!(ep.contains("{pubkey}"));
         let path = ep.replace("{pubkey}", &alpha_id.to_string());
@@ -922,7 +923,7 @@ pub(crate) mod common {
         cl: &jsonrpc::Client,
         base: &reqwest::Url,
         ep: &'static str,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
     ) -> Result<wire_clowder::OfflineResponse> {
         assert!(ep.contains("{pubkey}"));
         let path = ep.replace("{pubkey}", &pubkey.to_string());
@@ -935,7 +936,7 @@ pub(crate) mod common {
         cl: &jsonrpc::Client,
         base: &reqwest::Url,
         ep: &'static str,
-        pubkey: &bitcoin::secp256k1::PublicKey,
+        pubkey: &secp::PublicKey,
     ) -> Result<wire_clowder::AlphaStateResponse> {
         assert!(ep.contains("{pubkey}"));
         let path = ep.replace("{pubkey}", &pubkey.to_string());
@@ -948,7 +949,7 @@ pub(crate) mod common {
         cl: &jsonrpc::Client,
         base: &reqwest::Url,
         ep: &'static str,
-        alpha_node_id: bitcoin::secp256k1::PublicKey,
+        alpha_node_id: secp::PublicKey,
         bill_id: BillId,
         block_id: u64,
         previous_block_hash: bitcoin::hashes::sha256::Hash,
