@@ -1,5 +1,6 @@
 // ----- standard library imports
 // ----- extra library imports
+use bitcoin::secp256k1 as secp;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
@@ -13,6 +14,7 @@ use crate::{
             deserialize_bill_date, deserialize_from_str, deserialize_vec_of_strs, serialize_as_str,
             serialize_bill_date, serialize_vec_of_strs,
         },
+        common::secp_compat,
     },
 };
 
@@ -75,14 +77,15 @@ pub struct EnquireRequest {
         deserialize_with = "deserialize_from_str"
     )]
     /// corresponding secret key must be used later in key_client::mint request
-    pub minting_pubkey: cashu::PublicKey,
+    #[schema(value_type = String)]
+    pub minting_pubkey: secp::PublicKey,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SignedEnquireRequest {
     pub content: String, // base64, borsh serialized EnquireRequest
     #[schema(value_type = String)]
-    pub signature: bitcoin::secp256k1::schnorr::Signature,
+    pub signature: secp::schnorr::Signature,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -109,7 +112,9 @@ pub enum StatusReply {
         #[serde(with = "time::serde::rfc3339")]
         expiration_date: time::OffsetDateTime,
         discounted: u64,
-        wallet_pubkey: cashu::PublicKey,
+        #[schema(value_type = String)]
+        #[serde(with = "secp_compat")]
+        wallet_pubkey: secp::PublicKey,
     },
     OfferExpired {
         #[serde(with = "time::serde::rfc3339")]
@@ -123,7 +128,9 @@ pub enum StatusReply {
     Accepted {
         keyset_id: cashu::Id,
         discounted: u64,
-        wallet_pubkey: cashu::PublicKey,
+        #[schema(value_type = String)]
+        #[serde(with = "secp_compat")]
+        wallet_pubkey: secp::PublicKey,
     },
     Rejected {
         #[serde(with = "time::serde::rfc3339")]
@@ -137,13 +144,17 @@ pub enum StatusReply {
     MintingEnabled {
         keyset_id: cashu::Id,
         discounted: u64,
-        wallet_pubkey: cashu::PublicKey,
+        #[schema(value_type = String)]
+        #[serde(with = "secp_compat")]
+        wallet_pubkey: secp::PublicKey,
         minted_amount: u64,
     },
     FailedEbillValidation {
         keyset_id: cashu::Id,
         discounted: u64,
-        wallet_pubkey: cashu::PublicKey,
+        #[schema(value_type = String)]
+        #[serde(with = "secp_compat")]
+        wallet_pubkey: secp::PublicKey,
     },
 }
 
@@ -492,5 +503,165 @@ mod tests {
         );
         let missing: ListParam = serde_json::from_str("{}").unwrap();
         assert_eq!(missing.bill_maturity_date_from, None);
+    }
+
+    /// The quote messages as they were laid out before their key fields became
+    /// `secp::PublicKey`.
+    mod wire_compat {
+        use super::*;
+        use crate::{cashu, core, core_tests, ecash, wire::common::assert_wire_compat};
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        #[serde(tag = "status")]
+        enum StatusReplyV1 {
+            Offered {
+                keyset_id: cashu::Id,
+                #[serde(with = "time::serde::rfc3339")]
+                expiration_date: time::OffsetDateTime,
+                discounted: u64,
+                wallet_pubkey: cashu::PublicKey,
+            },
+            Accepted {
+                keyset_id: cashu::Id,
+                discounted: u64,
+                wallet_pubkey: cashu::PublicKey,
+            },
+            MintingEnabled {
+                keyset_id: cashu::Id,
+                discounted: u64,
+                wallet_pubkey: cashu::PublicKey,
+                minted_amount: u64,
+            },
+            FailedEbillValidation {
+                keyset_id: cashu::Id,
+                discounted: u64,
+                wallet_pubkey: cashu::PublicKey,
+            },
+        }
+
+        #[derive(BorshSerialize, BorshDeserialize)]
+        struct EnquireRequestV1 {
+            content: SharedBill,
+            #[borsh(
+                serialize_with = "serialize_as_str",
+                deserialize_with = "deserialize_from_str"
+            )]
+            minting_pubkey: cashu::PublicKey,
+        }
+
+        fn keyset_id() -> cashu::Id {
+            cashu::Id::from_bytes(&[0, 173, 38, 140, 77, 31, 88, 38]).expect("id")
+        }
+
+        fn key() -> secp::PublicKey {
+            core::generate_random_keypair().public_key()
+        }
+
+        fn as_cashu(key: &secp::PublicKey) -> cashu::PublicKey {
+            ecash::public_key_secp2cashu(key)
+        }
+
+        #[test]
+        fn status_reply_offered_wire_compat() {
+            let wallet_pubkey = key();
+            let expiration_date = time::macros::datetime!(2026-08-03 12:00:00 UTC);
+            assert_wire_compat(
+                &StatusReply::Offered {
+                    keyset_id: keyset_id(),
+                    expiration_date,
+                    discounted: 1200,
+                    wallet_pubkey,
+                },
+                &StatusReplyV1::Offered {
+                    keyset_id: keyset_id(),
+                    expiration_date,
+                    discounted: 1200,
+                    wallet_pubkey: as_cashu(&wallet_pubkey),
+                },
+            );
+        }
+
+        #[test]
+        fn status_reply_accepted_wire_compat() {
+            let wallet_pubkey = key();
+            assert_wire_compat(
+                &StatusReply::Accepted {
+                    keyset_id: keyset_id(),
+                    discounted: 1200,
+                    wallet_pubkey,
+                },
+                &StatusReplyV1::Accepted {
+                    keyset_id: keyset_id(),
+                    discounted: 1200,
+                    wallet_pubkey: as_cashu(&wallet_pubkey),
+                },
+            );
+        }
+
+        #[test]
+        fn status_reply_minting_enabled_wire_compat() {
+            let wallet_pubkey = key();
+            assert_wire_compat(
+                &StatusReply::MintingEnabled {
+                    keyset_id: keyset_id(),
+                    discounted: 1200,
+                    wallet_pubkey,
+                    minted_amount: 1000,
+                },
+                &StatusReplyV1::MintingEnabled {
+                    keyset_id: keyset_id(),
+                    discounted: 1200,
+                    wallet_pubkey: as_cashu(&wallet_pubkey),
+                    minted_amount: 1000,
+                },
+            );
+        }
+
+        #[test]
+        fn status_reply_failed_ebill_validation_wire_compat() {
+            let wallet_pubkey = key();
+            assert_wire_compat(
+                &StatusReply::FailedEbillValidation {
+                    keyset_id: keyset_id(),
+                    discounted: 1200,
+                    wallet_pubkey,
+                },
+                &StatusReplyV1::FailedEbillValidation {
+                    keyset_id: keyset_id(),
+                    discounted: 1200,
+                    wallet_pubkey: as_cashu(&wallet_pubkey),
+                },
+            );
+        }
+
+        /// `EnquireRequest` is borshed and then schnorr-signed, so a diverging byte here
+        /// would invalidate every signature already issued over one.
+        #[test]
+        fn enquire_request_borsh_wire_compat() {
+            let minting_pubkey = key();
+            let content = SharedBill {
+                bill_id: core_tests::random_bill_id(),
+                data: "payload".to_string(),
+                file_urls: vec![],
+                hash: "a-hash".to_string(),
+                signature: "a-signature".to_string(),
+                receiver: bitcoin::PublicKey::new(key()),
+            };
+            let request = EnquireRequest {
+                content: content.clone(),
+                minting_pubkey,
+            };
+            let v1 = EnquireRequestV1 {
+                content,
+                minting_pubkey: as_cashu(&minting_pubkey),
+            };
+            let bytes = borsh::to_vec(&request).expect("serialize");
+            let v1_bytes = borsh::to_vec(&v1).expect("serialize");
+            assert_eq!(bytes, v1_bytes, "borsh encodings diverge");
+            let back: EnquireRequest =
+                borsh::from_slice(&v1_bytes).expect("the new type reads a v1 blob");
+            assert_eq!(borsh::to_vec(&back).expect("serialize"), bytes);
+            assert_eq!(back.minting_pubkey, minting_pubkey);
+        }
     }
 }

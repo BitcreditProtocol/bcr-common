@@ -7,9 +7,12 @@ use utoipa::ToSchema;
 // ----- local imports
 use crate::{
     core, ecash,
-    wire::borsh::{
-        deserialize_from_str, deserialize_optionproofdleq, serialize_as_str,
-        serialize_optionproofdleq,
+    wire::{
+        borsh::{
+            deserialize_from_str, deserialize_optionproofdleq, serialize_as_str,
+            serialize_optionproofdleq,
+        },
+        common::secp_compat,
     },
 };
 
@@ -172,29 +175,6 @@ pub fn fp_to_cashu_proof(fp: &ProofFingerprint, secret: cashu::secret::Secret) -
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct KeysetInfoListResponse {
     pub keysets: Vec<ecash::KeySetInfo>,
-}
-
-mod secp_compat {
-    use bitcoin::{hex::prelude::*, secp256k1 as secp};
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S>(key: &secp::PublicKey, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let stri = key.serialize().as_hex().to_string();
-        serializer.serialize_str(&stri)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<secp::PublicKey, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let stri: String = Deserialize::deserialize(deserializer)?;
-        let bytes: [u8; 33] = FromHex::from_hex(&stri).map_err(serde::de::Error::custom)?;
-        let key = secp::PublicKey::from_slice(&bytes).map_err(serde::de::Error::custom)?;
-        Ok(key)
-    }
 }
 
 #[cfg(test)]
