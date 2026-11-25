@@ -59,6 +59,26 @@ pub struct AttestedFingerprints {
     pub attestation: IssuanceAttestation,
 }
 
+/// [`AttestedFingerprints`] as it was laid out before `ProofFingerprint`'s `y`/`c`
+/// became `secp::PublicKey`. [`IssuanceAttestation`] needs no shadow: its `beta_id`
+/// was always a `secp::PublicKey`, so this migration did not touch it.
+#[cfg(test)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct AttestedFingerprintsV1 {
+    pub inputs: Vec<crate::wire::keys::ProofFingerprintV1>,
+    pub attestation: IssuanceAttestation,
+}
+
+#[cfg(test)]
+pub(crate) fn attested_fingerprints_to_v1(
+    attested: &AttestedFingerprints,
+) -> AttestedFingerprintsV1 {
+    AttestedFingerprintsV1 {
+        inputs: crate::wire::keys::fingerprints_to_v1(&attested.inputs),
+        attestation: attested.attestation.clone(),
+    }
+}
+
 impl AttestedFingerprints {
     pub fn authenticate(
         &self,

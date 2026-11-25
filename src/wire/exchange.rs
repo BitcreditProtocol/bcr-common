@@ -699,11 +699,12 @@ mod tests {
     mod wire_compat {
         use super::*;
         use crate::{ecash, wire::common::assert_wire_compat};
+        use bitcoin::hex::DisplayHex;
         use serde::{Deserialize, Serialize};
 
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         struct OfflineExchangeRequestV1 {
-            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            fingerprints: Vec<wire_keys::ProofFingerprintV1>,
             hashes: Vec<bitcoin::hashes::sha256::Hash>,
             wallet_pk: cashu::PublicKey,
             wallet_signature: secp::schnorr::Signature,
@@ -714,7 +715,7 @@ mod tests {
             alpha_id: secp::PublicKey,
             evidence_digest: [u8; 32],
             exchange_digest: [u8; 32],
-            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            fingerprints: Vec<wire_keys::ProofFingerprintV1>,
             hashes: Vec<Sha256>,
             wallet_pk: cashu::PublicKey,
             wallet_signature: secp::schnorr::Signature,
@@ -722,7 +723,7 @@ mod tests {
 
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         struct ExchangeEntryV1 {
-            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            fingerprints: Vec<wire_keys::ProofFingerprintV1>,
             hashes: Vec<Sha256>,
             wallet_pk: cashu::PublicKey,
             wallet_signature: secp::schnorr::Signature,
@@ -739,7 +740,7 @@ mod tests {
                 wallet_signature: SECP256K1.sign_schnorr(&exchange_message(&[7u8; 32]), &wallet_kp),
             };
             let v1 = OfflineExchangeRequestV1 {
-                fingerprints: request.fingerprints.clone(),
+                fingerprints: wire_keys::fingerprints_to_v1(&request.fingerprints),
                 hashes: request.hashes.clone(),
                 wallet_pk: ecash::public_key_secp2cashu(&request.wallet_pk),
                 wallet_signature: request.wallet_signature,
@@ -754,7 +755,7 @@ mod tests {
                 alpha_id: broadcast.alpha_id,
                 evidence_digest: broadcast.evidence_digest,
                 exchange_digest: broadcast.exchange_digest,
-                fingerprints: broadcast.fingerprints.clone(),
+                fingerprints: wire_keys::fingerprints_to_v1(&broadcast.fingerprints),
                 hashes: broadcast.hashes.clone(),
                 wallet_pk: ecash::public_key_secp2cashu(&broadcast.wallet_pk),
                 wallet_signature: broadcast.wallet_signature,
@@ -774,7 +775,7 @@ mod tests {
                 substitute_signature: signature,
             };
             let v1 = ExchangeEntryV1 {
-                fingerprints: entry.fingerprints.clone(),
+                fingerprints: wire_keys::fingerprints_to_v1(&entry.fingerprints),
                 hashes: entry.hashes.clone(),
                 wallet_pk: ecash::public_key_secp2cashu(&entry.wallet_pk),
                 wallet_signature: entry.wallet_signature,
@@ -783,12 +784,135 @@ mod tests {
             assert_wire_compat(&entry, &v1);
         }
 
-        /// The digest hashes the 33-byte compressed key either way, so signatures
-        /// made before the swap still verify.
+        /// Fixed inputs, so the digests below are reproducible. Random keysets
+        /// would make a frozen vector impossible.
+        fn frozen_key(n: u8) -> secp::PublicKey {
+            secp::SecretKey::from_slice(&[n; 32])
+                .expect("valid secret key")
+                .public_key(SECP256K1)
+        }
+
+        fn frozen_keyset_id() -> ecash::Id {
+            ecash::Id::from_bytes(&[0, 173, 38, 140, 77, 31, 88, 38]).expect("keyset id")
+        }
+
+        /// Given in an order that is neither sorted by `y` nor by `c`, and with the
+        /// two keys swapped between the fields, so that `fp_digest`'s sort by `y` is
+        /// the only one that reproduces the vector.
+        fn frozen_fingerprints() -> Vec<wire_keys::ProofFingerprint> {
+            vec![
+                wire_keys::ProofFingerprint {
+                    keyset_id: frozen_keyset_id(),
+                    amount: 8,
+                    y: frozen_key(6),
+                    c: frozen_key(15),
+                    dleq: None,
+                },
+                wire_keys::ProofFingerprint {
+                    keyset_id: frozen_keyset_id(),
+                    amount: 2,
+                    y: frozen_key(15),
+                    c: frozen_key(6),
+                    dleq: None,
+                },
+            ]
+        }
+
+        fn frozen_hashes() -> Vec<Sha256> {
+            vec![Sha256::hash(&[0u8]), Sha256::hash(&[1u8])]
+        }
+
+        /// [`exchange_digest`] as it was written before the key type changed:
+        /// `cashu::PublicKey::to_bytes()` for the keys, and an [`fp_digest`] over
+        /// [`wire_keys::ProofFingerprintV1`]. Spelled out rather than called so a
+        /// change to the production layout cannot reach both sides at once.
+        fn pre_migration_exchange_digest(
+            alpha_id: &cashu::PublicKey,
+            evidence_digest: &[u8; 32],
+            fingerprints: &[wire_keys::ProofFingerprintV1],
+            hashes: &[Sha256],
+            wallet_pk: &cashu::PublicKey,
+        ) -> [u8; 32] {
+            let mut canonical = fingerprints.to_vec();
+            canonical.iter_mut().for_each(|fp| fp.dleq = None);
+            canonical.sort_unstable_by_key(|fp| fp.y);
+            let fps = Sha256::hash(&borsh::to_vec(&canonical).expect("borsh fingerprints"))
+                .to_byte_array();
+            let mut sorted: Vec<[u8; 32]> = hashes.iter().map(|h| h.to_byte_array()).collect();
+            sorted.sort_unstable();
+
+            let mut msg = Vec::new();
+            msg.extend_from_slice(DOMAIN_TAG_EXCHANGE);
+            msg.extend_from_slice(&alpha_id.to_bytes());
+            msg.extend_from_slice(evidence_digest);
+            msg.extend_from_slice(&fps);
+            for hash in &sorted {
+                msg.extend_from_slice(hash);
+            }
+            msg.extend_from_slice(&wallet_pk.to_bytes());
+            Sha256::hash(&msg).to_byte_array()
+        }
+
+        /// The digest is what signatures already in the wild commit to, so it has to
+        /// survive the key swap byte for byte. `cashu::PublicKey::to_bytes()` and
+        /// `secp::PublicKey::serialize()` are both the 33-byte compressed form, and
+        /// `fp_digest` sorts by `y` and borsh-encodes it through `Display`, which is
+        /// the same hex either way -- `cashu::PublicKey` derives `Ord` and `Display`
+        /// straight through to the `secp::PublicKey` it wraps.
+        ///
+        /// Rebuilding the digest the old way proves that today; pinning the result
+        /// keeps any later change to the layout from quietly invalidating those
+        /// signatures. A failure here means every signature ever issued is void, not
+        /// that the constant needs updating.
+        ///
+        /// The vector is not self-reported: it was produced by checking out d2787ed
+        /// -- the last commit before `ProofFingerprint`'s keys changed in 990a134 and
+        /// `wallet_pk` in d32f439 -- and running `exchange_digest` there on these same
+        /// inputs.
         #[test]
-        fn exchange_digest_is_unchanged_by_the_key_type() {
-            let broadcast = sample_broadcast(&wallet());
-            broadcast.verify().expect("verifies");
+        fn exchange_digest_matches_the_pre_migration_construction() {
+            let alpha_id = frozen_key(1);
+            let wallet_pk = frozen_key(2);
+            let evidence_digest = [3u8; 32];
+            let fingerprints = frozen_fingerprints();
+            let hashes = frozen_hashes();
+
+            let digest = exchange_digest(
+                &alpha_id,
+                &evidence_digest,
+                &fingerprints,
+                &hashes,
+                &wallet_pk,
+            );
+
+            assert_eq!(
+                digest,
+                pre_migration_exchange_digest(
+                    &ecash::public_key_secp2cashu(&alpha_id),
+                    &evidence_digest,
+                    &wire_keys::fingerprints_to_v1(&fingerprints),
+                    &hashes,
+                    &ecash::public_key_secp2cashu(&wallet_pk),
+                ),
+            );
+
+            assert_eq!(
+                digest.as_hex().to_string(),
+                "a88d1c72e5b2ddfcf427302d6fd137b3908ec62cac3ce1101fa238a6fe5d4677",
+            );
+        }
+
+        /// `alpha_id` was already a `secp::PublicKey` before the migration, so only
+        /// `fp_digest` could have moved this one, and `outputs` carries no key at all.
+        /// Confirmed against d2787ed the same way, and pinned so it stays put --
+        /// redemption signatures outlive an outage just as exchange ones do.
+        #[test]
+        fn redemption_digest_is_frozen() {
+            let digest = redemption_digest(&frozen_key(1), &[5u8; 32], &[]);
+            assert_eq!(
+                digest.as_hex().to_string(),
+                "1d7ecc1ef72a0d4631295540617f2bc06bcd8b7c886a88cc917a3fc0cc76353a",
+            );
         }
     }
 }

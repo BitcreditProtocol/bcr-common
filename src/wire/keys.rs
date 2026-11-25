@@ -177,34 +177,45 @@ pub struct KeysetInfoListResponse {
     pub keysets: Vec<ecash::KeySetInfo>,
 }
 
+/// Fixtures for the wire-compat tests here and in every module that embeds a
+/// fingerprint. They live beside the two shapes they bridge rather than being
+/// copied into each test module.
+#[cfg(test)]
+pub(crate) fn sample_fingerprint() -> ProofFingerprint {
+    use crate::core_tests;
+    let (_, keyset) = core_tests::generate_random_ecash_keyset();
+    let proof = core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(8u64)])
+        .pop()
+        .expect("one proof");
+    ProofFingerprint::try_from(proof).expect("fingerprint")
+}
+
+/// The same fingerprint as it was laid out before `y`/`c` became `secp::PublicKey`.
+#[cfg(test)]
+pub(crate) fn fingerprint_to_v1(fp: &ProofFingerprint) -> ProofFingerprintV1 {
+    ProofFingerprintV1 {
+        keyset_id: fp.keyset_id,
+        amount: fp.amount,
+        y: ecash::public_key_secp2cashu(&fp.y),
+        c: ecash::public_key_secp2cashu(&fp.c),
+        dleq: fp.dleq.clone(),
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn fingerprints_to_v1(fps: &[ProofFingerprint]) -> Vec<ProofFingerprintV1> {
+    fps.iter().map(fingerprint_to_v1).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core_tests;
 
-    fn sample_fingerprint() -> ProofFingerprint {
-        let (_, keyset) = core_tests::generate_random_ecash_keyset();
-        let proof = core_tests::generate_random_ecash_proofs(&keyset, &[cashu::Amount::from(8u64)])
-            .pop()
-            .expect("one proof");
-        ProofFingerprint::try_from(proof).expect("fingerprint")
-    }
-
-    /// The same fingerprint as it was laid out before `y`/`c` became `secp::PublicKey`.
-    fn as_v1(fp: &ProofFingerprint) -> ProofFingerprintV1 {
-        ProofFingerprintV1 {
-            keyset_id: fp.keyset_id,
-            amount: fp.amount,
-            y: ecash::public_key_secp2cashu(&fp.y),
-            c: ecash::public_key_secp2cashu(&fp.c),
-            dleq: fp.dleq.clone(),
-        }
-    }
-
     #[test]
     fn proof_fingerprint_wire_compat() {
         let fp = sample_fingerprint();
-        let v1 = as_v1(&fp);
+        let v1 = fingerprint_to_v1(&fp);
         // json
         let bytes = serde_json::to_vec(&fp).expect("serialize");
         let v1_bytes = serde_json::to_vec(&v1).expect("serialize");

@@ -867,7 +867,7 @@ mod tests {
     fn mint_foreign_offline_ecash_request_legacy_cbor_compat() {
         #[derive(Serialize, Deserialize)]
         struct LegacyMintForeignOfflineEcashRequest {
-            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            fingerprints: Vec<wire_keys::ProofFingerprintV1>,
             hashes: Vec<bitcoin::hashes::sha256::Hash>,
             wallet_pk: cashu::PublicKey,
         }
@@ -875,14 +875,15 @@ mod tests {
         let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
         let wallet_pk = keypair.public_key();
         let hashes = vec![bitcoin::hashes::Hash::hash(&[1u8])];
+        let fingerprints = vec![wire_keys::sample_fingerprint()];
 
         let legacy = LegacyMintForeignOfflineEcashRequest {
-            fingerprints: vec![],
+            fingerprints: wire_keys::fingerprints_to_v1(&fingerprints),
             hashes: hashes.clone(),
             wallet_pk: ecash::public_key_secp2cashu(&wallet_pk),
         };
         let current = MintForeignOfflineEcashRequest {
-            fingerprints: vec![],
+            fingerprints,
             hashes,
             wallet_pk,
             exchange_digest: None,
@@ -1046,7 +1047,7 @@ mod tests {
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         struct MeltQuoteOnchainRequestV1 {
             quote_id: uuid::Uuid,
-            inputs: AttestedFingerprints,
+            inputs: crate::wire::attestation::AttestedFingerprintsV1,
             address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
             admin_fees: u64,
             network_fees: bitcoin::Amount,
@@ -1066,7 +1067,7 @@ mod tests {
 
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         struct SwapCommitmentRequestV1 {
-            inputs: AttestedFingerprints,
+            inputs: crate::wire::attestation::AttestedFingerprintsV1,
             outputs: Vec<cashu::BlindedMessage>,
             expiry: u64,
             wallet_key: cashu::PublicKey,
@@ -1099,7 +1100,7 @@ mod tests {
         fn attested() -> AttestedFingerprints {
             let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
             AttestedFingerprints {
-                inputs: vec![],
+                inputs: vec![wire_keys::sample_fingerprint()],
                 attestation: crate::wire::attestation::IssuanceAttestation {
                     beta_id: keypair.public_key(),
                     fp_digest: [1u8; 32],
@@ -1184,7 +1185,7 @@ mod tests {
             };
             let v1 = MeltQuoteOnchainRequestV1 {
                 quote_id,
-                inputs,
+                inputs: crate::wire::attestation::attested_fingerprints_to_v1(&inputs),
                 address: address(),
                 admin_fees: 10,
                 network_fees: bitcoin::Amount::from_sat(250),
@@ -1228,7 +1229,7 @@ mod tests {
                 wallet_key,
             };
             let v1 = SwapCommitmentRequestV1 {
-                inputs,
+                inputs: crate::wire::attestation::attested_fingerprints_to_v1(&inputs),
                 outputs: vec![],
                 expiry: 99,
                 wallet_key: as_cashu(&wallet_key),
