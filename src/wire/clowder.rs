@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use bitcoin::{
     XOnlyPublicKey,
     hashes::{Hash, sha256::Hash as Sha256Hash},
-    secp256k1,
+    secp256k1 as secp,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -13,8 +13,8 @@ use crate::{
     core::BillId,
     ecash,
     wire::{
-        attestation::AttestedFingerprints, bill as wire_bill, exchange as wire_exchange,
-        keys as wire_keys,
+        attestation::AttestedFingerprints, bill as wire_bill, common::secp_compat,
+        exchange as wire_exchange, keys as wire_keys,
     },
 };
 
@@ -28,7 +28,7 @@ pub struct PathRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublicKeyResponse {
-    pub public_key: secp256k1::PublicKey,
+    pub public_key: secp::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -45,7 +45,7 @@ pub struct ConnectedMintResponse {
     pub mint: reqwest::Url,
     pub clowder: reqwest::Url,
     #[schema(value_type = String)]
-    pub node_id: secp256k1::PublicKey,
+    pub node_id: secp::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -57,7 +57,7 @@ pub struct ConnectedMintsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExchangeRequest {
     pub alpha_proofs: Vec<cashu::Proof>,
-    pub exchange_path: Vec<secp256k1::PublicKey>,
+    pub exchange_path: Vec<secp::PublicKey>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,13 +69,13 @@ pub struct ExchangeResponse {
 pub struct SubstituteExchangeRequest {
     pub proofs: Vec<wire_keys::ProofFingerprint>,
     pub locks: Vec<Sha256Hash>,
-    pub wallet_pubkey: secp256k1::PublicKey,
+    pub wallet_pubkey: secp::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubstituteExchangeResponse {
     pub outputs: Vec<cashu::Proof>,
-    pub signature: secp256k1::schnorr::Signature,
+    pub signature: secp::schnorr::Signature,
 }
 
 ///--------------------------- Alpha State
@@ -90,7 +90,7 @@ pub enum SimpleAlphaState {
     /// Pre Rabid
     Rabid(String),
     /// Post Rabid
-    ConfiscatedRabid(bitcoin::Txid, bitcoin::secp256k1::PublicKey, String),
+    ConfiscatedRabid(bitcoin::Txid, secp::PublicKey, String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -108,7 +108,8 @@ pub enum WalletEvent {
         minted: Vec<cashu::BlindSignature>,
     },
     Melt {
-        burned: Vec<cashu::PublicKey>,
+        #[serde(with = "secp_compat::vec")]
+        burned: Vec<secp::PublicKey>,
         qid: String,
     },
 }
@@ -133,7 +134,7 @@ pub enum MintState {
 pub struct PendingOutage {
     pub evidence_digest: [u8; 32],
     #[schema(value_type = Option<String>)]
-    pub substitute: Option<bitcoin::secp256k1::PublicKey>,
+    pub substitute: Option<secp::PublicKey>,
     pub betas_holding: usize,
     pub pending_exchanges: usize,
     pub pending_amount: u64,
@@ -143,7 +144,7 @@ pub struct PendingOutage {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PerceivedState {
     #[schema(value_type = Option<String>)]
-    pub substitute_beta: Option<bitcoin::secp256k1::PublicKey>,
+    pub substitute_beta: Option<secp::PublicKey>,
     pub alpha_state: MintState,
     /// Earliest beta-reported offline onset, Unix seconds; `Some` iff `alpha_state != Online`.
     pub offline_since: Option<u64>,
@@ -219,7 +220,9 @@ pub struct ClowderNodeInfo {
     /// FROST aggregated public key
     #[schema(value_type = String)]
     pub multisig_agg_xonly: XOnlyPublicKey,
-    pub node_id: cashu::PublicKey,
+    #[schema(value_type = String)]
+    #[serde(with = "secp_compat")]
+    pub node_id: secp::PublicKey,
     pub uptime_timestamp: u64,
     pub version: String,
     #[schema(value_type = String)]
@@ -264,7 +267,7 @@ pub struct VerifyEbillMintPaymentRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DeriveEbillPaymentAddressRequest {
     #[schema(value_type = String)]
-    pub alpha_node_id: bitcoin::secp256k1::PublicKey,
+    pub alpha_node_id: secp::PublicKey,
     #[schema(value_type = String)]
     pub bill_id: BillId,
     pub block_id: u64,
@@ -289,7 +292,8 @@ pub struct KeysetCreationRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeysetCreationResponse {
-    pub public_keys: BTreeMap<u64, cashu::PublicKey>,
+    #[serde(with = "secp_compat::btreemap_values")]
+    pub public_keys: BTreeMap<u64, secp::PublicKey>,
     pub id: cashu::Id,
     pub expiry: u64,
     pub unit: cashu::CurrencyUnit,
@@ -354,7 +358,7 @@ pub struct MintEbillResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintForeignEcashRequest {
     pub proofs: Vec<cashu::Proof>,
-    pub exchange_path: Vec<bitcoin::secp256k1::PublicKey>,
+    pub exchange_path: Vec<secp::PublicKey>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -366,14 +370,15 @@ pub struct MintForeignEcashResponse {
 pub struct MintForeignOfflineEcashRequest {
     pub fingerprints: Vec<wire_keys::ProofFingerprint>,
     pub hashes: Vec<bitcoin::hashes::sha256::Hash>,
-    pub wallet_pk: cashu::PublicKey,
+    #[serde(with = "secp_compat")]
+    pub wallet_pk: secp::PublicKey,
     /// Required on offline issuances. Optional (with `wallet_signature`) only so
     /// older ledger entries re-serialize byte-identical.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exchange_digest: Option<[u8; 32]>,
     /// Over the exchange digest; only wallet-signed reports can spend its proofs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wallet_signature: Option<secp256k1::schnorr::Signature>,
+    pub wallet_signature: Option<secp::schnorr::Signature>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -437,18 +442,18 @@ pub struct RedeemOfflineExchangeAuthorization {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeaseAckRequest {
-    pub alpha_id: secp256k1::PublicKey,
+    pub alpha_id: secp::PublicKey,
     pub timestamp: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeaseAckResponse {
-    pub beta_id: secp256k1::PublicKey,
-    pub alpha_id: secp256k1::PublicKey,
+    pub beta_id: secp::PublicKey,
+    pub alpha_id: secp::PublicKey,
     pub tip_seq: u64,
     /// Echoes the request timestamp; signed so an old ack cannot renew a lease.
     pub timestamp: u64,
-    pub signature: secp256k1::schnorr::Signature,
+    pub signature: secp::schnorr::Signature,
 }
 
 /// Domain separation tag for a Beta lease acknowledgment signature.
@@ -456,18 +461,18 @@ pub const DOMAIN_TAG_LEASE: &[u8] = b"bcr/exchange/lease/v1";
 
 /// `SHA256(DOMAIN_TAG_LEASE || alpha_id || beta_id || tip_seq || timestamp)`.
 pub fn lease_ack_message(
-    alpha_id: &secp256k1::PublicKey,
-    beta_id: &secp256k1::PublicKey,
+    alpha_id: &secp::PublicKey,
+    beta_id: &secp::PublicKey,
     tip_seq: u64,
     timestamp: u64,
-) -> secp256k1::Message {
+) -> secp::Message {
     let mut msg = Vec::with_capacity(DOMAIN_TAG_LEASE.len() + 33 + 33 + 8 + 8);
     msg.extend_from_slice(DOMAIN_TAG_LEASE);
     msg.extend_from_slice(&alpha_id.serialize());
     msg.extend_from_slice(&beta_id.serialize());
     msg.extend_from_slice(&tip_seq.to_be_bytes());
     msg.extend_from_slice(&timestamp.to_be_bytes());
-    secp256k1::Message::from_digest(*Sha256Hash::hash(&msg).as_ref())
+    secp::Message::from_digest(*Sha256Hash::hash(&msg).as_ref())
 }
 
 impl LeaseAckResponse {
@@ -478,9 +483,9 @@ impl LeaseAckResponse {
             && self.verify().is_ok()
     }
 
-    pub fn verify(&self) -> Result<(), secp256k1::Error> {
+    pub fn verify(&self) -> Result<(), secp::Error> {
         let msg = lease_ack_message(&self.alpha_id, &self.beta_id, self.tip_seq, self.timestamp);
-        secp256k1::global::SECP256K1.verify_schnorr(
+        secp::global::SECP256K1.verify_schnorr(
             &self.signature,
             &msg,
             &self.beta_id.x_only_public_key().0,
@@ -510,7 +515,7 @@ pub struct MeltOnchainRequest {
     pub amount: bitcoin::Amount,
     pub inputs: Vec<cashu::Proof>,
     pub fees: Vec<cashu::BlindSignature>,
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub commitment: secp::schnorr::Signature,
     /// total tx fee the user pays; None = legacy dynamic-fee path
     /// optional to keep ledger entries byte-identical under CBOR re-serialization
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -532,12 +537,13 @@ pub struct MeltQuoteOnchainRequest {
     pub admin_fees: u64,
     pub network_fees: bitcoin::Amount,
     pub expiry: u64,
-    pub wallet_key: cashu::PublicKey,
+    #[serde(with = "secp_compat")]
+    pub wallet_key: secp::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeltQuoteOnchainResponse {
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub commitment: secp::schnorr::Signature,
 }
 
 ///--------------------------- Mint Quote Onchain
@@ -549,12 +555,13 @@ pub struct MintQuoteOnchainRequest {
     pub payment_amount: bitcoin::Amount,
     pub expiry: u64,
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
-    pub wallet_key: cashu::PublicKey,
+    #[serde(with = "secp_compat")]
+    pub wallet_key: secp::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintQuoteOnchainResponse {
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub commitment: secp::schnorr::Signature,
 }
 
 ///--------------------------- Offline Exchange Sign
@@ -566,7 +573,7 @@ pub struct OfflineExchangeSignRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfflineExchangeSignResponse {
-    pub signature: bitcoin::secp256k1::schnorr::Signature,
+    pub signature: secp::schnorr::Signature,
 }
 
 ///--------------------------- Swap Commitment
@@ -576,12 +583,13 @@ pub struct SwapCommitmentRequest {
     pub inputs: AttestedFingerprints,
     pub outputs: Vec<cashu::BlindedMessage>,
     pub expiry: u64,
-    pub wallet_key: cashu::PublicKey,
+    #[serde(with = "secp_compat")]
+    pub wallet_key: secp::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapCommitmentResponse {
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub commitment: secp::schnorr::Signature,
 }
 
 ///--------------------------- Swap
@@ -590,7 +598,7 @@ pub struct SwapCommitmentResponse {
 pub struct SwapRequest {
     pub proofs: Vec<cashu::Proof>,
     pub blinds: Vec<cashu::BlindedMessage>,
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub commitment: secp::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -617,7 +625,7 @@ pub struct MintSwapRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntermintOriginResponse {
-    pub node_id: secp256k1::PublicKey,
+    pub node_id: secp::PublicKey,
     pub mint_url: reqwest::Url,
 }
 
@@ -650,7 +658,8 @@ pub struct ValidFingerprints {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckStateRequest {
-    pub ys: Vec<cashu::PublicKey>,
+    #[serde(with = "secp_compat::vec")]
+    pub ys: Vec<secp::PublicKey>,
     pub ids: Vec<cashu::Id>,
 }
 
@@ -716,7 +725,6 @@ pub enum ClowderReply<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitcoin::secp256k1 as secp;
 
     fn cbor_roundtrip<T: Serialize + serde::de::DeserializeOwned>(value: &T) -> T {
         let mut bytes = Vec::new();
@@ -803,7 +811,7 @@ mod tests {
             amount: bitcoin::Amount,
             inputs: Vec<cashu::Proof>,
             fees: Vec<cashu::BlindSignature>,
-            commitment: bitcoin::secp256k1::schnorr::Signature,
+            commitment: secp::schnorr::Signature,
         }
 
         let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
@@ -859,22 +867,23 @@ mod tests {
     fn mint_foreign_offline_ecash_request_legacy_cbor_compat() {
         #[derive(Serialize, Deserialize)]
         struct LegacyMintForeignOfflineEcashRequest {
-            fingerprints: Vec<wire_keys::ProofFingerprint>,
+            fingerprints: Vec<wire_keys::ProofFingerprintV1>,
             hashes: Vec<bitcoin::hashes::sha256::Hash>,
             wallet_pk: cashu::PublicKey,
         }
 
         let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
-        let wallet_pk: cashu::PublicKey = keypair.public_key().into();
+        let wallet_pk = keypair.public_key();
         let hashes = vec![bitcoin::hashes::Hash::hash(&[1u8])];
+        let fingerprints = vec![wire_keys::sample_fingerprint()];
 
         let legacy = LegacyMintForeignOfflineEcashRequest {
-            fingerprints: vec![],
+            fingerprints: wire_keys::fingerprints_to_v1(&fingerprints),
             hashes: hashes.clone(),
-            wallet_pk,
+            wallet_pk: ecash::public_key_secp2cashu(&wallet_pk),
         };
         let current = MintForeignOfflineEcashRequest {
-            fingerprints: vec![],
+            fingerprints,
             hashes,
             wallet_pk,
             exchange_digest: None,
@@ -947,7 +956,7 @@ mod tests {
         // `verify` sums `cashu::BlindedMessage` outputs, so it stays on cashu's amount type
         let amount = cashu::Amount::from(3_u64);
         back.redemption
-            .verify(&alpha, &wallet.public_key().into(), amount)
+            .verify(&alpha, &wallet.public_key(), amount)
             .expect("entry carries its own proof");
 
         let mut forged = req.clone();
@@ -955,7 +964,7 @@ mod tests {
         assert!(
             forged
                 .redemption
-                .verify(&alpha, &wallet.public_key().into(), amount)
+                .verify(&alpha, &wallet.public_key(), amount)
                 .is_err(),
             "naming other outputs needs a wallet signature nobody has"
         );
@@ -993,6 +1002,254 @@ mod tests {
             ..ack
         };
         assert!(stale.verify().is_err());
+    }
+
+    /// Every clowder message whose key field became `secp::PublicKey`, against the
+    /// shape it replaced. These travel as cbor over nats, so a stored one must still decode.
+    mod wire_compat {
+        use super::*;
+        use crate::{ecash, wire::common::assert_wire_compat};
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        enum WalletEventV1 {
+            Swap {
+                minted: Vec<cashu::BlindSignature>,
+            },
+            Mint {
+                minted: Vec<cashu::BlindSignature>,
+            },
+            Melt {
+                burned: Vec<cashu::PublicKey>,
+                qid: String,
+            },
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ClowderNodeInfoV1 {
+            change_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+            #[serde(default)]
+            eiou_address: Option<bitcoin::Address<bitcoin::address::NetworkUnchecked>>,
+            multisig_agg_xonly: XOnlyPublicKey,
+            node_id: cashu::PublicKey,
+            uptime_timestamp: u64,
+            version: String,
+            network: bitcoin::Network,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct KeysetCreationResponseV1 {
+            public_keys: BTreeMap<u64, cashu::PublicKey>,
+            id: cashu::Id,
+            expiry: u64,
+            unit: cashu::CurrencyUnit,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct MeltQuoteOnchainRequestV1 {
+            quote_id: uuid::Uuid,
+            inputs: crate::wire::attestation::AttestedFingerprintsV1,
+            address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+            admin_fees: u64,
+            network_fees: bitcoin::Amount,
+            expiry: u64,
+            wallet_key: cashu::PublicKey,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct MintQuoteOnchainRequestV1 {
+            quote_id: uuid::Uuid,
+            address: String,
+            payment_amount: bitcoin::Amount,
+            expiry: u64,
+            blinded_messages: Vec<cashu::nuts::BlindedMessage>,
+            wallet_key: cashu::PublicKey,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct SwapCommitmentRequestV1 {
+            inputs: crate::wire::attestation::AttestedFingerprintsV1,
+            outputs: Vec<cashu::BlindedMessage>,
+            expiry: u64,
+            wallet_key: cashu::PublicKey,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct CheckStateRequestV1 {
+            ys: Vec<cashu::PublicKey>,
+            ids: Vec<cashu::Id>,
+        }
+
+        fn key() -> secp::PublicKey {
+            secp::Keypair::new_global(&mut rand::thread_rng()).public_key()
+        }
+
+        fn as_cashu(key: &secp::PublicKey) -> cashu::PublicKey {
+            ecash::public_key_secp2cashu(key)
+        }
+
+        fn address() -> bitcoin::Address<bitcoin::address::NetworkUnchecked> {
+            "bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080"
+                .parse()
+                .expect("valid address")
+        }
+
+        fn sample_id() -> cashu::Id {
+            cashu::Id::from_bytes(&[0, 173, 38, 140, 77, 31, 88, 38]).expect("id")
+        }
+
+        fn attested() -> AttestedFingerprints {
+            let keypair = secp::Keypair::new_global(&mut rand::thread_rng());
+            AttestedFingerprints {
+                inputs: vec![wire_keys::sample_fingerprint()],
+                attestation: crate::wire::attestation::IssuanceAttestation {
+                    beta_id: keypair.public_key(),
+                    fp_digest: [1u8; 32],
+                    coords_mac: [2u8; 32],
+                    signature: secp::global::SECP256K1
+                        .sign_schnorr(&secp::Message::from_digest([3u8; 32]), &keypair),
+                },
+            }
+        }
+
+        #[test]
+        fn wallet_event_melt_wire_compat() {
+            let burned = vec![key(), key()];
+            let event = WalletEvent::Melt {
+                burned: burned.clone(),
+                qid: "quote-1".to_string(),
+            };
+            let v1 = WalletEventV1::Melt {
+                burned: burned.iter().map(as_cashu).collect(),
+                qid: "quote-1".to_string(),
+            };
+            assert_wire_compat(&event, &v1);
+        }
+
+        #[test]
+        fn clowder_node_info_wire_compat() {
+            let node_id = key();
+            let multisig_agg_xonly = key().x_only_public_key().0;
+            let info = ClowderNodeInfo {
+                change_address: address(),
+                eiou_address: None,
+                multisig_agg_xonly,
+                node_id,
+                uptime_timestamp: 1_700_000_000,
+                version: "1.2.3".to_string(),
+                network: bitcoin::Network::Regtest,
+            };
+            let v1 = ClowderNodeInfoV1 {
+                change_address: address(),
+                eiou_address: None,
+                multisig_agg_xonly,
+                node_id: as_cashu(&node_id),
+                uptime_timestamp: 1_700_000_000,
+                version: "1.2.3".to_string(),
+                network: bitcoin::Network::Regtest,
+            };
+            assert_wire_compat(&info, &v1);
+        }
+
+        #[test]
+        fn keyset_creation_response_wire_compat() {
+            let public_keys: BTreeMap<u64, secp::PublicKey> =
+                [1u64, 2, 4, 8].into_iter().map(|a| (a, key())).collect();
+            let response = KeysetCreationResponse {
+                public_keys: public_keys.clone(),
+                id: sample_id(),
+                expiry: 99,
+                unit: cashu::CurrencyUnit::Sat,
+            };
+            let v1 = KeysetCreationResponseV1 {
+                public_keys: public_keys.iter().map(|(a, k)| (*a, as_cashu(k))).collect(),
+                id: sample_id(),
+                expiry: 99,
+                unit: cashu::CurrencyUnit::Sat,
+            };
+            assert_wire_compat(&response, &v1);
+        }
+
+        #[test]
+        fn melt_quote_onchain_request_wire_compat() {
+            let wallet_key = key();
+            let inputs = attested();
+            let quote_id = uuid::Uuid::from_u128(7);
+            let request = MeltQuoteOnchainRequest {
+                quote_id,
+                inputs: inputs.clone(),
+                address: address(),
+                admin_fees: 10,
+                network_fees: bitcoin::Amount::from_sat(250),
+                expiry: 99,
+                wallet_key,
+            };
+            let v1 = MeltQuoteOnchainRequestV1 {
+                quote_id,
+                inputs: crate::wire::attestation::attested_fingerprints_to_v1(&inputs),
+                address: address(),
+                admin_fees: 10,
+                network_fees: bitcoin::Amount::from_sat(250),
+                expiry: 99,
+                wallet_key: as_cashu(&wallet_key),
+            };
+            assert_wire_compat(&request, &v1);
+        }
+
+        #[test]
+        fn mint_quote_onchain_request_wire_compat() {
+            let wallet_key = key();
+            let quote_id = uuid::Uuid::from_u128(8);
+            let request = MintQuoteOnchainRequest {
+                quote_id,
+                address: "an-address".to_string(),
+                payment_amount: bitcoin::Amount::from_sat(1000),
+                expiry: 99,
+                blinded_messages: vec![],
+                wallet_key,
+            };
+            let v1 = MintQuoteOnchainRequestV1 {
+                quote_id,
+                address: "an-address".to_string(),
+                payment_amount: bitcoin::Amount::from_sat(1000),
+                expiry: 99,
+                blinded_messages: vec![],
+                wallet_key: as_cashu(&wallet_key),
+            };
+            assert_wire_compat(&request, &v1);
+        }
+
+        #[test]
+        fn swap_commitment_request_wire_compat() {
+            let wallet_key = key();
+            let inputs = attested();
+            let request = SwapCommitmentRequest {
+                inputs: inputs.clone(),
+                outputs: vec![],
+                expiry: 99,
+                wallet_key,
+            };
+            let v1 = SwapCommitmentRequestV1 {
+                inputs: crate::wire::attestation::attested_fingerprints_to_v1(&inputs),
+                outputs: vec![],
+                expiry: 99,
+                wallet_key: as_cashu(&wallet_key),
+            };
+            assert_wire_compat(&request, &v1);
+        }
+
+        #[test]
+        fn check_state_request_wire_compat() {
+            let ys = vec![key(), key(), key()];
+            let request = CheckStateRequest {
+                ys: ys.clone(),
+                ids: vec![sample_id()],
+            };
+            let v1 = CheckStateRequestV1 {
+                ys: ys.iter().map(as_cashu).collect(),
+                ids: vec![sample_id()],
+            };
+            assert_wire_compat(&request, &v1);
+        }
     }
 }
 

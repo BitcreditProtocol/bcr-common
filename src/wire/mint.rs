@@ -15,7 +15,7 @@ use crate::wire::{
         deserialize_vecof_blindedmessage, serialize_as_str, serialize_btc_amount,
         serialize_vec_of_jsons, serialize_vecof_blindedmessage,
     },
-    common::{ProtestOutcome, ProtestOutcomeError, ProtestStatus},
+    common::{ProtestOutcome, ProtestOutcomeError, ProtestStatus, secp_compat},
 };
 // ----- end imports
 
@@ -25,7 +25,8 @@ pub struct OnchainMintQuoteRequest {
     /// Blinded messages to be signed upon payment, keyset must be SAT
     pub blinded_messages: Vec<cashu::BlindedMessage>,
     #[schema(value_type = String)]
-    pub wallet_key: cashu::PublicKey,
+    #[serde(with = "secp_compat")]
+    pub wallet_key: secp::PublicKey,
 }
 
 /// Onchain Mint quote response body
@@ -56,11 +57,12 @@ pub struct OnchainMintQuoteResponseBody {
     )]
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
     #[schema(value_type = String)]
+    #[serde(with = "secp_compat")]
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub wallet_key: cashu::PublicKey,
+    pub wallet_key: secp::PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, BorshSerialize, BorshDeserialize)]
@@ -90,11 +92,12 @@ pub struct OnchainMintQuoteResponseBodyV1 {
     )]
     pub blinded_messages: Vec<cashu::nuts::BlindedMessage>,
     #[schema(value_type = String)]
+    #[serde(with = "secp_compat")]
     #[borsh(
         serialize_with = "serialize_as_str",
         deserialize_with = "deserialize_from_str"
     )]
-    pub wallet_key: cashu::PublicKey,
+    pub wallet_key: secp::PublicKey,
 }
 
 /// Onchain Mint Request to Fetch Signatures
@@ -105,7 +108,7 @@ pub struct OnchainMintRequest {
     pub quote: uuid::Uuid,
     /// Id of the origin mint
     #[schema(value_type = String)]
-    pub alpha_id: bitcoin::secp256k1::PublicKey,
+    pub alpha_id: secp::PublicKey,
 }
 
 /// Mint request
@@ -118,7 +121,7 @@ pub struct EbillMintRequest {
     pub outputs: Vec<cashu::BlindedMessage>,
     /// Signature
     #[schema(value_type = String)]
-    pub signature: bitcoin::secp256k1::schnorr::Signature,
+    pub signature: secp::schnorr::Signature,
 }
 impl EbillMintRequest {
     pub fn new(quote: uuid::Uuid, outputs: Vec<cashu::BlindedMessage>, kp: &secp::Keypair) -> Self {
@@ -155,7 +158,7 @@ impl EbillMintRequest {
 pub struct OnchainMintQuoteResponse {
     pub content: String, // base64, borsh serialized OnchainMintQuoteResponseBody
     #[schema(value_type = String)]
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub commitment: secp::schnorr::Signature,
 }
 
 /// Onchain Mint response
@@ -173,14 +176,14 @@ pub struct EbillMintResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MintProtestRequest {
     #[schema(value_type = String)]
-    pub alpha_id: bitcoin::secp256k1::PublicKey,
+    pub alpha_id: secp::PublicKey,
     #[schema(value_type = String)]
     pub quote_id: uuid::Uuid,
     pub content: String,
     #[schema(value_type = String)]
-    pub commitment: bitcoin::secp256k1::schnorr::Signature,
+    pub commitment: secp::schnorr::Signature,
     #[schema(value_type = String)]
-    pub wallet_signature: bitcoin::secp256k1::schnorr::Signature,
+    pub wallet_signature: secp::schnorr::Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -273,5 +276,102 @@ mod tests {
         let deserialized: cashu::MintResponse =
             serde_json::from_slice(&bytes).expect("deserialize");
         assert_eq!(deserialized.signatures[0].c, response.signatures[0].c);
+    }
+
+    /// The onchain mint-quote messages as they were laid out before `wallet_key`
+    /// became `secp::PublicKey`.
+    mod wire_compat {
+        use super::*;
+        use crate::{ecash, wire::common::assert_wire_compat};
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct OnchainMintQuoteRequestV1 {
+            blinded_messages: Vec<cashu::BlindedMessage>,
+            wallet_key: cashu::PublicKey,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+        struct OnchainMintQuoteResponseBodyV1Keyed {
+            #[borsh(
+                serialize_with = "serialize_as_str",
+                deserialize_with = "deserialize_from_str"
+            )]
+            quote: uuid::Uuid,
+            address: String,
+            #[borsh(
+                serialize_with = "serialize_btc_amount",
+                deserialize_with = "deserialize_btc_amount"
+            )]
+            payment_amount: Amount,
+            expiry: u64,
+            #[borsh(
+                serialize_with = "serialize_vecof_blindedmessage",
+                deserialize_with = "deserialize_vecof_blindedmessage"
+            )]
+            blinded_messages: Vec<cashu::nuts::BlindedMessage>,
+            #[borsh(
+                serialize_with = "serialize_as_str",
+                deserialize_with = "deserialize_from_str"
+            )]
+            wallet_key: cashu::PublicKey,
+        }
+
+        fn sample_body(wallet_key: secp::PublicKey) -> OnchainMintQuoteResponseBody {
+            OnchainMintQuoteResponseBody {
+                quote: uuid::Uuid::from_u128(11),
+                address: "an-address".to_string(),
+                payment_amount: Amount::from_sat(1000),
+                expiry: 99,
+                blinded_messages: vec![],
+                wallet_key,
+            }
+        }
+
+        fn as_v1(body: &OnchainMintQuoteResponseBody) -> OnchainMintQuoteResponseBodyV1Keyed {
+            OnchainMintQuoteResponseBodyV1Keyed {
+                quote: body.quote,
+                address: body.address.clone(),
+                payment_amount: body.payment_amount,
+                expiry: body.expiry,
+                blinded_messages: body.blinded_messages.clone(),
+                wallet_key: ecash::public_key_secp2cashu(&body.wallet_key),
+            }
+        }
+
+        #[test]
+        fn onchain_mint_quote_request_wire_compat() {
+            let wallet_key = core::generate_random_keypair().public_key();
+            let request = OnchainMintQuoteRequest {
+                blinded_messages: vec![],
+                wallet_key,
+            };
+            let v1 = OnchainMintQuoteRequestV1 {
+                blinded_messages: vec![],
+                wallet_key: ecash::public_key_secp2cashu(&wallet_key),
+            };
+            assert_wire_compat(&request, &v1);
+        }
+
+        #[test]
+        fn onchain_mint_quote_response_body_wire_compat() {
+            let body = sample_body(core::generate_random_keypair().public_key());
+            assert_wire_compat(&body, &as_v1(&body));
+        }
+
+        /// The response body is also borshed into the signed envelope the mint commits to.
+        #[test]
+        fn onchain_mint_quote_response_body_borsh_wire_compat() {
+            let body = sample_body(core::generate_random_keypair().public_key());
+            let v1 = as_v1(&body);
+            let bytes = borsh::to_vec(&body).expect("serialize");
+            let v1_bytes = borsh::to_vec(&v1).expect("serialize");
+            assert_eq!(bytes, v1_bytes, "borsh encodings diverge");
+            let as_v1_again: OnchainMintQuoteResponseBodyV1Keyed =
+                borsh::from_slice(&bytes).expect("v1 reads the new encoding");
+            assert_eq!(as_v1_again, v1);
+            let back: OnchainMintQuoteResponseBody =
+                borsh::from_slice(&v1_bytes).expect("the new type reads a v1 blob");
+            assert_eq!(borsh::to_vec(&back).expect("serialize"), bytes);
+        }
     }
 }

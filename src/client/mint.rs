@@ -391,7 +391,7 @@ impl Client {
     pub async fn enquire(
         &self,
         bill: wire_quotes::SharedBill,
-        minting_pubkey: cashu::PublicKey,
+        minting_pubkey: secp::PublicKey,
         signing_key: &secp::Keypair,
     ) -> Result<Uuid> {
         let request = wire_quotes::EnquireRequest {
@@ -486,7 +486,7 @@ impl Client {
         &self,
         fingerprints: Vec<wire_keys::ProofFingerprint>,
         hashes: Vec<bitcoin::hashes::sha256::Hash>,
-        wallet_pk: cashu::PublicKey,
+        wallet_pk: secp::PublicKey,
         wallet_signature: secp::schnorr::Signature,
         mint_pk: secp::PublicKey,
     ) -> Result<(Vec<cashu::Proof>, secp::schnorr::Signature)> {
@@ -558,7 +558,7 @@ impl Client {
         recipient: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
         amount: bitcoin::Amount,
         network_fee: bitcoin::Amount,
-        wallet_key: secp256k1::PublicKey,
+        wallet_key: secp::PublicKey,
         mint_pk: secp::PublicKey,
         attestation: crate::wire::attestation::IssuanceAttestation,
     ) -> Result<(String, secp::schnorr::Signature)> {
@@ -591,7 +591,7 @@ impl Client {
     pub async fn onchain_mint_quote(
         &self,
         blinds: Vec<cashu::BlindedMessage>,
-        wallet_key: cashu::PublicKey,
+        wallet_key: secp::PublicKey,
         mint_pk: secp::PublicKey,
     ) -> Result<wire_mint::OnchainMintQuoteResponse> {
         let url = self
@@ -619,7 +619,7 @@ impl Client {
     pub async fn onchain_mint_quote_v1(
         &self,
         blinds: Vec<cashu::BlindedMessage>,
-        wallet_key: cashu::PublicKey,
+        wallet_key: secp::PublicKey,
         mint_pk: secp::PublicKey,
     ) -> Result<wire_mint::OnchainMintQuoteResponse> {
         let url = self
@@ -1197,9 +1197,7 @@ mod wallet_wire_contract {
     #[test]
     fn a_legacy_wallet_still_reads_the_quote_status_it_polls() {
         let keyset_id = cashu::Id::from(sample_proof().keyset_id);
-        let wallet_pubkey = crate::ecash::public_key_secp2cashu(
-            &crate::core::generate_random_keypair().public_key(),
-        );
+        let wallet_pubkey = crate::core::generate_random_keypair().public_key();
         let reply = wire_quotes::StatusReply::MintingEnabled {
             keyset_id,
             discounted: 1200,
@@ -1238,7 +1236,7 @@ mod wallet_wire_contract {
         };
         assert_eq!(kid, keyset_id);
         assert_eq!(discounted.to_sat(), 1200);
-        assert_eq!(pk, wallet_pubkey);
+        assert_eq!(pk, crate::ecash::public_key_secp2cashu(&wallet_pubkey));
 
         // a terminal status now carries a unit; an old wallet must ignore it and still
         // read the amount it already knew about
